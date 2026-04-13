@@ -1,4 +1,4 @@
-"""Serve ``web/dist`` over loopback and capture a full-page PNG with Playwright."""
+"""Serve ``web/dist`` over loopback and capture the ``#receipt`` node as PNG with Playwright."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def screenshot_receipt_dist(
                         viewport={"width": 384, "height": 720},
                     )
                     page.goto(url, wait_until="networkidle", timeout=60_000)
-                    page.screenshot(path=str(out_png), full_page=True)
+                    page.locator("#receipt").screenshot(path=str(out_png))
                 finally:
                     browser.close()
         except Exception as e:

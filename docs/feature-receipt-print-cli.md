@@ -1,6 +1,6 @@
 # Feature: `receipt_print` CLI
 
-Python entrypoint: **`src/scripts/receipt_print.py`**. It takes a **JSON payload**, renders it with the **Vite + React** receipt app in **`web/dist/`**, captures a **full-page PNG** with **Playwright**, optionally converts to **1-bit** for thermal output, then sends **ESC/POS raster** to the printer (unless **`--no-print`**).
+Python entrypoint: **`src/scripts/receipt_print.py`**. It takes a **JSON payload**, renders it with the **Vite + React** receipt app in **`web/dist/`**, captures a **PNG of the `#receipt` element** with **Playwright**, optionally converts to **1-bit** for thermal output, then sends **ESC/POS raster** to the printer (unless **`--no-print`**).
 
 Related: **`web/README.md`** (UI dev/build), **`docs/planning-react-headless-raster-print.md`** (design), **`samples/receipt-sample.json`** (payload shape).
 
@@ -67,7 +67,7 @@ uv run python src/scripts/receipt_print.py --help
 3. Require **`web/dist/index.html`**.
 4. Create **`artifact_dir`**; copy payload to **`artifact_dir/payload.json`** and **`web/dist/payload.json`** (**overwrites** the latter).
 5. Start a short-lived **HTTP server** on **`127.0.0.1`** with a **random port**, serving **`web/dist/`**.
-6. **Playwright** loads **`/index.html`**, waits for **`networkidle`**, **full-page screenshot** → **`receipt.png`**.
+6. **Playwright** loads **`/index.html`**, waits for **`networkidle`**, **screenshot of `#receipt`** (height = laid-out content) → **`receipt.png`**.
 7. **Pillow**: resize to **384 px** width (`PRINT_WIDTH_DOTS`), then 1-bit (threshold or dither).
 8. **`split_raster_vertical`** (stub): one strip.
 9. Unless **`--no-print`**, print each strip with **`p.image(...)`**, then **`ln(3)`** (no cut).
@@ -89,7 +89,7 @@ uv run python src/scripts/receipt_print.py --help
 1. **`web/dist/payload.json` is overwritten** every run. Do not rely on it as a stable hand-edited file; keep sources elsewhere and pass them in as **`payload_json`**, or use **`web/public/payload.json`** only under **`npm run dev`**.
 2. **Concurrent runs** can race on **`web/dist/payload.json`** if two processes overlap.
 3. **`capture_url` in `preview.txt`** points at a server that **stops when the process exits**; reopening that URL later will fail unless you start your own static server (instructions are in **`preview.txt`**).
-4. **Viewport** during capture is **384×720** logical pixels; full-page height grows with content.
+4. **Viewport** during capture is **384×720** logical pixels (initial window size only). The saved PNG is **cropped to `#receipt`**, so its height matches the receipt content — not the full viewport.
 5. **Headless Chromium** is the reference renderer; output may differ slightly from Safari or desktop Chrome.
 6. **Default is to print** — omitting **`--no-print`** will talk to hardware. For CI or laptops without the printer, always pass **`--no-print`** unless you intend to print.
 7. **`--max-height-px`** does not split jobs yet; very tall receipts may stress memory or BLE payload size until splitting is implemented.

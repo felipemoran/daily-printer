@@ -1,14 +1,13 @@
 #root {
-  min-height: 100%;
   display: flex;
   justify-content: flex-start;
+  align-items: flex-start;
   background: #fff;
 }
 
 .receipt {
   box-sizing: border-box;
   width: 384px;
-  min-height: 100%;
   margin: 0;
   padding: 10px 0 18px;
   background: #fff;
