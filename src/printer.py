@@ -1,24 +1,26 @@
 """
 printer.py — Shared printer config and setup routines.
 
-Import this module in any script that needs to talk to the printer.
-Supports two transports: USB and Bluetooth BLE (MLDP via GATT).
+Single entry point:
 
-Usage pattern — USB:
-    p = open_printer()
-    p.text("Hello\n")
-    p.ln(3)
-
-Usage pattern — BLE:
-    with open_printer_ble() as p:
-        p.text("Hello\n")
+    with open_printer() as p:
+        p.text("Hello\\n")
         p.ln(3)
-    # flushes and disconnects on exit
+
+Transport selection is automatic:
+  1. USB (preferred) — faster, no connection beep
+  2. BLE via MLDP GATT (fallback) — wireless, ~5s scan overhead
+
+USB uses a live escpos Usb object (commands sent immediately).
+BLE uses a Dummy buffer (commands accumulated, sent in bulk on context exit).
+The caller sees the same escpos API either way.
 """
 
 import sys
 import asyncio
 from contextlib import contextmanager
+
+import usb.core
 from escpos.printer import Usb, Dummy
 
 # ---------------------------------------------------------------------------
@@ -29,15 +31,10 @@ from escpos.printer import Usb, Dummy
 VENDOR_ID = 0x6868
 PRODUCT_ID = 0x0200
 
-# Bluetooth BLE (GATT / MLDP)
+# Bluetooth BLE (GATT / Microchip MLDP)
 BT_PRINTER_NAME = "MPT-II"
-# Microchip MLDP service — confirmed working for ESC/POS data
-MLDP_TX_CHAR = "49535343-8841-43f4-a8d4-ecbe34729bb3"
-BLE_CHUNK_SIZE = 20  # safe MTU floor; increase if printer supports larger
-
-# Bluetooth SPP serial port (Classic BT — does NOT work on macOS; RFCOMM link
-# never auto-establishes from a script. Kept for reference only.)
-BT_SPP_PORT = "/dev/cu.MPT-II"
+MLDP_TX_CHAR    = "49535343-8841-43f4-a8d4-ecbe34729bb3"
+BLE_CHUNK_SIZE  = 20  # safe MTU floor for all BLE peripherals
 
 # Print width: confirmed 384 dots by physical calibration (48 mm at 203 DPI).
 PRINT_WIDTH_DOTS = 384
@@ -51,22 +48,32 @@ def _apply_profile(p) -> None:
     p.profile.profile_data["media"]["width"]["pixels"] = PRINT_WIDTH_DOTS
 
 
-async def _find_and_send(data: bytes) -> None:
-    """Single BLE session: scan, connect, send — no reconnect between steps."""
+def _usb_available() -> bool:
+    return usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID) is not None
+
+
+async def _ble_find_and_send(data: bytes) -> None:
+    """Single BLE session: scan → connect → send → flush → disconnect.
+
+    Must be one session; two sequential asyncio.run() calls (two connections)
+    cause the printer to miss the second one.
+    """
     from bleak import BleakScanner, BleakClient
 
     results = await BleakScanner.discover(timeout=5.0, return_adv=True)
-    address = None
-    for addr, (device, _) in results.items():
-        if device.name and BT_PRINTER_NAME.upper() in device.name.upper():
-            address = device.address
-            break
+    address = next(
+        (dev.address for _, (dev, _) in results.items()
+         if dev.name and BT_PRINTER_NAME.upper() in dev.name.upper()),
+        None,
+    )
     if not address:
         raise RuntimeError(f'BLE printer "{BT_PRINTER_NAME}" not found in scan.')
 
     async with BleakClient(address, timeout=10.0) as client:
         for i in range(0, len(data), BLE_CHUNK_SIZE):
-            await client.write_gatt_char(MLDP_TX_CHAR, data[i:i + BLE_CHUNK_SIZE], response=False)
+            await client.write_gatt_char(
+                MLDP_TX_CHAR, data[i:i + BLE_CHUNK_SIZE], response=False
+            )
         await asyncio.sleep(0.5)  # let the BT stack flush before disconnect
 
 
@@ -74,54 +81,47 @@ async def _find_and_send(data: bytes) -> None:
 # Public API
 # ---------------------------------------------------------------------------
 
-def open_printer() -> Usb:
-    """Open and initialize via USB. Exits with a helpful message on failure."""
-    try:
-        p = Usb(VENDOR_ID, PRODUCT_ID, timeout=0)
-        p.open()
-    except Exception as e:
-        print(f"ERROR: could not open USB printer — {e}")
-        print()
-        print("Checklist:")
-        print("  • Printer plugged in via USB?")
-        print("  • Removed from System Settings > Printers & Scanners?")
-        print("  • libusb installed? (brew install libusb)")
-        print("  • Try: sudo uv run <script>")
-        sys.exit(1)
-
-    _apply_profile(p)
-    p.hw("INIT")
-    return p
-
-
 @contextmanager
-def open_printer_ble():
+def open_printer():
     """
-    Context manager that yields a Dummy printer for building ESC/POS commands,
-    then sends the accumulated bytes to the printer via BLE MLDP on exit.
+    Context manager yielding an escpos-compatible printer object.
 
-    Example:
-        with open_printer_ble() as p:
-            p.text("Hello\\n")
-            p.ln(3)
+    Prefers USB; falls back to BLE automatically if USB is not connected.
+    On BLE the print job is buffered and transmitted in bulk on context exit.
     """
-    p = Dummy()
-    _apply_profile(p)
-    p.hw("INIT")
+    if _usb_available():
+        # --- USB path ---
+        try:
+            p = Usb(VENDOR_ID, PRODUCT_ID, timeout=0)
+            p.open()
+        except Exception as e:
+            print(f"ERROR: USB detected but could not open — {e}")
+            print("  • Removed from System Settings > Printers & Scanners?")
+            print("  • libusb installed? (brew install libusb)")
+            sys.exit(1)
 
-    yield p
+        _apply_profile(p)
+        p.hw("INIT")
+        try:
+            yield p
+        finally:
+            p.close()
 
-    data = p.output
-    if not data:
-        return
+    else:
+        # --- BLE path ---
+        p = Dummy()
+        _apply_profile(p)
+        p.hw("INIT")
 
-    try:
-        asyncio.run(_find_and_send(data))
-    except Exception as e:
-        print(f"ERROR: BLE send failed — {e}")
-        print()
-        print("Checklist:")
-        print("  • Printer powered on with BT enabled?")
-        print("  • Paired in System Settings > Bluetooth?")
-        print("  • Terminal has Bluetooth permission? (Privacy & Security → Bluetooth)")
-        sys.exit(1)
+        yield p
+
+        data = p.output
+        if not data:
+            return
+        try:
+            asyncio.run(_ble_find_and_send(data))
+        except Exception as e:
+            print(f"ERROR: BLE send failed — {e}")
+            print("  • Printer powered on with BT enabled?")
+            print("  • Paired and Terminal has Bluetooth permission?")
+            sys.exit(1)

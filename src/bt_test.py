@@ -1,31 +1,12 @@
 """
-bt_test.py — Phase 1: Bluetooth communication test.
+bt_test.py — DEAD END: Classic BT SPP investigation script.
 
-The printer pairs as Classic Bluetooth SPP, exposed by macOS as a
-virtual serial port at /dev/cu.MPT-II.
+DO NOT USE for printing. Kept for reference only.
 
-Run:
-    uv run src/bt_test.py
+Classic BT via /dev/cu.MPT-II does not work on macOS — the RFCOMM link
+is never established when a script opens the serial port. Data is silently
+dropped. See docs/setup-bluetooth-investigation.md for full details.
+
+Printing over Bluetooth works via BLE (GATT/MLDP). Use open_printer()
+from printer.py — it auto-selects USB or BLE.
 """
-
-from printer import open_printer_bt, BT_PORT, BT_BAUD
-
-
-def run():
-    print(f"Connecting via Bluetooth ({BT_PORT}) ...")
-    p = open_printer_bt()
-    print("Connected.\n")
-
-    p.set(align="center", bold=True)
-    p.text("BT OK\n")
-    p.set(align="left", bold=False)
-    p.text(f"Port: {BT_PORT}\n")
-    p.text(f"Baud: {BT_BAUD}\n")
-    p.ln(3)
-    p.close()
-
-    print("Done.")
-
-
-if __name__ == "__main__":
-    run()

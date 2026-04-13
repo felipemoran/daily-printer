@@ -1,7 +1,7 @@
 # Bluetooth Investigation — RESOLVED
 
 **Outcome:** BLE (GATT/MLDP) works. Classic BT SPP via `/dev/cu` does not.
-Use `open_printer_ble()` from `src/printer.py` for wireless printing.
+Use `open_printer()` from `src/printer.py` — it auto-selects USB or BLE.
 
 ## What was tested
 
@@ -49,12 +49,35 @@ advertises BLE GATT services.
 4. If Classic BT only: investigate why macOS doesn't auto-connect the RFCOMM link
    (may require using `IOBluetooth` via PyObjC to explicitly open the RFCOMM channel).
 
-## Decision
+## Key lesson: BLE requires a single session
 
-Both USB and BLE work. USB for desk use; BLE for wireless.
+Two sequential `asyncio.run()` calls (scan then send = two BLE connections) causes
+the printer to miss the second connection. Scan, connect, send, and disconnect must
+all happen within one `async` function and one `asyncio.run()` call.
 
-- **USB**: `open_printer()` → returns a live `Usb` escpos object
-- **BLE**: `open_printer_ble()` → context manager, builds commands into a `Dummy` buffer, flushes via MLDP on exit
+## BLE quirks
+
+- **Connection beep**: the printer beeps on every BLE connect. USB is silent.
+  This is why USB is the preferred transport.
+- **macOS BLE UUID is randomised**: the hardware MAC (`DC:0D:51:68:2A:6E`) is not
+  usable for BLE on macOS. Discover the printer by name `"MPT-II"` at scan time.
+- **All three writable GATT characteristics accept ESC/POS data.** MLDP is used
+  as the canonical one.
+
+## Transport API
+
+`open_printer()` in `src/printer.py` is the single entry point.
+It detects USB availability via `usb.core.find()` (fast, no timeout) and falls
+back to BLE only when USB is absent.
+
+```python
+with open_printer() as p:   # USB if plugged in, BLE otherwise
+    p.text("Hello\n")
+    p.ln(3)
+```
+
+- **USB**: live `Usb` escpos object — commands sent immediately
+- **BLE**: `Dummy` buffer — commands accumulated, sent in bulk on context exit
 
 ## Printer BT details
 

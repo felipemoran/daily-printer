@@ -40,17 +40,16 @@ def make_calibration_strip(canvas_width: int = max(PROBE_WIDTHS)) -> Image.Image
 
 
 def run():
-    p = open_printer()
+    with open_printer() as p:
+        p.set(align="left", bold=True)
+        p.text("Width calibration\n")
+        p.set(bold=False)
 
-    p.set(align="left", bold=True)
-    p.text("Width calibration\n")
-    p.set(bold=False)
-
-    img = make_calibration_strip()
-    # Temporarily raise the profile cap so the library sends the full canvas.
-    p.profile.profile_data["media"]["width"]["pixels"] = img.width
-    p.image(img, impl="bitImageRaster")
-    p.ln(2)
+        img = make_calibration_strip()
+        # Temporarily raise the profile cap so the library sends the full canvas.
+        p.profile.profile_data["media"]["width"]["pixels"] = img.width
+        p.image(img, impl="bitImageRaster")
+        p.ln(2)
 
 
 if __name__ == "__main__":
