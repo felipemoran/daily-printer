@@ -13,7 +13,7 @@ Run:
 
 import sys
 import usb.core
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 VENDOR_ID = 0x6868
 PRODUCT_ID = 0x0200
@@ -118,6 +118,7 @@ def run_tests():
     print("\n=== Opening printer via python-escpos ===")
     try:
         p = Usb(VENDOR_ID, PRODUCT_ID, timeout=0)
+        p.open()
     except Exception as e:
         print(f"ERROR opening printer: {e}")
         print()
@@ -127,14 +128,18 @@ def run_tests():
         print("  3. Make sure libusb is installed: brew install libusb")
         sys.exit(1)
 
+    # Tell the library our actual print width so image centering works
+    # and to suppress the "media.width.pixel not set" warning.
+    p.profile.profile_data["media"]["width"]["pixels"] = EXPECTED_WIDTH_DOTS
+
     print("Printer opened successfully.\n")
 
     # -- Text test --
     print("--- Test: text ---")
-    p.init()
+    p.hw("INIT")
     p.set(align="center", bold=True, double_height=True, double_width=True)
     p.text("DAILY PRINTER\n")
-    p.set(align="center", bold=False, double_height=False, double_width=False)
+    p.set(align="center", normal_textsize=True, bold=False)  # reset size + bold
     p.text("Setup test — Phase 1\n")
     p.ln(1)
 
@@ -173,14 +178,11 @@ def run_tests():
     print("--- Test: QR code ---")
     p.set(align="center")
     p.qr("https://github.com/python-escpos/python-escpos", size=4)
-    p.ln(1)
-    p.text("python-escpos\n")
-    p.ln(3)
+    p.ln(2)
 
     print("  QR code printed.")
 
     # Feed and done
-    p.ln(4)
     print("\n=== All tests complete ===")
     print("Observe the printout and note:")
     print("  1. Does the text look correct?")
