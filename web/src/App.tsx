@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ReceiptPayload, Block, SectionHeaderBlock, DayHeaderBlock, TaskBlock } from './receiptPayload'
+import type { ReceiptPayload, Block, SectionHeaderBlock, DayHeaderBlock, TaskBlock, ReceiptHeaderBlock, ReceiptFooterBlock } from './receiptPayload'
 import { CURRENT_SCHEMA_VERSION } from './receiptPayload'
 import './App.css'
 
@@ -7,6 +7,19 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ok'; data: ReceiptPayload }
+
+function renderReceiptHeader(block: ReceiptHeaderBlock, key: number) {
+  return (
+    <div key={key} className="receipt-header">
+      <div className="receipt-header__date">{block.date}</div>
+      <div className="receipt-header__rule" aria-hidden />
+    </div>
+  )
+}
+
+function renderReceiptFooter(block: ReceiptFooterBlock, key: number) {
+  return <div key={key} className="receipt-footer">{block.text}</div>
+}
 
 function renderSectionHeader(block: SectionHeaderBlock, key: number) {
   const label = block.count != null ? `${block.title} (${block.count})` : block.title
@@ -34,6 +47,8 @@ function renderTask(block: TaskBlock, key: number) {
 
 function renderBlock(block: Block, key: number) {
   switch (block.type) {
+    case 'receipt_header': return renderReceiptHeader(block, key)
+    case 'receipt_footer': return renderReceiptFooter(block, key)
     case 'section_header': return renderSectionHeader(block, key)
     case 'day_header':     return renderDayHeader(block, key)
     case 'task':           return renderTask(block, key)

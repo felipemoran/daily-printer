@@ -13,13 +13,45 @@ The gather() function returns a ready-to-serialize payload dict.
 
 from __future__ import annotations
 
+import re
+import subprocess
 from datetime import datetime, timezone
 from typing import Any
+
+_ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
 Block = dict[str, Any]
 Payload = dict[str, Any]
 
 SCHEMA_VERSION = 2
+
+
+# ---------------------------------------------------------------------------
+# Header / footer helpers
+# ---------------------------------------------------------------------------
+
+_DAY_NAMES  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_MONTH_ABBR = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _header_block() -> Block:
+    now = datetime.now(timezone.utc).astimezone()
+    date_label = f"{_DAY_NAMES[now.weekday()]}, {_MONTH_ABBR[now.month]} {now.day}"
+    return {"type": "receipt_header", "date": date_label}
+
+
+def _footer_block() -> Block:
+    try:
+        result = subprocess.run(
+            ["jj", "log", "-r", "@", "--no-graph", "-T",
+             'change_id.short() ++ " · " ++ commit_id.short()'],
+            capture_output=True, text=True, check=True,
+        )
+        text = _ANSI_RE.sub("", result.stdout).strip()
+    except Exception:
+        text = ""
+    return {"type": "receipt_footer", "text": text}
 
 
 # ---------------------------------------------------------------------------
@@ -45,11 +77,13 @@ def gather() -> Payload:
 
     Extend by adding more _gather_*() calls below.
     """
-    blocks: list[Block] = []
+    blocks: list[Block] = [_header_block()]
 
     blocks.extend(_gather_todoist())
     # blocks.extend(_gather_weather())
     # blocks.extend(_gather_emails())
+
+    blocks.append(_footer_block())
 
     return {
         "schemaVersion": SCHEMA_VERSION,

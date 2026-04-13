@@ -16,6 +16,7 @@ Or from the CLI:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -97,9 +98,16 @@ def _relative_upcoming(d: date, today: date) -> str:
 
 Block = dict[str, Any]
 
+_MD_LINK_RE = re.compile(r'\[([^\]]+)\]\([^)]*\)')
+
+
+def _strip_markdown_links(text: str) -> str:
+    """Replace [label](url) with just label."""
+    return _MD_LINK_RE.sub(r'\1', text)
+
 
 def _task_block(task: Task, time: str | None = None, relative: str | None = None) -> Block:
-    block: Block = {"type": "task", "content": task.content}
+    block: Block = {"type": "task", "content": _strip_markdown_links(task.content)}
     if time:
         block["time"] = time
     if relative:

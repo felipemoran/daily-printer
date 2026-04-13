@@ -19,43 +19,67 @@
   line-height: 1.35;
 }
 
-/* Section header: e.g. "TODAY — Mon Apr 13", "OVERDUE (2)" */
-.section-header {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin: 14px 0 4px;
-  color: #000;
+/* Receipt header: date + divider */
+.receipt-header {
+  margin-bottom: 12px;
 }
 
-.section-header:first-child {
-  margin-top: 0;
+.receipt-header__date {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.receipt-header__rule {
+  height: 0;
+  border-top: 2px solid #000;
+}
+
+/* Receipt footer: small jj metadata */
+.receipt-footer {
+  font-size: 11px;
+  color: #000;
+  margin-top: 14px;
+  border-top: 1px solid #000;
+  padding-top: 5px;
+}
+
+/* Section header: e.g. "TODAY — Mon Apr 13", "OVERDUE (2)" */
+.section-header {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-top: 1px solid #000;
+  padding-top: 8px;
+  margin: 14px 0 6px;
+  color: #000;
 }
 
 /* Day header within upcoming: e.g. "Tue Apr 14" */
 .day-header {
   font-size: 13px;
   font-weight: 600;
-  margin: 8px 0 2px;
-  color: #444;
+  margin: 9px 0 3px;
+  color: #000;
 }
 
 /* Task row */
 .task {
-  margin: 0 0 5px;
-  padding-left: 8px;
+  margin: 0 0 9px;
 }
 
 .task-content {
   font-size: 16px;
   line-height: 1.35;
   word-break: break-word;
+  color: #000;
 }
 
 .task-meta {
   font-size: 13px;
-  color: #555;
+  color: #000;
   margin-top: 1px;
 }
 
@@ -74,6 +98,6 @@
 
 .muted {
   margin: 0;
-  color: #888;
+  color: #000;
   font-size: 14px;
 }

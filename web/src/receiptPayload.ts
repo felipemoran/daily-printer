@@ -38,8 +38,20 @@ export type TaskBlock = {
   labels?: string[]
 }
 
+export type ReceiptHeaderBlock = {
+  type: 'receipt_header'
+  /** Human-readable date, e.g. "Monday, Apr 13" */
+  date: string
+}
+
+export type ReceiptFooterBlock = {
+  type: 'receipt_footer'
+  /** Free-form footer text, e.g. jj change/commit ids */
+  text: string
+}
+
 // Union of all block types — extend here as new data sources are added.
-export type Block = SectionHeaderBlock | DayHeaderBlock | TaskBlock
+export type Block = SectionHeaderBlock | DayHeaderBlock | TaskBlock | ReceiptHeaderBlock | ReceiptFooterBlock
 
 // ---------------------------------------------------------------------------
 // Top-level payload

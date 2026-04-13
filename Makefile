@@ -16,9 +16,6 @@ print: ## Fetch data, render, and print
 dry-run: ## Fetch data and render; skip printer
 	uv run src/scripts/daily_print.py --no-print
 
-dry-run-fast: ## Same as dry-run but skip web rebuild
-	uv run src/scripts/daily_print.py --no-print --no-build
-
 # ── One-off / testing ─────────────────────────────────────────────────────────
 
 render-sample: ## Render the sample payload without printing
