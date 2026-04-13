@@ -95,6 +95,7 @@ ipython_config.py
 # Pipfile.lock
 
 node_modules/
+**/node_modules.bak/
 artifacts/
 
 # UV

@@ -59,15 +59,23 @@ def screenshot_receipt_dist(
 
     with static_server(dist_dir, host=host) as port:
         url = f"http://{host}:{port}{index_path}"
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            try:
-                page = browser.new_page(
-                    device_scale_factor=device_scale_factor,
-                    viewport={"width": 384, "height": 720},
-                )
-                page.goto(url, wait_until="networkidle", timeout=60_000)
-                page.screenshot(path=str(out_png), full_page=True)
-            finally:
-                browser.close()
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                try:
+                    page = browser.new_page(
+                        device_scale_factor=device_scale_factor,
+                        viewport={"width": 384, "height": 720},
+                    )
+                    page.goto(url, wait_until="networkidle", timeout=60_000)
+                    page.screenshot(path=str(out_png), full_page=True)
+                finally:
+                    browser.close()
+        except Exception as e:
+            msg = str(e).lower()
+            if "executable" in msg or "browserType.launch" in str(e):
+                raise RuntimeError(
+                    "Playwright Chromium is not installed. Run: uv run playwright install chromium"
+                ) from e
+            raise
     return url

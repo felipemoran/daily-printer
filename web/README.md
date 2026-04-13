@@ -24,8 +24,11 @@ Edit **`public/payload.json`** (or replace it) while iterating. Vite serves it a
 
 ## Build (required before `receipt_print`)
 
+`npm run build` needs dependencies first (`node_modules`). If you use **`--build`** from the Python CLI, run **`npm install` in `web/` once** (or after pulling).
+
 ```bash
 cd web
+npm install
 npm run build
 ```
 

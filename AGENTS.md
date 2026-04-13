@@ -12,7 +12,7 @@ Follow all conventions below without being asked.
 
 This repo is managed with **jujutsu (`jj`)**, not plain git.
 
-**Not git:** edits on disk belong to the working-copy revision (**`@`**) right away — there is no index/stage step. For new work, run **`jj new -m "…"` first, then change files** (see rule 1 for the empty-`@` exception). When that slice is done, **`jj commit`** sets the description and opens a new empty **`@`** on top for the next task. Alternativelly use `jj new -m "<message>"` to create a new commit with description without changing the description of the current commit.
+**Not git:** filesystem edits belong to the working-copy revision (**`@`**) immediately — there is no index/stage step. For each slice, **`jj new -m "…"` first, then edit** (see rule 1 for the empty-`@` exception). When the slice is done, **`jj new -m "<next>"`** to stack the next change on top; the slice you leave behind already has the description from when you opened it. Use **`jj describe -m`** only when the work outgrew that message (rule 2). Do **not** use **`jj commit`**.
 
 ### Rules
 
@@ -45,8 +45,8 @@ This repo is managed with **jujutsu (`jj`)**, not plain git.
    reviewable slices (for example: scaffolding, core behavior, wiring, tests, or docs) so no
    single commit mixes too many files or concerns.
 
-4. **Never use `git commit` directly.**
-   jj manages the git backend. Use `jj` commands only.
+4. **Never use `git commit` or `jj commit`.**
+   jj manages the git backend; use **`jj new`** / **`jj describe`** as above, not `jj commit`.
 
 5. **Check status before starting:**
    ```
