@@ -11,7 +11,8 @@ Follow all conventions below without being asked.
 ## Version Control: Jujutsu (jj)
 
 This repo is managed with **jujutsu (`jj`)**, not plain git.
-All changes to the working directory are automatically tracked in the current commit.
+
+**Not git:** edits on disk belong to the working-copy revision (**`@`**) right away — there is no index/stage step. For new work, run **`jj new -m "…"` first, then change files** (see rule 1 for the empty-`@` exception). When that slice is done, **`jj commit`** sets the description and opens a new empty **`@`** on top for the next task. Alternativelly use `jj new -m "<message>"` to create a new commit with description without changing the description of the current commit.
 
 ### Rules
 
