@@ -2,7 +2,7 @@
 
 ## Status
 
-**Execution plan below — ready for your review.** After you sign off, implementation follows this order; adjust the plan here first if anything should change.
+**Execution plan:** initial implementation is in the repo (`web/`, `src/scripts/receipt_print.py`, `src/raster_capture.py`, etc.); treat the plan below as the checklist and evolve it as you iterate.
 
 **Planning decisions** (JSON contract, Vite + React, screenshot-only, Mac-only, no CI) are incorporated above.
 
@@ -250,9 +250,9 @@ M1–M3 can be a **spike PR/commit series**; M4–M6 complete the slice.
 
 ---
 
-### Implementation gate
+### Implementation notes
 
-Do **not** start coding until you explicitly OK this execution plan (or note edits above). First code change should follow **`AGENTS.md`**: new **`jj` change** per logical unit, **`uv`** for Python deps, **`npm`**/`pnpm` in `web/` as you prefer (pick one package manager and stick to it — document in `web/README.md`).
+Follow **`AGENTS.md`**: **`jj`** for commits, **`uv`** for Python deps, **`npm`** in `web/` (documented in `web/README.md`).
 
 ---
 
@@ -261,6 +261,6 @@ Do **not** start coding until you explicitly OK this execution plan (or note edi
 | Field | Value |
 |-------|--------|
 | Created | 2026-04-13 |
-| Updated | 2026-04-13 (execution plan: milestones, layout, Playwright, artifacts) |
+| Updated | 2026-04-13 (v1 pipeline implemented: `web/`, `receipt_print.py`) |
 | Type | Planning + execution |
 | Related | `docs/feature-preview.md`, `docs/planning-phase-01-printer-research.md`, `AGENTS.md` |

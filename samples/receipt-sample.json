@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "title": "Sample receipt",
+  "generatedAt": "2026-04-13T12:00:00Z",
+  "lines": [
+    "Line one — all display data lives in this JSON file",
+    "Line two — time and locale strings are fields here, not from Date in the UI"
+  ]
+}

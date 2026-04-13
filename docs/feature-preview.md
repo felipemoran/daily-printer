@@ -1,5 +1,7 @@
 # Feature: Print Preview System
 
+> **Note (2026-04):** The active direction for high-fidelity preview + print is the **Vite + React receipt** pipeline and **`src/scripts/receipt_print.py`** (see `docs/planning-react-headless-raster-print.md` and `web/README.md`). The renderer layout below is an earlier sketch and may be superseded.
+
 ## Goal
 
 Produce a high-fidelity preview of the thermal print output **before** sending to the printer. Two output modes:

@@ -39,6 +39,11 @@ All changes to the working directory are automatically tracked in the current co
 3. **Keep commits small and focused:**
    One logical change per commit. Do not batch unrelated edits.
 
+   **Long features:** Use a **new `jj` commit for each coherent step** (`jj new -m "<step>"`)
+   instead of accumulating an entire feature in one change set. Split implementation into
+   reviewable slices (for example: scaffolding, core behavior, wiring, tests, or docs) so no
+   single commit mixes too many files or concerns.
+
 4. **Never use `git commit` directly.**
    jj manages the git backend. Use `jj` commands only.
 

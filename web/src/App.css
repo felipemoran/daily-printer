@@ -1,0 +1,75 @@
+#root {
+  min-height: 100%;
+  display: flex;
+  justify-content: flex-start;
+  background: #fff;
+}
+
+.receipt {
+  box-sizing: border-box;
+  width: 384px;
+  min-height: 100%;
+  margin: 0;
+  padding: 8px 12px 16px;
+  background: #fff;
+  color: #000;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.receipt__header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.receipt__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.receipt__meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #333;
+}
+
+.receipt__rule {
+  height: 0;
+  border-top: 2px solid #000;
+  margin: 8px 0;
+}
+
+.receipt__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.receipt__line {
+  margin: 0 0 6px;
+  padding: 4px 6px;
+  border: 1px solid #000;
+  word-break: break-word;
+}
+
+.receipt--error .error-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.receipt--error .error-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.muted {
+  margin: 0;
+  color: #555;
+}

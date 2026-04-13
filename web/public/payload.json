@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "title": "Sample receipt",
+  "generatedAt": "2026-04-13T12:00:00Z",
+  "lines": [
+    "First line — edit web/public/payload.json for dev",
+    "Or pass a JSON file to receipt_print (see web/README.md)"
+  ]
+}
