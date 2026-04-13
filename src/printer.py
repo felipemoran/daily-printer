@@ -51,20 +51,23 @@ def _apply_profile(p) -> None:
     p.profile.profile_data["media"]["width"]["pixels"] = PRINT_WIDTH_DOTS
 
 
-async def _find_ble_address() -> str:
-    from bleak import BleakScanner
+async def _find_and_send(data: bytes) -> None:
+    """Single BLE session: scan, connect, send — no reconnect between steps."""
+    from bleak import BleakScanner, BleakClient
+
     results = await BleakScanner.discover(timeout=5.0, return_adv=True)
+    address = None
     for addr, (device, _) in results.items():
         if device.name and BT_PRINTER_NAME.upper() in device.name.upper():
-            return device.address
-    raise RuntimeError(f'BLE printer "{BT_PRINTER_NAME}" not found in scan.')
+            address = device.address
+            break
+    if not address:
+        raise RuntimeError(f'BLE printer "{BT_PRINTER_NAME}" not found in scan.')
 
-
-async def _ble_send(address: str, data: bytes) -> None:
-    from bleak import BleakClient
     async with BleakClient(address, timeout=10.0) as client:
         for i in range(0, len(data), BLE_CHUNK_SIZE):
             await client.write_gatt_char(MLDP_TX_CHAR, data[i:i + BLE_CHUNK_SIZE], response=False)
+        await asyncio.sleep(0.5)  # let the BT stack flush before disconnect
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +116,7 @@ def open_printer_ble():
         return
 
     try:
-        address = asyncio.run(_find_ble_address())
-        asyncio.run(_ble_send(address, data))
+        asyncio.run(_find_and_send(data))
     except Exception as e:
         print(f"ERROR: BLE send failed — {e}")
         print()
