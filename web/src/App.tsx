@@ -34,7 +34,7 @@ function renderTask(block: TaskBlock, key: number) {
   const metaParts: string[] = []
   if (block.time) metaParts.push(block.time)
   if (block.relative) metaParts.push(block.relative)
-  if (block.labels?.length) metaParts.push(block.labels.join(', '))
+  if (block.labels?.length) metaParts.push(block.labels.map(l => l.replace(/^effort-/, '')).join(', '))
   const meta = metaParts.join('  ·  ')
 
   return (

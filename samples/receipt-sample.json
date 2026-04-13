@@ -1,19 +1,129 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-04-13T09:00:00Z",
+  "generatedAt": "2026-04-13T15:46:43Z",
   "blocks": [
-    { "type": "section_header", "title": "TODAY — Mon Apr 13" },
-    { "type": "task", "content": "Buy groceries" },
-    { "type": "task", "content": "Call dentist", "time": "2:30 PM", "labels": ["health"] },
-
-    { "type": "section_header", "title": "OVERDUE", "count": 2 },
-    { "type": "task", "content": "File taxes", "time": "Apr 1", "relative": "12 days ago", "labels": ["finance"] },
-    { "type": "task", "content": "Review contract", "time": "Apr 10", "relative": "yesterday", "labels": ["work"] },
-
-    { "type": "section_header", "title": "UPCOMING" },
-    { "type": "day_header", "title": "Tue Apr 14" },
-    { "type": "task", "content": "Team standup notes", "labels": ["work"] },
-    { "type": "day_header", "title": "Wed Apr 15" },
-    { "type": "task", "content": "Renew gym membership", "labels": ["health", "finance"] }
+    {
+      "type": "receipt_header",
+      "date": "Monday, Apr 13"
+    },
+    {
+      "type": "section_header",
+      "title": "TODAY — Mon Apr 13"
+    },
+    {
+      "type": "task",
+      "content": "Claim back UK Tax"
+    },
+    {
+      "type": "task",
+      "content": "Check if IE an UK pension plans can be unified"
+    },
+    {
+      "type": "task",
+      "content": "Send message to laboratory contact"
+    },
+    {
+      "type": "task",
+      "content": "Transferir multa"
+    },
+    {
+      "type": "section_header",
+      "title": "OVERDUE",
+      "count": 12
+    },
+    {
+      "type": "task",
+      "content": "Invest across all accounts",
+      "time": "Feb 4",
+      "relative": "68 days ago",
+      "labels": [
+        "effort-1day"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Move pension plan to cheaper broker",
+      "time": "Feb 9",
+      "relative": "63 days ago"
+    },
+    {
+      "type": "task",
+      "content": "Reembolso JBL fake",
+      "time": "Feb 9",
+      "relative": "63 days ago"
+    },
+    {
+      "type": "task",
+      "content": "Regularizar CNPJ e notas",
+      "time": "Feb 9",
+      "relative": "63 days ago",
+      "labels": [
+        "effort-1day"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Get diploma from University of Sao Paulo",
+      "time": "Feb 23",
+      "relative": "49 days ago",
+      "labels": [
+        "effort-20min"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Dízimo",
+      "time": "Feb 25",
+      "relative": "47 days ago",
+      "labels": [
+        "effort-5min"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Reembolso Veloe Iguatemi",
+      "time": "Feb 28",
+      "relative": "44 days ago",
+      "labels": [
+        "effort-20min"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Presente casamento Ze",
+      "time": "Mar 12",
+      "relative": "32 days ago"
+    },
+    {
+      "type": "task",
+      "content": "Contact Ninja support",
+      "time": "Mar 16",
+      "relative": "28 days ago",
+      "labels": [
+        "effort-20min"
+      ]
+    },
+    {
+      "type": "task",
+      "content": "Cotar unidades Hotel Sol",
+      "time": "Mar 23",
+      "relative": "21 days ago"
+    },
+    {
+      "type": "task",
+      "content": "Comprar livro de criança de eletrônica",
+      "time": "Mar 24",
+      "relative": "20 days ago"
+    },
+    {
+      "type": "task",
+      "content": "Find articules by Unmesh Joshi",
+      "time": "Apr 12",
+      "relative": "yesterday"
+    },
+    {
+      "type": "receipt_footer",
+      "text": "rvlvonnwukny · ba62da9a1627"
+    }
   ]
 }

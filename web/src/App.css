@@ -1,3 +1,11 @@
+/*
+ * Single scale knob for the whole receipt (fonts, spacing, rule thickness).
+ * Uses calc + em so layout width stays 384px — Playwright screenshots #receipt at that width.
+ * (CSS `zoom` on body would scale capture size and can clip or widen the PNG.)
+ */
+:root {
+  --receipt-scale: 1.5;
+}
 #root {
   display: flex;
   justify-content: flex-start;
@@ -6,98 +14,113 @@
 }
 
 .receipt {
+  /* 16px design base × scale; all em below are ratios to this */
+    font-size: calc(16px * var(--receipt-scale));
   box-sizing: border-box;
   width: 384px;
   margin: 0;
-  padding: 10px 0 18px;
+  padding: calc(10em / 16) 0 calc(18em / 16);
   background: #fff;
   color: #000;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
-  font-size: 17px;
+    'JetBrains Mono',
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      monospace;
   line-height: 1.35;
 }
 
 /* Receipt header: date + divider */
 .receipt-header {
-  margin-bottom: 12px;
+  margin-bottom: calc(12em / 16);
 }
 
 .receipt-header__date {
-  font-size: 24px;
+  font-size: calc(24em / 16);
   font-weight: 700;
   line-height: 1.2;
-  margin-bottom: 8px;
+  margin: 0 0 calc(8em / 16);
+    padding: calc(6em / 16) calc(8em / 16);
+    background: #000;
+    color: #fff;
 }
 
+/* Rule omitted — date strip is the primary header band */
 .receipt-header__rule {
-  height: 0;
-  border-top: 2px solid #000;
+  display: none;
 }
 
-/* Receipt footer: small jj metadata */
 .receipt-footer {
-  font-size: 11px;
+  font-size: calc(15em / 16);
   color: #000;
-  margin-top: 14px;
-  border-top: 1px solid #000;
-  padding-top: 5px;
+  margin-top: calc(14em / 16);
+    border-top: calc(2px * var(--receipt-scale)) solid #000;
+    padding-top: calc(5em / 16);
 }
 
-/* Section header: e.g. "TODAY — Mon Apr 13", "OVERDUE (2)" */
 .section-header {
-  font-size: 17px;
+  font-size: 1em;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-top: 1px solid #000;
-  padding-top: 8px;
-  margin: 14px 0 6px;
-  color: #000;
+  margin: calc(14em / 16) 0 calc(6em / 16);
+    padding: calc(6em / 16) calc(8em / 16);
+    background: #000;
+    color: #fff;
 }
 
-/* Day header within upcoming: e.g. "Tue Apr 14" */
 .day-header {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 9px 0 3px;
-  color: #000;
+  font-size: calc(13em / 16);
+    font-weight: 700;
+    margin: calc(9em / 16) 0 calc(5em / 16);
+    padding: calc(5em / 16) calc(8em / 16);
+    background: #000;
+    color: #fff;
 }
 
-/* Task row */
 .task {
-  margin: 0 0 9px;
+  margin: 0 0 calc(10em / 16);
+    padding: 0 0 calc(10em / 16);
+    /* border-left: calc(4px * var(--receipt-scale)) solid #000; */
+    /* border-bottom: calc(2px * var(--receipt-scale)) solid #000; */
 }
 
 .task-content {
-  font-size: 16px;
+  font-size: calc(16em / 16);
+    font-weight: 500;
   line-height: 1.35;
   word-break: break-word;
   color: #000;
 }
 
+/* .task-content::before {
+  content: '▸ ';
+  font-weight: 700;
+} */
 .task-meta {
-  font-size: 13px;
+  font-size: calc(12em / 16);
   color: #000;
-  margin-top: 1px;
+  margin-top: calc(3em / 16);
+    padding-left: 0;
 }
 
-/* Error state */
 .receipt--error .error-title {
-  margin: 0 0 6px;
+  margin: 0 0 calc(6em / 16);
   font-weight: 700;
-  font-size: 16px;
+  font-size: calc(16em / 16);
 }
 
 .receipt--error .error-body {
   margin: 0;
   white-space: pre-wrap;
-  font-size: 13px;
+  font-size: calc(13em / 16);
 }
 
 .muted {
   margin: 0;
   color: #000;
-  font-size: 14px;
+  font-size: calc(14em / 16);
 }
