@@ -22,6 +22,14 @@ All changes to the working directory are automatically tracked in the current co
    A "task" means a new feature, fix, planning document, or any logical unit of work.
    Do this *before* making changes, so the description matches the content from the start.
 
+   **Exception — reuse an empty, undescribed commit:** Before creating a new commit,
+   check `jj status`. If the current commit is empty and has no description, set its
+   description instead of creating a new one:
+   ```
+   jj describe -m "<short description>"
+   ```
+   If the current commit already has content or a description, always create a new one.
+
 2. **Update the description if the work shifts:**
    If what you ended up implementing differs from the initial message, update it:
    ```
@@ -39,6 +47,14 @@ All changes to the working directory are automatically tracked in the current co
    jj status
    jj log
    ```
+
+6. **Use `--tool :git` when diffing file contents:**
+   ```
+   jj diff --tool :git
+   jj diff --tool :git -r <rev>
+   ```
+   Without this flag, `jj diff` uses its default formatter which may not show content
+   correctly. Always pass `--tool :git` when you need to inspect actual file changes.
 
 ---
 

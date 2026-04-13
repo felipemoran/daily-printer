@@ -141,21 +141,19 @@ Thu Apr 16
 
 ### Per-Task Format
 
-Line 1: `[ ] <title>`
-Line 2 (indent): `<due time or date>  •  <elapsed/countdown>  •  <labels>`
+Line 1: `<title>`
+Line 2: `<due date>  •  <elapsed/countdown>  •  <labels>`
 
-- **Due time**: show `HH:MM AM/PM` if task has a time; otherwise `[no time]` (today) or just the date (overdue/upcoming)
 - **Elapsed / countdown**:
   - Overdue: `N days ago` / `yesterday`
-  - Today: `in N hours` / `N hours ago` (if time set); omit if no time
   - Upcoming: `tomorrow` / `in N days`
-- **Labels**: comma-separated; omit line 2 entirely if no labels and no useful time info
+- **Labels**: comma-separated; omit line if no labels and no useful time info
 
 ### Width Budget (384 dots = ~32 chars at default font)
 
 > Exact character count depends on ESC/POS font mode. At font A (12×24), 384 dots ÷ 12 = **32 chars**. At condensed / font B (8×16), ~48 chars. Default to 32-char wrap.
 
-Long titles wrap; line 2 data truncates with `…` if it exceeds one line.
+Long titles wrap to 2 lines max; line 2 data wraps to 2 lines max.
 
 ---
 
