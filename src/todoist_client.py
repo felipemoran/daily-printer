@@ -45,11 +45,19 @@ def _exclude_subtasks(tasks: list[Task]) -> list[Task]:
 
 def _sort_by_due(tasks: list[Task], reverse: bool = False) -> list[Task]:
     """Sort tasks by due date/datetime, placing tasks without a due date last."""
+    from datetime import date, datetime as dt
 
-    def sort_key(t: Task) -> str:
+    _max = dt(9999, 12, 31, 23, 59, 59)
+
+    def sort_key(t: Task):
         if t.due is None:
-            return "9999-99-99T99:99:99"
-        return t.due.datetime or t.due.date or "9999-99-99T99:99:99"
+            return _max
+        d = t.due.date  # datetime.date or datetime.datetime in SDK v4
+        if isinstance(d, dt):
+            return d
+        if isinstance(d, date):
+            return dt(d.year, d.month, d.day)
+        return _max
 
     return sorted(tasks, key=sort_key, reverse=reverse)
 
@@ -69,11 +77,15 @@ def get_task_sections(token: str | None = None) -> TaskSections:
 
     api = TodoistAPI(token)
 
+    def _fetch(query: str) -> list[Task]:
+        # filter_tasks returns a ResultsPaginator that yields pages (list[Task])
+        return [task for page in api.filter_tasks(query=query) for task in page]
+
     # Three independent fetches — one per section, using Todoist's own filter engine.
-    raw_today = list(api.filter_tasks(query="today"))
-    raw_overdue = list(api.filter_tasks(query="overdue"))
+    raw_today = _fetch("today")
+    raw_overdue = _fetch("overdue")
     # Tomorrow + day after: "in 3 days" is exclusive upper bound in Todoist syntax
-    raw_upcoming = list(api.filter_tasks(query="due after: today & due before: in 3 days"))
+    raw_upcoming = _fetch("due after: today & due before: in 3 days")
 
     today = _sort_by_due(_exclude_subtasks(raw_today))
     overdue = _sort_by_due(_exclude_subtasks(raw_overdue))  # oldest first (default asc)

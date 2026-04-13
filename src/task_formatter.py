@@ -43,34 +43,28 @@ def _today() -> date:
 
 
 def _parse_due_date(task: Task) -> date | None:
-    if task.due is None:
+    """Return the due date (date portion only)."""
+    if task.due is None or task.due.date is None:
         return None
-    raw = task.due.datetime or task.due.date
-    if not raw:
-        return None
-    try:
-        return date.fromisoformat(raw[:10])
-    except ValueError:
-        return None
+    d = task.due.date  # datetime.date or datetime.datetime in SDK v4
+    if isinstance(d, datetime):
+        return d.date()
+    return d
 
 
 def _parse_due_time(task: Task) -> str | None:
     """Return formatted time string like '2:30 PM' if task has a specific time."""
-    if task.due is None or not task.due.datetime:
+    if task.due is None or not isinstance(task.due.date, datetime):
         return None
-    try:
-        dt = datetime.fromisoformat(task.due.datetime.replace("Z", "+00:00"))
-        # Convert to local time for display
-        local = dt.astimezone()
-        hour = local.hour
-        minute = local.minute
-        period = "AM" if hour < 12 else "PM"
-        display_hour = hour % 12 or 12
-        if minute:
-            return f"{display_hour}:{minute:02d} {period}"
-        return f"{display_hour} {period}"
-    except ValueError:
-        return None
+    # due.date is a datetime when a specific time is set
+    local = task.due.date.astimezone()
+    hour = local.hour
+    minute = local.minute
+    period = "AM" if hour < 12 else "PM"
+    display_hour = hour % 12 or 12
+    if minute:
+        return f"{display_hour}:{minute:02d} {period}"
+    return f"{display_hour} {period}"
 
 
 def _format_date_short(d: date) -> str:
