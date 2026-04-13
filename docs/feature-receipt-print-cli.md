@@ -2,7 +2,7 @@
 
 Python entrypoint: **`src/scripts/receipt_print.py`**. It takes a **JSON payload**, renders it with the **Vite + React** receipt app in **`web/dist/`**, captures a **PNG of the `#receipt` element** with **Playwright**, optionally converts to **1-bit** for thermal output, then sends **ESC/POS raster** to the printer (unless **`--no-print`**).
 
-Related: **`web/README.md`** (UI dev/build), **`docs/planning-react-headless-raster-print.md`** (design), **`samples/receipt-sample.json`** (payload shape).
+Related: **`web/README.md`** (UI dev/build), **`docs/planning-react-headless-raster-print.md`** (design), **`docs/README.md`** (all docs), **`samples/receipt-sample.json`** (payload shape).
 
 ---
 
@@ -32,7 +32,7 @@ uv run python src/scripts/receipt_print.py --help
 |-------------|--------|
 | **Python deps** | `uv sync` (includes `playwright`, `pillow`, `python-escpos`, …). |
 | **Playwright Chromium** | `uv run playwright install chromium`. If missing, the tool raises a clear error pointing here. |
-| **`web/dist/`** | Must contain a built receipt app (`index.html` + assets). Build with `cd web && npm install && npm run build`, or pass **`--build`** (requires existing **`web/node_modules`**). |
+| **`web/dist/`** | Produced each run by **`npm run build`** in **`web/`** (default). Requires **`web/node_modules`** (`cd web && npm install` once). Pass **`--no-build`** to reuse an existing **`dist/`** without rebuilding. |
 
 ---
 
@@ -43,7 +43,7 @@ uv run python src/scripts/receipt_print.py --help
 | *(positional)* `payload_json` | — | Path to the receipt JSON file (must exist and parse as JSON). |
 | `--artifact-dir DIR` | `artifacts/<UTC>/` e.g. `artifacts/20260413T120000Z` | Directory for **`payload.json`** (copy), **`receipt.png`**, **`preview.txt`**. Created if missing. |
 | `--no-print` | off | **Only** write artifacts; do **not** open the printer. Use this for safe iteration. |
-| `--build` | off | Run **`npm run build`** in **`web/`** before capture. Fails fast if **`web/node_modules`** is missing (`cd web && npm install`). |
+| `--no-build` | off | Skip **`npm run build`**; use whatever is already in **`web/dist/`** (faster when the UI is unchanged). |
 | `--dither` | off | **Floyd–Steinberg** dithering when converting the PNG to **1-bit** for ESC/POS; default is a simple threshold. |
 | `--device-scale-factor N` | `1.0` | Playwright **`deviceScaleFactor`** (e.g. **`2`** for sharper screenshots; larger files / slower). |
 | `--max-height-px N` | `4000` | Reserved for **vertical splitting** of long rasters; **`split_raster_vertical`** is still a **stub** (always one strip). |
@@ -63,7 +63,7 @@ uv run python src/scripts/receipt_print.py --help
 ## What each run does (order)
 
 1. Resolve and validate **`payload_json`**.
-2. Optionally **`npm run build`** in **`web/`** (`--build`).
+2. Unless **`--no-build`**, run **`npm run build`** in **`web/`**.
 3. Require **`web/dist/index.html`**.
 4. Create **`artifact_dir`**; copy payload to **`artifact_dir/payload.json`** and **`web/dist/payload.json`** (**overwrites** the latter).
 5. Start a short-lived **HTTP server** on **`127.0.0.1`** with a **random port**, serving **`web/dist/`**.
@@ -93,6 +93,7 @@ uv run python src/scripts/receipt_print.py --help
 5. **Headless Chromium** is the reference renderer; output may differ slightly from Safari or desktop Chrome.
 6. **Default is to print** — omitting **`--no-print`** will talk to hardware. For CI or laptops without the printer, always pass **`--no-print`** unless you intend to print.
 7. **`--max-height-px`** does not split jobs yet; very tall receipts may stress memory or BLE payload size until splitting is implemented.
+8. Older instructions may mention **`--build`**; the current interface is **build by default** with **`--no-build`** to skip. A hidden **`--build`** flag may still be accepted for compatibility but does nothing special.
 
 ---
 
@@ -100,8 +101,8 @@ uv run python src/scripts/receipt_print.py --help
 
 | Symptom | What to do |
 |---------|------------|
-| `web/dist/index.html missing` | `cd web && npm install && npm run build`, or add **`--build`**. |
-| `Missing web/node_modules` | `cd web && npm install` before **`--build`**. |
+| `web/dist/index.html missing` | `cd web && npm install`, then run the CLI again (build is default), or run **`npm run build`** manually. |
+| `Missing web/node_modules` | `cd web && npm install` before running the CLI (build step needs it). |
 | `npm not found` | Install Node.js / ensure **`npm`** is on **`PATH`**. |
 | Playwright / executable / Chromium error | `uv run playwright install chromium`. |
 | `screenshot failed` (timeout, etc.) | Payload too heavy, network from page, or broken **`/payload.json`** fetch — check **`web/dist`** contents and browser console under **`npm run dev`**. |

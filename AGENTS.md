@@ -70,7 +70,7 @@ This repo is managed with **jujutsu (`jj`)**, not plain git.
 daily-printer/
 ├── AGENTS.md          ← you are here
 ├── CLAUDE.md          ← stub, points here (for Claude Code auto-detection)
-├── docs/              ← all documentation
+├── docs/              ← all documentation (`README.md` = index)
 │   └── <phase-or-scope>-<topic>.md
 ├── src/               ← all Python source code
 ├── pyproject.toml     ← uv project config

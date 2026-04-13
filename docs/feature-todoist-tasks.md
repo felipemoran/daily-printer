@@ -160,7 +160,6 @@ Long titles wrap to 2 lines max; line 2 data wraps to 2 lines max.
 ## Implementation Plan
 
 1. `uv add todoist-api-python python-dotenv`
-2. `src/todoist_client.py` — API wrapper, returns `TaskSections`
-3. `src/task_formatter.py` — formats a single `Task` into display lines
-4. Integrate into renderers (see `feature-preview.md`)
-5. `src/print_tasks.py` — main script: fetch → format → preview or print
+2. `src/todoist_client.py` — API wrapper, returns structured tasks (or similar)
+3. `src/task_formatter.py` — formats tasks into the **receipt JSON** shape (`samples/receipt-sample.json`, `web/src/receiptPayload.ts`)
+4. Gather step writes **`payload.json`**; run **`src/scripts/receipt_print.py`** (see **`docs/feature-receipt-print-cli.md`**) to render, capture, and print

@@ -32,7 +32,7 @@ This split keeps **data extraction** (Python) and **presentation** (React) loose
 ## Repo context
 
 - Python today: `python-escpos`, USB + BLE. The pipeline needs a clean step from **raster bytes** (or PNG) into existing printer code.
-- `docs/feature-preview.md` was a **sketch**; we may **replace** its Playwright-centric preview story if another tool is simpler. No obligation to extend that file as-is.
+- **Operational docs:** [`docs/feature-receipt-print-cli.md`](feature-receipt-print-cli.md) and [`web/README.md`](../web/README.md). See [`docs/README.md`](README.md) for an index.
 
 ---
 
@@ -42,7 +42,7 @@ Early optimizations **out of scope** for now: partial rerenders, hard air-gapped
 
 | ID | Feature | Notes |
 |----|---------|--------|
-| F1 | **Headless screenshot** | Load built page (e.g. `file://` or static server), capture **full-page or stitched** image without human interaction. |
+| F1 | **Headless screenshot** | Load built page over loopback HTTP, capture the **`#receipt`** node as PNG without human interaction. |
 | F2 | **Vite + React authoring** | Monorepo **`web/`** beside **`src/`**; static build consumed by headless capture. |
 | F3 | **Fixed thermal width** | Layout width locked to **384 px** (1:1 with dots) plus documented margins. |
 | F4 | **Deterministic render inputs** | All page-building functions as **pure** as practical; **no hidden `Date.now()`** — pass **time (and locale/TZ if needed)** as explicit arguments with the rest of the payload. Same inputs → same DOM for a given build. |
@@ -101,7 +101,6 @@ Early optimizations **out of scope** for now: partial rerenders, hard air-gapped
 | **Fonts** | **System fonts**, documented. |
 | **Assets** | Mostly **text, borders, boxes**; images/QR as needed but not the default complexity. |
 | **Transport** | **USB and BLE**, favor **USB**; reuse existing code paths. |
-| **feature-preview.md** | **Replace** the sketched approach if something else fits better. |
 | **UI stack** | **Vite + React** (`web/`). |
 | **Render input** | **One JSON file** per job: gather step writes it; React renders it; same data drives headless and browser preview. |
 | **Preview artifact** | **Generated URL** (or equivalent) so the full printable state can be opened quickly in a browser — alongside JSON/PNG as optional artifacts. |
@@ -217,7 +216,7 @@ Document in **`web/README.md`**: how to build (`npm install`, `npm run build`), 
 ### Python dependencies (additive)
 
 - **`playwright`** (capture).
-- **`pillow`** (optional post-process; align with any existing preview work in `feature-preview.md` when superseded).
+- **`pillow`** (post-process before ESC/POS; see `receipt_image.py`).
 
 Use **`uv add playwright pillow`** (or optional dependency group **`[receipt-render]`** if you want a slimmer default install — your call at implementation time).
 
@@ -231,11 +230,11 @@ After adding Playwright, document **`playwright install chromium`** in `web/READ
 |---|-----------|-------------|
 | M1 | **`web/` scaffold** | Vite + React app with root layout **384 px** wide, sample static layout, `npm run build` → `dist/`. |
 | M2 | **JSON → UI** | React reads payload from agreed mechanism (HTTP `payload.json` or equivalent); render sample file; no headless yet. |
-| M3 | **Capture module** | Python: serve `dist/` + write payload, Playwright full-page PNG to `artifact_dir`. |
+| M3 | **Capture module** | Python: serve `dist/` + write payload, Playwright screenshot of **`#receipt`** → `artifact_dir` PNG. |
 | M4 | **Pillow hook** | Optional threshold/dither; single code path documented. |
 | M5 | **ESC/POS send** | Wire PNG → raster commands → `open_printer()`; **`--no-print`** for testing. |
 | M6 | **Split stub + preview URL** | `split_raster_vertical` stub; write **`preview.txt`** with URL + notes. |
-| M7 | **Docs cleanup** | Update or supersede **`feature-preview.md`** with a pointer to this pipeline; remove dead sketches if redundant. |
+| M7 | **Docs cleanup** | Done: superseded sketch removed; use **`docs/feature-receipt-print-cli.md`**, **`docs/README.md`**, **`web/README.md`**. |
 
 M1–M3 can be a **spike PR/commit series**; M4–M6 complete the slice.
 
@@ -261,6 +260,6 @@ Follow **`AGENTS.md`**: **`jj`** for commits, **`uv`** for Python deps, **`npm`*
 | Field | Value |
 |-------|--------|
 | Created | 2026-04-13 |
-| Updated | 2026-04-13 (v1 pipeline implemented: `web/`, `receipt_print.py`) |
+| Updated | 2026-04-13 (v1 pipeline; docs index; removed superseded `feature-preview.md`) |
 | Type | Planning + execution |
-| Related | `docs/feature-preview.md`, `docs/planning-phase-01-printer-research.md`, `AGENTS.md` |
+| Related | `docs/feature-receipt-print-cli.md`, `docs/README.md`, `docs/planning-phase-01-printer-research.md`, `AGENTS.md` |

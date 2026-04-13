@@ -4,7 +4,7 @@ Render a JSON payload through the Vite receipt UI, screenshot, optionally print.
 Full reference: docs/feature-receipt-print-cli.md
 
 Prerequisites:
-  cd web && npm install && npm run build   (or pass --build to run npm run build)
+  cd web && npm install   (each run runs npm run build unless --no-build)
   uv run playwright install chromium
 
 Example:
@@ -92,9 +92,14 @@ def _parse_args() -> argparse.Namespace:
         help="Future: split rasters taller than this (stub only for now)",
     )
     p.add_argument(
+        "--no-build",
+        action="store_true",
+        help="Skip `npm run build`; use existing web/dist (faster when UI is unchanged)",
+    )
+    p.add_argument(
         "--build",
         action="store_true",
-        help="Run `npm run build` in web/ before capture (also use when web/dist is missing)",
+        help=argparse.SUPPRESS,
     )
     return p.parse_args()
 
@@ -114,7 +119,7 @@ def main() -> None:
 
     web_dir = (_PROJECT_ROOT / "web").resolve()
     dist_dir = (web_dir / "dist").resolve()
-    if args.build:
+    if not args.no_build:
         try:
             _run_web_build(web_dir)
         except RuntimeError as e:
@@ -124,7 +129,7 @@ def main() -> None:
         print(
             "ERROR: web/dist/index.html missing. Build the receipt app first, e.g.:\n"
             "  cd web && npm install && npm run build\n"
-            "Or re-run with:  --build",
+            "Or omit --no-build so this tool runs the build for you.",
             file=sys.stderr,
         )
         sys.exit(1)
