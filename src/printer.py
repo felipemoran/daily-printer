@@ -60,7 +60,7 @@ async def _ble_find_and_send(data: bytes) -> None:
     """
     from bleak import BleakScanner, BleakClient
 
-    results = await BleakScanner.discover(timeout=5.0, return_adv=True)
+    results = await BleakScanner.discover(timeout=10.0, return_adv=True)
     address = next(
         (dev.address for _, (dev, _) in results.items()
          if dev.name and BT_PRINTER_NAME.upper() in dev.name.upper()),
