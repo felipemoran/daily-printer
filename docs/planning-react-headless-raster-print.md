@@ -2,7 +2,9 @@
 
 ## Status
 
-**Planning — decisions incorporated (2026-04-13).** Next step is an **execution plan** (milestones, spike, boundaries); implementation only after that review.
+**Execution plan below — ready for your review.** After you sign off, implementation follows this order; adjust the plan here first if anything should change.
+
+**Planning decisions** (JSON contract, Vite + React, screenshot-only, Mac-only, no CI) are incorporated above.
 
 **Scope note:** Side hobby project — **keep it simple.** **No CI** for now; **Mac** is the target runtime (this or another machine). CI or a headless server may come later.
 
@@ -131,10 +133,126 @@ Print-to-PDF tools (Prince, wkhtmltopdf, WeasyPrint) are **deprioritized** for t
 
 ---
 
-## Suggested next step
+## Execution plan
 
-1. **Execution plan doc or section:** one vertical slice — **`web/`** Vite+React receipt at **384px**, gather step writes **`*.json`**, automation loads built page + JSON, **screenshot** → optional Pillow → ESC/POS → USB, with **configurable max height** and a **stub** for vertical **split** when over limit; emit **preview URL** + JSON (+ PNG) as optional artifacts.
-2. Implement only after you sign off on that plan.
+### Vertical slice (definition of done)
+
+One **`uv run …` command** (exact module path TBD) that, given a **path to a JSON payload file**:
+
+1. Optionally writes that JSON into an **artifact directory** for the run (always keep a copy for replay).
+2. Serves or injects the payload so the **built Vite + React app** renders a **384 px** wide receipt (height grows with content).
+3. Uses **headless Chromium** (via **Playwright**, default choice for Python + screenshot) to capture a **full-page screenshot** (PNG).
+4. Optionally runs **Pillow**: grayscale, simple threshold or light dither (config flag), producing a **1-bit-friendly** bitmap if we choose not to let `python-escpos` handle conversion — exact division TBD in code (keep one clear path in v1).
+5. Sends **raster ESC/POS** to the printer using existing **`open_printer()`** / `python-escpos` patterns in `src/printer.py` (`PRINT_WIDTH_DOTS = 384`).
+6. Writes artifacts under a configurable directory: at minimum **`payload.json`** (copy), **`receipt.png`**, and a **`preview.txt`** (or similar) containing a **preview URL** and any local server instructions.
+
+**Stub (explicit):** Implement **`split_raster_vertical(image, max_height_px) -> list[Image]`** (or equivalent) that today may return a **single-element list** only; document the future behavior for long receipts so the call site exists before tuning thresholds.
+
+**Out of scope for v1 slice:** real Todoist (or other) API gather — use a **checked-in sample JSON** and a tiny **“fake gather”** script or CLI flag that only copies/writes that file. **Cron** wiring. **CI**. **Safari parity**.
+
+---
+
+### Why Playwright (default)
+
+- **Python-native** driver story (`playwright` PyPI + `playwright install chromium`) fits the existing **`uv`** workflow.
+- **Full-page screenshot** API is straightforward; **Puppeteer** would pull Node as a second automation stack unless we shell out.
+
+If install size or ergonomics disappoint, switching to **Puppeteer** or **Chromium CLI** is still compatible with this plan — only the capture module changes.
+
+---
+
+### Serving JSON to the static app (`file://` vs HTTP)
+
+`file://` pages **cannot reliably `fetch()`** arbitrary JSON paths (browser security). For a **single vertical slice**, standardize on **loopback HTTP** for both **dev** and **headless** capture:
+
+- **Headless:** Python starts (or reuses) a **minimal static file server** rooted at **`web/dist/`** (or runs Playwright **`page.route`** to fulfill `GET /payload.json` from bytes). Navigate to e.g. `http://127.0.0.1:<port>/index.html` (exact path depends on Vite output).
+- **Dev:** `npm run dev` (Vite) as today; same query or path convention for loading payload (e.g. drop `payload.json` under `web/public/` during dev, or use a dev-only query param documented in `web/README.md`).
+
+**Preview URL artifact:** Prefer URLs that **reference the payload** without exceeding browser limits — e.g. `http://127.0.0.1:<port>/…` plus **path to copied JSON** documented next to the URL, or **hash fragment** with base64 for small payloads. Record whatever format you implement in **`preview.txt`**.
+
+---
+
+### JSON payload (v1)
+
+- Include **`schemaVersion`** (integer) at the top level so the React app can fail visibly on mismatch.
+- Keep the first sample minimal: e.g. **`title`**, **`generatedAt`** (ISO string from gather step — **not** read from `Date` in UI for display), **`lines`** or **`blocks`** array for body text.
+- **Gather step contract:** any clock, timezone, or locale-dependent strings are **fields in JSON**, produced by Python (or typed manually in the sample file).
+
+Formal **JSON Schema** validation (Python + optional TS) is **optional** for v1; add when the shape stabilizes.
+
+---
+
+### Repository layout (target)
+
+```
+daily-printer/
+├── web/                    # Vite + React (new)
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/                # Receipt layout, 384px root width
+├── src/
+│   ├── printer.py          # existing — reuse PRINT_WIDTH_DOTS, open_printer
+│   └── …                   # new module(s) e.g. raster_capture.py, receipt_cli.py (names TBD)
+├── artifacts/              # gitignored default output root (optional)
+└── docs/
+    └── planning-react-headless-raster-print.md
+```
+
+Document in **`web/README.md`**: how to build (`npm install`, `npm run build`), how the app loads JSON, and how Python expects **`web/dist/`** to exist before capture.
+
+---
+
+### Configuration (v1)
+
+| Setting | Purpose | Default suggestion |
+|---------|---------|---------------------|
+| `max_receipt_height_px` | Cap before **split** logic kicks in (future) | Derive from **50 cm** at **8 dots/mm** → **4000 px** if 1 px = 1 dot vertically; confirm in code comment against physical roll. |
+| `device_scale_factor` | Playwright DPR for sharpness | Start at **1** or **2**; tune against printer. |
+| `artifact_dir` | Where JSON/PNG/preview text go | `./artifacts/<timestamp>/` or user path |
+| `print_enabled` | Run printer vs capture-only | CLI flag **`--no-print`** for safe iteration |
+
+---
+
+### Python dependencies (additive)
+
+- **`playwright`** (capture).
+- **`pillow`** (optional post-process; align with any existing preview work in `feature-preview.md` when superseded).
+
+Use **`uv add playwright pillow`** (or optional dependency group **`[receipt-render]`** if you want a slimmer default install — your call at implementation time).
+
+After adding Playwright, document **`playwright install chromium`** in `web/README.md` or root README.
+
+---
+
+### Milestones (implementation order)
+
+| # | Milestone | Deliverable |
+|---|-----------|-------------|
+| M1 | **`web/` scaffold** | Vite + React app with root layout **384 px** wide, sample static layout, `npm run build` → `dist/`. |
+| M2 | **JSON → UI** | React reads payload from agreed mechanism (HTTP `payload.json` or equivalent); render sample file; no headless yet. |
+| M3 | **Capture module** | Python: serve `dist/` + write payload, Playwright full-page PNG to `artifact_dir`. |
+| M4 | **Pillow hook** | Optional threshold/dither; single code path documented. |
+| M5 | **ESC/POS send** | Wire PNG → raster commands → `open_printer()`; **`--no-print`** for testing. |
+| M6 | **Split stub + preview URL** | `split_raster_vertical` stub; write **`preview.txt`** with URL + notes. |
+| M7 | **Docs cleanup** | Update or supersede **`feature-preview.md`** with a pointer to this pipeline; remove dead sketches if redundant. |
+
+M1–M3 can be a **spike PR/commit series**; M4–M6 complete the slice.
+
+---
+
+### Acceptance checks (manual, no CI)
+
+- **Determinism:** Same JSON file + same build → **byte-identical PNG** (or document acceptable diffs if font rasterization varies slightly).
+- **Width:** Screenshot content width matches **384 px** logical layout (verify in an image viewer).
+- **Printer:** **`--no-print`** produces artifacts only; with print, a short sample outputs on hardware without error.
+- **Preview URL:** Pasting the URL from **`preview.txt`** into Chrome shows the same receipt as the PNG (allowing for subpixel variance).
+
+---
+
+### Implementation gate
+
+Do **not** start coding until you explicitly OK this execution plan (or note edits above). First code change should follow **`AGENTS.md`**: new **`jj` change** per logical unit, **`uv`** for Python deps, **`npm`**/`pnpm` in `web/` as you prefer (pick one package manager and stick to it — document in `web/README.md`).
 
 ---
 
@@ -143,6 +261,6 @@ Print-to-PDF tools (Prince, wkhtmltopdf, WeasyPrint) are **deprioritized** for t
 | Field | Value |
 |-------|--------|
 | Created | 2026-04-13 |
-| Updated | 2026-04-13 (JSON contract, preview URL artifact, Vite+React locked) |
-| Type | Planning / exploration |
+| Updated | 2026-04-13 (execution plan: milestones, layout, Playwright, artifacts) |
+| Type | Planning + execution |
 | Related | `docs/feature-preview.md`, `docs/planning-phase-01-printer-research.md`, `AGENTS.md` |
