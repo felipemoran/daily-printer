@@ -1,9 +1,19 @@
 {
-  "schemaVersion": 1,
-  "title": "Sample receipt",
-  "generatedAt": "2026-04-13T12:00:00Z",
-  "lines": [
-    "Line one — all display data lives in this JSON file",
-    "Line two — time and locale strings are fields here, not from Date in the UI"
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-13T09:00:00Z",
+  "blocks": [
+    { "type": "section_header", "title": "TODAY — Mon Apr 13" },
+    { "type": "task", "content": "Buy groceries" },
+    { "type": "task", "content": "Call dentist", "time": "2:30 PM", "labels": ["health"] },
+
+    { "type": "section_header", "title": "OVERDUE", "count": 2 },
+    { "type": "task", "content": "File taxes", "time": "Apr 1", "relative": "12 days ago", "labels": ["finance"] },
+    { "type": "task", "content": "Review contract", "time": "Apr 10", "relative": "yesterday", "labels": ["work"] },
+
+    { "type": "section_header", "title": "UPCOMING" },
+    { "type": "day_header", "title": "Tue Apr 14" },
+    { "type": "task", "content": "Team standup notes", "labels": ["work"] },
+    { "type": "day_header", "title": "Wed Apr 15" },
+    { "type": "task", "content": "Renew gym membership", "labels": ["health", "finance"] }
   ]
 }
