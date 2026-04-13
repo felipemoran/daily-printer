@@ -19,10 +19,14 @@ PRINTER_BT_ADDR = "DC:0D:51:68:2A:6E"
 async def scan_all():
     """Quick scan — list all BLE devices nearby."""
     print("Scanning for BLE devices (5s)...\n")
-    devices = await BleakScanner.discover(timeout=5.0)
-    for d in sorted(devices, key=lambda x: x.rssi or -999, reverse=True):
-        print(f"  {d.address}  RSSI={d.rssi:>4}  {d.name or '(no name)'}")
-    return [d for d in devices if d.address.upper() == PRINTER_BT_ADDR.upper()]
+    # return_adv=True gives (BLEDevice, AdvertisementData) tuples
+    results = await BleakScanner.discover(timeout=5.0, return_adv=True)
+    found = []
+    for addr, (device, adv) in results.items():
+        print(f"  {device.address}  RSSI={adv.rssi:>4}  {device.name or '(no name)'}")
+        if device.address.upper() == PRINTER_BT_ADDR.upper():
+            found.append(device)
+    return found
 
 
 async def inspect_services(address: str):
@@ -45,11 +49,21 @@ async def main():
     matches = await scan_all()
 
     if not matches:
-        print(f"\nPrinter ({PRINTER_BT_ADDR}) not found in BLE scan.")
-        print("It may be Classic BT only — BLE scanning won't see it.")
-        print("Proceeding to direct GATT connect attempt anyway...\n")
+        print(f"\nPrinter ({PRINTER_BT_ADDR}) not found by hardware MAC — trying by name...\n")
+        # macOS exposes BLE devices under a randomised UUID, not the hardware MAC.
+        # Re-scan and match by device name instead.
+        results = await BleakScanner.discover(timeout=5.0, return_adv=True)
+        for addr, (device, adv) in results.items():
+            if device.name and "MPT" in device.name.upper():
+                print(f"Found by name: {device.name}  UUID={device.address}")
+                matches.append(device)
 
-    await inspect_services(PRINTER_BT_ADDR)
+    if not matches:
+        print("Printer not found in BLE scan at all.")
+        return
+
+    for device in matches:
+        await inspect_services(device.address)
 
 
 if __name__ == "__main__":

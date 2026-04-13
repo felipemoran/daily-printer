@@ -1,4 +1,7 @@
-# Bluetooth Investigation
+# Bluetooth Investigation — RESOLVED
+
+**Outcome:** BLE (GATT/MLDP) works. Classic BT SPP via `/dev/cu` does not.
+Use `open_printer_ble()` from `src/printer.py` for wireless printing.
 
 ## What was tested
 
@@ -48,17 +51,31 @@ advertises BLE GATT services.
 
 ## Decision
 
-**USB is the primary transport for this project.**
+Both USB and BLE work. USB for desk use; BLE for wireless.
 
-USB works reliably, requires no pairing state, and the printer is desk-bound.
-Bluetooth may be revisited if wireless operation is needed.
+- **USB**: `open_printer()` → returns a live `Usb` escpos object
+- **BLE**: `open_printer_ble()` → context manager, builds commands into a `Dummy` buffer, flushes via MLDP on exit
 
 ## Printer BT details
 
 | Field | Value |
 |---|---|
 | Device name | MPT-II |
-| BT address | DC:0D:51:68:2A:6E |
-| macOS serial port | `/dev/cu.MPT-II` |
-| Advertised service | `0x802000` (Braille ACL per macOS) |
-| Minor device type | Printer |
+| Hardware BT address | DC:0D:51:68:2A:6E |
+| macOS BLE UUID | `AF022728-500A-77C3-1C2F-642EBCFF81C6` (randomised, may change) |
+| macOS SPP port | `/dev/cu.MPT-II` (Classic BT — does not work from scripts) |
+| Manufacturer | YAEN |
+| Firmware | 1.0 |
+| BLE data service | Microchip MLDP (`49535343-fe7d-4ae5-8fa9-9fafd205e455`) |
+| BLE TX characteristic | `49535343-8841-43f4-a8d4-ecbe34729bb3` (write-without-response) |
+| BLE RX characteristic | `49535343-1e4d-4bd9-ba61-23c647249616` (notify) |
+| MTU chunk size | 20 bytes (safe floor) |
+
+## GATT services summary
+
+| Service UUID | Description |
+|---|---|
+| `49535343-fe7d-4ae5-8fa9-9fafd205e455` | **Microchip MLDP** — used for ESC/POS data |
+| `e7810a71-73ae-499d-8c15-faa9aef0c3f2` | Unknown — also accepts ESC/POS data |
+| `000018f0-0000-1000-8000-00805f9b34fb` | Vendor specific — also accepts ESC/POS data |
+| `0000180a-0000-1000-8000-00805f9b34fb` | Device Information (read-only) |
