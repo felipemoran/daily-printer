@@ -4,5 +4,7 @@ version = "0.1.0"
 description = "Personal thermal printer automation — daily tickets, emails, tasks"
 requires-python = ">=3.12"
 dependencies = [
+    "bleak>=3.0.1",
+    "pyserial>=3.5",
     "python-escpos[usb]>=3.1",
 ]
