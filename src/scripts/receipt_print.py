@@ -1,6 +1,8 @@
 """
 Render a JSON payload through the Vite receipt UI, screenshot, optionally print.
 
+Full reference: docs/feature-receipt-print-cli.md
+
 Prerequisites:
   cd web && npm install && npm run build   (or pass --build to run npm run build)
   uv run playwright install chromium

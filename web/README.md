@@ -47,3 +47,5 @@ Omit `--no-print` to send raster output to the printer (USB preferred, BLE fallb
 Artifacts (default under `artifacts/<utc>/`): `payload.json`, `receipt.png`, `preview.txt`.
 
 Payload shape: see **`samples/receipt-sample.json`** and `schemaVersion` in `src/receiptPayload.ts`.
+
+**CLI reference** (all flags, flow, quirks): **`docs/feature-receipt-print-cli.md`**.
