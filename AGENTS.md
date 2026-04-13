@@ -82,5 +82,5 @@ docs/setup-usb-macos-troubleshooting.md
 | USB Vendor ID | `0x6868` |
 | USB Product ID | `0x0200` |
 | Protocol | ESC/POS |
-| Print width | 48 mm / ~384 dots at 203 DPI |
+| Print width | 48 mm / **384 dots** at 203 DPI (confirmed by calibration) |
 | Library | `python-escpos` (v3.1+) |

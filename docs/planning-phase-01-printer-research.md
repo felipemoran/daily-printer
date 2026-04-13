@@ -14,7 +14,7 @@ dozens of models on the market that share the same mainboard and firmware.
 | USB Vendor ID | **0x6868** (decimal 26728) |
 | USB Product ID | **0x0200** (decimal 512) |
 | Paper width | 58 mm |
-| Print width | 48 mm |
+| Print width | 48 mm / **384 dots** (confirmed by calibration) |
 | Resolution | 203 DPI (8 dots/mm) |
 | Print speed | up to 120 mm/s |
 | Interfaces | USB (present) + Bluetooth (present) |

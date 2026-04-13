@@ -14,7 +14,7 @@ from escpos.printer import Usb
 VENDOR_ID = 0x6868
 PRODUCT_ID = 0x0200
 
-# Print width at 203 DPI for 48mm paper (to be confirmed by calibration).
+# Print width: confirmed 384 dots by physical calibration (48 mm at 203 DPI).
 PRINT_WIDTH_DOTS = 384
 
 
