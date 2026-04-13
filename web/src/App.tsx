@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ReceiptPayload } from './receiptPayload'
+import type { ReceiptPayload, Block, SectionHeaderBlock, DayHeaderBlock, TaskBlock } from './receiptPayload'
 import { CURRENT_SCHEMA_VERSION } from './receiptPayload'
 import './App.css'
 
@@ -7,6 +7,38 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ok'; data: ReceiptPayload }
+
+function renderSectionHeader(block: SectionHeaderBlock, key: number) {
+  const label = block.count != null ? `${block.title} (${block.count})` : block.title
+  return <div key={key} className="section-header">{label}</div>
+}
+
+function renderDayHeader(block: DayHeaderBlock, key: number) {
+  return <div key={key} className="day-header">{block.title}</div>
+}
+
+function renderTask(block: TaskBlock, key: number) {
+  const metaParts: string[] = []
+  if (block.time) metaParts.push(block.time)
+  if (block.relative) metaParts.push(block.relative)
+  if (block.labels?.length) metaParts.push(block.labels.join(', '))
+  const meta = metaParts.join('  ·  ')
+
+  return (
+    <div key={key} className="task">
+      <div className="task-content">{block.content}</div>
+      {meta && <div className="task-meta">{meta}</div>}
+    </div>
+  )
+}
+
+function renderBlock(block: Block, key: number) {
+  switch (block.type) {
+    case 'section_header': return renderSectionHeader(block, key)
+    case 'day_header':     return renderDayHeader(block, key)
+    case 'task':           return renderTask(block, key)
+  }
+}
 
 function App() {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
@@ -16,9 +48,7 @@ function App() {
     ;(async () => {
       try {
         const res = await fetch('/payload.json', { cache: 'no-store' })
-        if (!res.ok) {
-          throw new Error(`payload.json: HTTP ${res.status}`)
-        }
+        if (!res.ok) throw new Error(`payload.json: HTTP ${res.status}`)
         const data = (await res.json()) as ReceiptPayload
         if (typeof data.schemaVersion !== 'number') {
           throw new Error('payload.json: missing schemaVersion')
@@ -32,19 +62,16 @@ function App() {
         setState({ status: 'ok', data })
       } catch (e) {
         if (cancelled) return
-        const message = e instanceof Error ? e.message : String(e)
-        setState({ status: 'error', message })
+        setState({ status: 'error', message: e instanceof Error ? e.message : String(e) })
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   if (state.status === 'loading') {
     return (
-      <div id="receipt" className="receipt" role="status">
-        <p className="muted">Loading payload…</p>
+      <div id="receipt" className="receipt">
+        <p className="muted">Loading…</p>
       </div>
     )
   }
@@ -52,28 +79,15 @@ function App() {
   if (state.status === 'error') {
     return (
       <div id="receipt" className="receipt receipt--error" role="alert">
-        <p className="error-title">Receipt payload error</p>
+        <p className="error-title">Payload error</p>
         <pre className="error-body">{state.message}</pre>
       </div>
     )
   }
 
-  const { title, generatedAt, lines } = state.data
-
   return (
     <div id="receipt" className="receipt">
-      <header className="receipt__header">
-        <h1 className="receipt__title">{title}</h1>
-        <p className="receipt__meta">{generatedAt}</p>
-      </header>
-      <div className="receipt__rule" aria-hidden />
-      <ul className="receipt__lines">
-        {lines.map((line, i) => (
-          <li key={i} className="receipt__line">
-            {line}
-          </li>
-        ))}
-      </ul>
+      {state.data.blocks.map((block, i) => renderBlock(block, i))}
     </div>
   )
 }

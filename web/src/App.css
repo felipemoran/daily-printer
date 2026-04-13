@@ -16,60 +16,64 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
   font-size: 17px;
-    line-height: 1.4;
+  line-height: 1.35;
 }
 
-.receipt__header {
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.receipt__title {
-  margin: 0;
-  font-size: 20px;
+/* Section header: e.g. "TODAY — Mon Apr 13", "OVERDUE (2)" */
+.section-header {
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 14px 0 4px;
+  color: #000;
 }
 
-.receipt__meta {
-  margin: 4px 0 0;
-  font-size: 15px;
-  color: #333;
+.section-header:first-child {
+  margin-top: 0;
 }
 
-.receipt__rule {
-  height: 0;
-  border-top: 2px solid #000;
-  margin: 8px 0;
+/* Day header within upcoming: e.g. "Tue Apr 14" */
+.day-header {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 2px;
+  color: #444;
 }
 
-.receipt__lines {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Task row */
+.task {
+  margin: 0 0 5px;
+  padding-left: 8px;
 }
 
-.receipt__line {
-  margin: 0 0 6px;
-  padding: 4px 6px;
-  border: 1px solid #000;
+.task-content {
+  font-size: 16px;
+  line-height: 1.35;
   word-break: break-word;
 }
 
+.task-meta {
+  font-size: 13px;
+  color: #555;
+  margin-top: 1px;
+}
+
+/* Error state */
 .receipt--error .error-title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .receipt--error .error-body {
   margin: 0;
   white-space: pre-wrap;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .muted {
   margin: 0;
-  color: #555;
+  color: #888;
+  font-size: 14px;
 }
-      
