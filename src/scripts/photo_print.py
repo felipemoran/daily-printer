@@ -15,12 +15,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFont
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from photo_dither import METHODS, dither, prepare  # noqa: E402
+from photo_dither import METHODS, PhotoError, dither, load, prepare  # noqa: E402
 from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
 
 STRIP_BAND_PX = 128  # 16 mm of paper per method
@@ -85,17 +85,10 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _load(path: Path) -> Image.Image:
-    if not path.is_file():
-        sys.exit(f"ERROR: photo not found: {path}")
     try:
-        image = Image.open(path)
-        image.load()
-        return image
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
-        hint = f"\n  {error}"
-        if path.suffix.lower() in (".heic", ".heif"):
-            hint += f"\n  Pillow cannot read HEIC. Convert it first:\n  sips -s format jpeg '{path}' --out '{path.with_suffix('.jpg')}'"
-        sys.exit(f"ERROR: not a readable image: {path}{hint}")
+        return load(path)
+    except PhotoError as error:
+        sys.exit(f"ERROR: {error}")
 
 
 def _font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:

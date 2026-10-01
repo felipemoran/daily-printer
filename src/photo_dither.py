@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from PIL import Image, ImageFilter, ImageOps
+from pathlib import Path
+
+from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 # (divisor, taps). Each tap is (dx, dy, weight); dx is mirrored on reversed rows.
 _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
@@ -22,6 +24,28 @@ _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
 }
 
 METHODS = ("atkinson", "floyd-steinberg", "jarvis", "stucki", "bayer", "threshold")
+
+
+class PhotoError(Exception):
+    pass
+
+
+def load(path: Path) -> Image.Image:
+    """Open and decode ``path``; raise ``PhotoError`` with a user-facing message."""
+    if not path.is_file():
+        raise PhotoError(f"photo not found: {path}")
+    try:
+        image = Image.open(path)
+        image.load()
+        return image
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        message = f"not a readable image: {path}\n  {error}"
+        if path.suffix.lower() in (".heic", ".heif"):
+            message += (
+                "\n  Pillow cannot read HEIC. Convert it first:"
+                f"\n  sips -s format jpeg '{path}' --out '{path.with_suffix('.jpg')}'"
+            )
+        raise PhotoError(message) from error
 
 
 def prepare(

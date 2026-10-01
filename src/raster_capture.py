@@ -45,6 +45,44 @@ def static_server(root: Path, host: str = "127.0.0.1"):
         thread.join(timeout=5)
 
 
+_MEASURE_JS = """
+(selector) => {
+  const origin = document.querySelector('#receipt').getBoundingClientRect();
+  return [...document.querySelectorAll(selector)].map((el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left - origin.left,
+      y: r.top - origin.top,
+      width: r.width,
+      height: r.height,
+      naturalWidth: el.naturalWidth ?? null,
+      naturalHeight: el.naturalHeight ?? null,
+    };
+  });
+}
+"""
+
+
+# Text line heights leave later elements at fractional y; Chromium then resamples
+# images painted there, which wrecks pre-dithered bitmaps.
+_SNAP_JS = """
+(selector) => {
+  const origin = document.querySelector('#receipt').getBoundingClientRect();
+  for (const el of document.querySelectorAll(selector)) {
+    const r = el.getBoundingClientRect();
+    const dx = Math.ceil(r.left - origin.left) - (r.left - origin.left);
+    const dy = Math.ceil(r.top - origin.top) - (r.top - origin.top);
+    if (!dx && !dy) continue;
+    // Offsets, not margins: a margin can collapse into a neighbour's and vanish.
+    const style = getComputedStyle(el);
+    if (style.position === 'static') el.style.position = 'relative';
+    el.style.left = `${(parseFloat(style.left) || 0) + dx}px`;
+    el.style.top = `${(parseFloat(style.top) || 0) + dy}px`;
+  }
+}
+"""
+
+
 def screenshot_receipt_dist(
     dist_dir: Path,
     *,
@@ -54,8 +92,32 @@ def screenshot_receipt_dist(
     device_scale_factor: float = 1.0,
 ) -> str:
     """Serve ``dist_dir``, open ``index_path``, write ``out_png``. Returns page URL."""
+    url, _ = capture_receipt(
+        dist_dir,
+        host=host,
+        index_path=index_path,
+        out_png=out_png,
+        device_scale_factor=device_scale_factor,
+    )
+    return url
+
+
+def capture_receipt(
+    dist_dir: Path,
+    *,
+    host: str = "127.0.0.1",
+    index_path: str = "/index.html",
+    out_png: Path,
+    device_scale_factor: float = 1.0,
+    measure_selector: str | None = None,
+    snap_selector: str | None = None,
+) -> tuple[str, list[dict]]:
+    """Like ``screenshot_receipt_dist``, plus CSS-pixel boxes (relative to ``#receipt``)
+    of every element matching ``measure_selector``. Elements matching
+    ``snap_selector`` are nudged onto whole pixels before the screenshot."""
     dist_dir = dist_dir.resolve()
     out_png.parent.mkdir(parents=True, exist_ok=True)
+    boxes: list[dict] = []
 
     with static_server(dist_dir, host=host) as port:
         url = f"http://{host}:{port}{index_path}"
@@ -68,7 +130,11 @@ def screenshot_receipt_dist(
                         viewport={"width": 384, "height": 720},
                     )
                     page.goto(url, wait_until="networkidle", timeout=60_000)
+                    if snap_selector:
+                        page.evaluate(_SNAP_JS, snap_selector)
                     page.locator("#receipt").screenshot(path=str(out_png))
+                    if measure_selector:
+                        boxes = page.evaluate(_MEASURE_JS, measure_selector)
                 finally:
                     browser.close()
         except Exception as e:
@@ -78,4 +144,4 @@ def screenshot_receipt_dist(
                     "Playwright Chromium is not installed. Run: uv run playwright install chromium"
                 ) from e
             raise
-    return url
+    return url, boxes

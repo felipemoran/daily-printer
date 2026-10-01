@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Photo receipt</title>
+<style>
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+}
+html, body { margin: 0; background: #fff; }
+#receipt {
+  box-sizing: border-box;
+  width: 384px;
+  padding: 12px 16px 24px;
+  color: #000;
+  font: 400 18px/1.35 'JetBrains Mono', monospace;
+}
+.band {
+  margin: 0 -16px 12px;
+  padding: 8px 16px;
+  background: #000;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.meta { display: flex; justify-content: space-between; font-size: 15px; }
+.frame { margin: 12px 0 6px; border: 3px solid #000; padding: 6px; }
+.frame img { display: block; image-rendering: pixelated; }
+.caption { text-align: center; font-size: 15px; font-style: italic; }
+.rule { border: 0; border-top: 2px dashed #000; margin: 14px 0; }
+.rule--double { border-top: 6px double #000; }
+h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+ul { margin: 0; padding-left: 1.2em; }
+.note {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border: 2px solid #000;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.footer { margin-top: 14px; text-align: center; font-size: 14px; }
+</style>
+</head>
+<body>
+<main id="receipt">
+  <div class="band">For you, friend</div>
+  <div class="meta"><span>No. 0042</span><span>30 SEP 2026</span></div>
+
+  <div class="frame"><div data-photo-slot><img data-photo src="photo.png" alt=""></div></div>
+  <div class="caption">a moment worth keeping</div>
+
+  <hr class="rule">
+  <h2>Today's specials</h2>
+  <ul>
+    <li>1 x good company</li>
+    <li>2 x bad jokes</li>
+    <li>&#8734; x coffee refills</li>
+  </ul>
+
+  <div class="note"><strong>Note:</strong> thermal paper fades in sunlight. Keep it in a book.</div>
+
+  <hr class="rule rule--double">
+  <div class="footer">thanks for being here &#9829;</div>
+</main>
+</body>
+</html>
