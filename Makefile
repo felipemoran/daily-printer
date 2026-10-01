@@ -1,7 +1,7 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample web-dev web-build setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample photo-compare photo-strip test web-dev web-build setup setup-web setup-playwright
 
 # Default: show help
 help:
@@ -20,6 +20,15 @@ dry-run: ## Fetch data and render; skip printer
 
 render-sample: ## Render the sample payload without printing
 	uv run src/scripts/receipt_print.py samples/receipt-sample.json --no-print
+
+photo-compare: ## Screen sheet of every dither method: make photo-compare PHOTO=me.jpg
+	uv run src/scripts/photo_print.py "$(PHOTO)" --compare
+
+photo-strip: ## Print a band per dither method: make photo-strip PHOTO=me.jpg
+	uv run src/scripts/photo_print.py "$(PHOTO)" --test-strip
+
+test: ## Run the unit tests
+	uv run python -m unittest discover -s tests
 
 # ── Web UI ────────────────────────────────────────────────────────────────────
 
