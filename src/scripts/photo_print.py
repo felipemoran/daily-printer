@@ -76,6 +76,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="drop the bottom dot of vertical runs to offset the head's heat smear",
     )
+    parser.add_argument(
+        "--erode-min-run",
+        type=int,
+        default=3,
+        help="only trim vertical runs at least this tall; 3 spares dither textures (default: %(default)s)",
+    )
     parser.add_argument("--no-print", action="store_true", help="only write preview PNGs")
     parser.add_argument(
         "--artifact-dir",
@@ -84,6 +90,8 @@ def _parse_args() -> argparse.Namespace:
         help="where previews go (default: artifacts/photo-<utc-timestamp>)",
     )
     args = parser.parse_args()
+    if args.erode_min_run < 2:
+        parser.error("--erode-min-run must be at least 2")
     if not 0 < args.gamma < math.inf:
         parser.error("--gamma must be a finite number greater than 0")
     return args
@@ -194,7 +202,7 @@ def main() -> None:
 
     bitmap = dither(gray, args.method)
     if args.erode:
-        bitmap = erode_bottom_edges(bitmap)
+        bitmap = erode_bottom_edges(bitmap, min_run=args.erode_min_run)
     if bitmap.height > TALL_WARNING_PX:
         print(
             f"WARNING: {bitmap.height} dots is about {bitmap.height // 80} cm of paper.",

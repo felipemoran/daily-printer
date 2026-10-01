@@ -82,6 +82,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="skip bottom-edge erosion (it offsets the print head's heat smear below strokes)",
     )
+    parser.add_argument(
+        "--erode-min-run",
+        type=int,
+        default=3,
+        help="only trim vertical runs at least this tall; 3 spares dither textures (default: %(default)s)",
+    )
     parser.add_argument("--no-print", action="store_true", help="only write PNGs")
     parser.add_argument(
         "--artifact-dir",
@@ -94,6 +100,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--gamma must be a finite number greater than 0")
     if args.dither == "photo" and args.photo is None:
         parser.error("--dither photo needs --photo")
+    if args.erode_min_run < 2:
+        parser.error("--erode-min-run must be at least 2")
     if args.method == "all" and args.dither != "page":
         parser.error("--method all only works with --dither page")
     return args
@@ -211,7 +219,7 @@ def main() -> None:
     text = ", ".join([
         args.font or "page fonts",
         "aliased" if args.aliased_text else "anti-aliased",
-        "no erosion" if args.no_erode else "erosion",
+        "no erosion" if args.no_erode else f"erosion run>={args.erode_min_run}",
     ])
     jobs: list[tuple[str | None, Image.Image]] = []
     if args.dither == "page":
@@ -219,7 +227,7 @@ def main() -> None:
         for method in METHODS if args.method == "all" else (args.method,):
             out = dither(page_gray, method)
             if not args.no_erode:
-                out = erode_bottom_edges(out)
+                out = erode_bottom_edges(out, min_run=args.erode_min_run)
             out.save(artifact_dir / f"page-{method}.png")
             jobs.append((f"dither: page / {method}, {text}", out))
     else:
@@ -231,12 +239,12 @@ def main() -> None:
             if problems or mismatches:
                 sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
             if not args.no_erode:
-                out = erode_bottom_edges(out)
+                out = erode_bottom_edges(out, min_run=args.erode_min_run)
                 out.save(artifact_dir / f"photo-{args.method}.png")
             jobs.append((f"dither: photo / {args.method}, {text}", out))
         else:
             if not args.no_erode:
-                out = erode_bottom_edges(out)
+                out = erode_bottom_edges(out, min_run=args.erode_min_run)
             out.save(artifact_dir / "threshold.png")
             jobs.append((f"dither: none (threshold), {text}", out))
 

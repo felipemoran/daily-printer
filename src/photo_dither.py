@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageFilter, ImageMorph, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageChops, ImageFilter, ImageOps, UnidentifiedImageError
 
 # (divisor, taps). Each tap is (dx, dy, weight); dx is mirrored on reversed rows.
 _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
@@ -22,9 +22,6 @@ _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
         (-2, 2, 1), (-1, 2, 2), (0, 2, 4), (1, 2, 2), (2, 2, 1),
     )),
 }
-
-# Black ink "on" after inversion: a black pixel with black above and white below turns white.
-_ERODE_BOTTOM = ImageMorph.MorphOp(patterns=["1:(.1. .1. .0.)->0"])
 
 METHODS = ("atkinson", "floyd-steinberg", "jarvis", "stucki", "bayer", "threshold")
 
@@ -158,16 +155,28 @@ def _bayer(gray: Image.Image, size: int = 8) -> Image.Image:
     return Image.frombytes("L", (width, height), bytes(out)).convert("1", dither=Image.Dither.NONE)
 
 
-def erode_bottom_edges(bitmap: Image.Image) -> Image.Image:
-    """Drop the bottom dot of every vertical black run of 2+ dots.
+def erode_bottom_edges(bitmap: Image.Image, *, min_run: int = 3) -> Image.Image:
+    """Drop the bottom dot of every vertical black run at least ``min_run`` dots tall.
 
     The head is still hot from the row it just burned, so the row below a
-    stroke prints dark; pre-removing it cancels that smear. Single-dot rows
-    (thin rules, isolated dither dots) are kept.
+    stroke prints dark; pre-removing it cancels that smear. Text stems are long
+    runs; dithered greys are mostly 1-2 dot runs, so ``min_run`` 3 spares them.
+    Pixels outside the image count as white.
     """
-    ink = ImageOps.invert(bitmap.convert("L"))
-    # MorphOp leaves the outermost pixel ring untouched; pad so edge columns are eroded too.
-    padded = ImageOps.expand(ink, border=1, fill=0)
-    _, eroded = _ERODE_BOTTOM.apply(padded)
-    eroded = eroded.crop((1, 1, 1 + bitmap.width, 1 + bitmap.height))
-    return ImageOps.invert(eroded).convert("1", dither=Image.Dither.NONE)
+    if min_run < 2:
+        raise ValueError(f"min_run must be >= 2, got {min_run}")
+    ink = bitmap.convert("L").point(lambda value: 255 if value < 128 else 0, mode="1")
+    run = ink
+    for rows_up in range(1, min_run):
+        run = ImageChops.logical_and(run, _shift_down(ink, rows_up))
+    below_is_white = ImageChops.invert(_shift_down(ink, -1).convert("L")).convert("1")
+    remove = ImageChops.logical_and(run, below_is_white)
+    kept_ink = ImageChops.subtract(ink.convert("L"), remove.convert("L"))
+    return kept_ink.point(lambda value: 0 if value else 255, mode="1")
+
+
+def _shift_down(image: Image.Image, rows: int) -> Image.Image:
+    """Move content down by ``rows`` (up when negative); vacated rows are 0."""
+    out = Image.new(image.mode, image.size, 0)
+    out.paste(image.crop((0, max(0, -rows), image.width, image.height - max(0, rows))), (0, max(0, rows)))
+    return out

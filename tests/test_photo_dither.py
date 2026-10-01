@@ -69,38 +69,56 @@ class DitherTest(unittest.TestCase):
             dither(Image.new("L", (4, 4)), "nope")
 
 
-def _erode_by_hand(bitmap: Image.Image) -> Image.Image:
+def _erode_by_hand(bitmap: Image.Image, min_run: int) -> Image.Image:
     source = bitmap.convert("L")
     width, height = source.size
     pixels = source.load()
+    black = lambda x, y: 0 <= y < height and pixels[x, y] == 0  # noqa: E731
     out = source.copy()
     written = out.load()
-    for y in range(1, height - 1):
+    for y in range(height):
         for x in range(width):
-            if pixels[x, y] == 0 and pixels[x, y - 1] == 0 and pixels[x, y + 1] == 255:
+            if all(black(x, y - k) for k in range(min_run)) and not black(x, y + 1):
                 written[x, y] = 255
     return out
 
 
 class ErodeBottomEdgesTest(unittest.TestCase):
-    def test_drops_bottom_dot_of_tall_runs_and_keeps_single_rows(self):
-        image = Image.new("L", (5, 6), 255)
-        for y in (1, 2, 3):
-            image.putpixel((1, y), 0)  # 3-dot vertical stroke
-        image.putpixel((3, 2), 0)  # isolated dot
-        out = erode_bottom_edges(image).convert("L")
-        self.assertEqual([out.getpixel((1, y)) for y in (1, 2, 3)], [0, 0, 255])
-        self.assertEqual(out.getpixel((3, 2)), 0)
+    def _column(self, image, x, rows):
+        return [image.getpixel((x, y)) for y in rows]
 
-    def test_matches_reference_rule_including_edge_columns(self):
+    def test_min_run_spares_short_runs_and_trims_tall_ones(self):
+        image = Image.new("L", (5, 8), 255)
+        for y in (1, 2):
+            image.putpixel((1, y), 0)  # 2-dot run: dither-like
+        for y in (1, 2, 3, 4):
+            image.putpixel((3, y), 0)  # 4-dot run: stem-like
+        two = erode_bottom_edges(image, min_run=2).convert("L")
+        three = erode_bottom_edges(image, min_run=3).convert("L")
+        self.assertEqual(self._column(two, 1, (1, 2)), [0, 255])
+        self.assertEqual(self._column(three, 1, (1, 2)), [0, 0])
+        self.assertEqual(self._column(three, 3, (1, 2, 3, 4)), [0, 0, 0, 255])
+
+    def test_run_touching_the_bottom_edge_is_trimmed(self):
+        image = Image.new("L", (1, 4), 255)
+        for y in (1, 2, 3):
+            image.putpixel((0, y), 0)
+        out = erode_bottom_edges(image, min_run=3).convert("L")
+        self.assertEqual(self._column(out, 0, range(4)), [255, 0, 0, 255])
+
+    def test_matches_reference_rule(self):
         gray = Image.linear_gradient("L").resize((96, 64))
-        bitmap = dither(gray, "atkinson")
         edge_band = Image.new("1", (96, 64), 1)
-        edge_band.paste(0, (0, 10, 96, 20))  # full-width black band touches both edges
-        for source in (bitmap, edge_band):
-            with self.subTest(size=source.size):
-                expected = _erode_by_hand(source).tobytes()
-                self.assertEqual(erode_bottom_edges(source).convert("L").tobytes(), expected)
+        edge_band.paste(0, (0, 10, 96, 20))
+        for source in (dither(gray, "atkinson"), edge_band):
+            for min_run in (2, 3, 4):
+                with self.subTest(size=source.size, min_run=min_run):
+                    expected = _erode_by_hand(source, min_run).tobytes()
+                    self.assertEqual(erode_bottom_edges(source, min_run=min_run).convert("L").tobytes(), expected)
+
+    def test_rejects_min_run_below_two(self):
+        with self.assertRaises(ValueError):
+            erode_bottom_edges(Image.new("1", (4, 4)), min_run=1)
 
 
 class PrepareTest(unittest.TestCase):
