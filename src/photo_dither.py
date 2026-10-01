@@ -39,7 +39,10 @@ def prepare(
     unsharp-mask percent; 0 disables it.
     """
     image = ImageOps.exif_transpose(image)
-    if image.mode in ("RGBA", "LA", "P"):
+    if image.mode.startswith("I;16") or image.mode == "I":
+        # convert("L") clips 16-bit values instead of scaling them.
+        image = image.convert("I").point(lambda value: value / 256)
+    if "A" in image.getbands() or "transparency" in image.info:
         image = image.convert("RGBA")
         background = Image.new("RGBA", image.size, (255, 255, 255, 255))
         image = Image.alpha_composite(background, image)
@@ -63,7 +66,7 @@ def dither(gray: Image.Image, method: str = "atkinson", *, serpentine: bool = Tr
     if gray.mode != "L":
         gray = gray.convert("L")
     if method == "threshold":
-        return gray.point(lambda value: 255 if value >= 128 else 0).convert("1", dither=Image.Dither.NONE)
+        return gray.point(lambda value: 255 if value >= 128 else 0, mode="1")
     if method == "bayer":
         return _bayer(gray)
     if method in _KERNELS:

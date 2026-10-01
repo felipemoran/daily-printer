@@ -10,6 +10,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,7 @@ from photo_dither import METHODS, dither, prepare  # noqa: E402
 from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
 
 STRIP_BAND_PX = 128  # 16 mm of paper per method
+TALL_WARNING_PX = 2400  # 30 cm of paper
 SHEET_SCALE = 2  # nearest-neighbour upscale so dots are visible on screen
 SHEET_COLUMNS = 3
 
@@ -45,7 +47,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=f"print a {STRIP_BAND_PX}px band of the photo per method, to judge on real paper",
     )
-    parser.add_argument("--method", choices=METHODS, default="atkinson", help="default: %(default)s")
+    parser.add_argument(
+        "--method",
+        choices=METHODS,
+        default="atkinson",
+        help="default: %(default)s; ignored with --compare and --test-strip",
+    )
     parser.add_argument(
         "--gamma",
         type=float,
@@ -71,7 +78,10 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="where previews go (default: artifacts/photo-<utc-timestamp>)",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not 0 < args.gamma < math.inf:
+        parser.error("--gamma must be a finite number greater than 0")
+    return args
 
 
 def _load(path: Path) -> Image.Image:
@@ -81,10 +91,10 @@ def _load(path: Path) -> Image.Image:
         image = Image.open(path)
         image.load()
         return image
-    except UnidentifiedImageError:
-        hint = ""
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        hint = f"\n  {error}"
         if path.suffix.lower() in (".heic", ".heif"):
-            hint = f"\n  Pillow cannot read HEIC. Convert it first:\n  sips -s format jpeg '{path}' --out '{path.with_suffix('.jpg')}'"
+            hint += f"\n  Pillow cannot read HEIC. Convert it first:\n  sips -s format jpeg '{path}' --out '{path.with_suffix('.jpg')}'"
         sys.exit(f"ERROR: not a readable image: {path}{hint}")
 
 
@@ -133,6 +143,17 @@ def _band(bitmap: Image.Image) -> Image.Image:
     return bitmap.crop((0, top, bitmap.width, top + height))
 
 
+def _print(send) -> None:
+    try:
+        with open_printer() as p:
+            send(p)
+            p.ln(3)
+    except SystemExit:
+        raise
+    except Exception as error:
+        sys.exit(f"ERROR: print failed: {error}")
+
+
 def main() -> None:
     args = _parse_args()
     gray = prepare(
@@ -162,24 +183,29 @@ def main() -> None:
         if args.no_print:
             print(f"Strip previews: {artifact_dir}")
             return
-        with open_printer() as p:
+
+        def send_strip(p) -> None:
             p.text(f"{stem}\n{settings}\n")
             for method, band in bands.items():
                 p.text(f"\n{method}\n")
                 p.image(band, center=False)
-            p.ln(3)
+
+        _print(send_strip)
         print(f"Printed test strip ({len(bands)} methods). Previews: {artifact_dir}")
         return
 
     bitmap = dither(gray, args.method)
+    if bitmap.height > TALL_WARNING_PX:
+        print(
+            f"WARNING: {bitmap.height} dots is about {bitmap.height // 80} cm of paper.",
+            file=sys.stderr,
+        )
     preview_path = artifact_dir / f"{stem}-{args.method}.png"
     bitmap.save(preview_path)
     if args.no_print:
         print(f"Preview: {preview_path}")
         return
-    with open_printer() as p:
-        p.image(bitmap, center=False)
-        p.ln(3)
+    _print(lambda p: p.image(bitmap, center=False))
     print(f"Printed {bitmap.width}x{bitmap.height} ({args.method}). Preview: {preview_path}")
 
 

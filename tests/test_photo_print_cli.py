@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,7 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 class PhotoPrintCliTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
         self.photo = self.tmp / "friends.jpg"
         Image.linear_gradient("L").convert("RGB").resize((600, 800)).save(self.photo)
         self.out = self.tmp / "out"
@@ -38,6 +40,21 @@ class PhotoPrintCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         with Image.open(self.out / "friends-bayer.png") as preview:
             self.assertEqual((preview.mode, preview.size), ("1", (384, 512)))
+
+    def test_rejects_invalid_gamma(self):
+        for value in ("0", "-1", "nan", "inf"):
+            with self.subTest(gamma=value):
+                result = _run(str(self.photo), "--gamma", value, "--no-print")
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("--gamma must be a finite number greater than 0", result.stderr)
+
+    def test_truncated_jpeg_reports_error_without_traceback(self):
+        broken = self.tmp / "broken.jpg"
+        broken.write_bytes(self.photo.read_bytes()[:500])
+        result = _run(str(broken), "--no-print", "--artifact-dir", str(self.out))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("ERROR: not a readable image", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_heic_gets_a_conversion_hint(self):
         fake = self.tmp / "IMG_0001.HEIC"

@@ -7,7 +7,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from photo_dither import METHODS, dither, prepare  # noqa: E402
+from photo_dither import _KERNELS, METHODS, _bayer_matrix, dither, prepare  # noqa: E402
 
 
 def _white_fraction(image: Image.Image) -> float:
@@ -43,6 +43,27 @@ class DitherTest(unittest.TestCase):
                 dark = _white_fraction(dither(Image.new("L", (64, 64), 60), method))
                 self.assertGreater(light, dark + 0.3)
 
+    def test_floyd_steinberg_golden_2x2(self):
+        # Hand-computed for a flat 2x2 at value 100. The serpentine pass runs
+        # row 1 right-to-left, so the mirrored 7/16 tap flips pixel (0, 1).
+        flat = Image.new("L", (2, 2), 100)
+        plain = dither(flat, "floyd-steinberg", serpentine=False).convert("L").tobytes()
+        snake = dither(flat, "floyd-steinberg", serpentine=True).convert("L").tobytes()
+        self.assertEqual(list(plain), [0, 255, 0, 0])
+        self.assertEqual(list(snake), [0, 255, 255, 0])
+
+    def test_kernels_diffuse_full_error_except_atkinson(self):
+        for name, (divisor, taps) in _KERNELS.items():
+            with self.subTest(kernel=name):
+                expected = 6 if name == "atkinson" else divisor
+                self.assertEqual(sum(weight for _, _, weight in taps), expected)
+
+    def test_bayer_matrix_is_the_standard_4x4(self):
+        self.assertEqual(
+            _bayer_matrix(4),
+            [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]],
+        )
+
     def test_unknown_method_names_the_choices(self):
         with self.assertRaisesRegex(ValueError, "atkinson"):
             dither(Image.new("L", (4, 4)), "nope")
@@ -68,6 +89,19 @@ class PrepareTest(unittest.TestCase):
     def test_transparent_background_becomes_paper_white(self):
         out = prepare(Image.new("RGBA", (100, 100), (0, 0, 0, 0)), width=50, contrast_cutoff=0, sharpen=0)
         self.assertEqual(out.getextrema(), (255, 255))
+
+    def test_transparent_palette_background_becomes_paper_white(self):
+        source = Image.new("PA", (100, 100), (0, 0))
+        out = prepare(source, width=50, contrast_cutoff=0, sharpen=0)
+        self.assertEqual(out.getextrema(), (255, 255))
+
+    def test_16bit_grayscale_is_scaled_not_clipped(self):
+        gradient = Image.linear_gradient("L").point(lambda value: value * 257, mode="I").convert("I;16")
+        out = prepare(gradient, width=64, contrast_cutoff=0, sharpen=0, gamma=1.0)
+        low, high = out.getextrema()
+        self.assertLess(low, 10)
+        self.assertGreater(high, 245)
+        self.assertAlmostEqual(sum(out.tobytes()) / (64 * 64), 127.5, delta=10)
 
     def test_gamma_above_one_lightens_midtones(self):
         gradient = Image.linear_gradient("L").convert("RGB")
