@@ -155,4 +155,7 @@ def open_printer():
             print(f"ERROR: BLE send failed — {e}")
             print("  • Printer powered on with BT enabled?")
             print("  • Paired and Terminal has Bluetooth permission?")
+            print("  • System Settings shows MPT-II as Connected? Click Disconnect (not Forget):")
+            print("    a Classic Bluetooth link stops the printer advertising over BLE.")
+            print("  • Printing an image? BLE garbles rasters; plug in the USB cable.")
             sys.exit(1)

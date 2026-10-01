@@ -1,7 +1,15 @@
 # Bluetooth Investigation — RESOLVED
 
-**Outcome:** BLE (GATT/MLDP) works. Classic BT SPP via `/dev/cu` does not.
+**Outcome:** BLE (GATT/MLDP) works for text. Classic BT SPP via `/dev/cu` does not.
 Use `open_printer()` from `src/printer.py` — it auto-selects USB or BLE.
+
+## Read first: how to connect (paper-tested 2026-10-01)
+
+- **Use the USB cable for images** (photos, rendered pages). USB is silent, instant, and prints rasters cleanly.
+- **Do not connect MPT-II in System Settings → Bluetooth.** While macOS holds a Classic link, the printer stops advertising over BLE and the scan reports `BLE printer "MPT-II" not found`. If Settings shows it as Connected, click **Disconnect** (not Forget). Pairing can stay.
+- **BLE prints text but garbles images.** Unpaced, a raster garbled after 1-2 lines. Paced at 800 B/s it printed slowly and correctly for a while, then garbled too.
+- **"Hexadecimal Dump" on paper** means the printer lost bytes, fell out of the image command, and read pixel data as commands until it hit the `GS ( A` test-print pattern. Power-cycle the printer to leave dump mode.
+- Open theory, untested: the BLE-to-serial bridge uses XON/XOFF, so every `0x11`/`0x13` byte in raster data is swallowed. Text rarely contains those bytes; dithered images contain many. Test: enter hex dump mode (hold FEED while powering on), send bytes `00`-`ff`, and check whether `11` and `13` are missing.
 
 ## What was tested
 

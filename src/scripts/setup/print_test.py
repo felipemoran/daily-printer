@@ -2,7 +2,7 @@
 print_test.py — Basic print test. Auto-selects USB or BLE.
 
 Run:
-    uv run python src/print_test.py
+    PYTHONPATH=src uv run python src/scripts/setup/print_test.py
 """
 
 from printer import open_printer
