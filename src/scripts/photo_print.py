@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from photo_dither import METHODS, PhotoError, dither, load, prepare  # noqa: E402
+from photo_dither import METHODS, PhotoError, dither, erode_bottom_edges, load, prepare  # noqa: E402
 from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
 
 STRIP_BAND_PX = 128  # 16 mm of paper per method
@@ -70,6 +70,11 @@ def _parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="percent of darkest/lightest pixels clipped by autocontrast, 0 to disable (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--erode",
+        action="store_true",
+        help="drop the bottom dot of vertical runs to offset the head's heat smear",
     )
     parser.add_argument("--no-print", action="store_true", help="only write preview PNGs")
     parser.add_argument(
@@ -188,6 +193,8 @@ def main() -> None:
         return
 
     bitmap = dither(gray, args.method)
+    if args.erode:
+        bitmap = erode_bottom_edges(bitmap)
     if bitmap.height > TALL_WARNING_PX:
         print(
             f"WARNING: {bitmap.height} dots is about {bitmap.height // 80} cm of paper.",

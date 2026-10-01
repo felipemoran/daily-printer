@@ -27,7 +27,7 @@ from PIL import Image, ImageChops
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from photo_dither import METHODS, PhotoError, dither, load, prepare  # noqa: E402
+from photo_dither import METHODS, PhotoError, dither, erode_bottom_edges, load, prepare  # noqa: E402
 from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
 from receipt_image import prepare_for_escpos  # noqa: E402
@@ -71,6 +71,11 @@ def _parse_args() -> argparse.Namespace:
         "--aliased-text",
         action="store_true",
         help="render text without anti-aliasing (crisp 1-bit glyphs)",
+    )
+    parser.add_argument(
+        "--no-erode",
+        action="store_true",
+        help="skip bottom-edge erosion (it offsets the print head's heat smear below strokes)",
     )
     parser.add_argument("--no-print", action="store_true", help="only write PNGs")
     parser.add_argument(
@@ -203,6 +208,8 @@ def main() -> None:
         page_gray = shot.convert("L")
         for method in METHODS if args.method == "all" else (args.method,):
             out = dither(page_gray, method)
+            if not args.no_erode:
+                out = erode_bottom_edges(out)
             out.save(artifact_dir / f"page-{method}.png")
             jobs.append((f"dither: page / {method}, {text}", out))
     else:
@@ -213,8 +220,13 @@ def main() -> None:
             print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
             if problems or mismatches:
                 sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
+            if not args.no_erode:
+                out = erode_bottom_edges(out)
+                out.save(artifact_dir / f"photo-{args.method}.png")
             jobs.append((f"dither: photo / {args.method}, {text}", out))
         else:
+            if not args.no_erode:
+                out = erode_bottom_edges(out)
             out.save(artifact_dir / "threshold.png")
             jobs.append((f"dither: none (threshold), {text}", out))
 

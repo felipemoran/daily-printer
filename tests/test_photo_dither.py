@@ -7,7 +7,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from photo_dither import _KERNELS, METHODS, _bayer_matrix, dither, prepare  # noqa: E402
+from photo_dither import _KERNELS, METHODS, _bayer_matrix, dither, erode_bottom_edges, prepare  # noqa: E402
 
 
 def _white_fraction(image: Image.Image) -> float:
@@ -67,6 +67,40 @@ class DitherTest(unittest.TestCase):
     def test_unknown_method_names_the_choices(self):
         with self.assertRaisesRegex(ValueError, "atkinson"):
             dither(Image.new("L", (4, 4)), "nope")
+
+
+def _erode_by_hand(bitmap: Image.Image) -> Image.Image:
+    source = bitmap.convert("L")
+    width, height = source.size
+    pixels = source.load()
+    out = source.copy()
+    written = out.load()
+    for y in range(1, height - 1):
+        for x in range(width):
+            if pixels[x, y] == 0 and pixels[x, y - 1] == 0 and pixels[x, y + 1] == 255:
+                written[x, y] = 255
+    return out
+
+
+class ErodeBottomEdgesTest(unittest.TestCase):
+    def test_drops_bottom_dot_of_tall_runs_and_keeps_single_rows(self):
+        image = Image.new("L", (5, 6), 255)
+        for y in (1, 2, 3):
+            image.putpixel((1, y), 0)  # 3-dot vertical stroke
+        image.putpixel((3, 2), 0)  # isolated dot
+        out = erode_bottom_edges(image).convert("L")
+        self.assertEqual([out.getpixel((1, y)) for y in (1, 2, 3)], [0, 0, 255])
+        self.assertEqual(out.getpixel((3, 2)), 0)
+
+    def test_matches_reference_rule_including_edge_columns(self):
+        gray = Image.linear_gradient("L").resize((96, 64))
+        bitmap = dither(gray, "atkinson")
+        edge_band = Image.new("1", (96, 64), 1)
+        edge_band.paste(0, (0, 10, 96, 20))  # full-width black band touches both edges
+        for source in (bitmap, edge_band):
+            with self.subTest(size=source.size):
+                expected = _erode_by_hand(source).tobytes()
+                self.assertEqual(erode_bottom_edges(source).convert("L").tobytes(), expected)
 
 
 class PrepareTest(unittest.TestCase):

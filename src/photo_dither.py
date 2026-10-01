@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageMorph, ImageOps, UnidentifiedImageError
 
 # (divisor, taps). Each tap is (dx, dy, weight); dx is mirrored on reversed rows.
 _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
@@ -22,6 +22,9 @@ _KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
         (-2, 2, 1), (-1, 2, 2), (0, 2, 4), (1, 2, 2), (2, 2, 1),
     )),
 }
+
+# Black ink "on" after inversion: a black pixel with black above and white below turns white.
+_ERODE_BOTTOM = ImageMorph.MorphOp(patterns=["1:(.1. .1. .0.)->0"])
 
 METHODS = ("atkinson", "floyd-steinberg", "jarvis", "stucki", "bayer", "threshold")
 
@@ -153,3 +156,18 @@ def _bayer(gray: Image.Image, size: int = 8) -> Image.Image:
         for x in range(width):
             out[row + x] = 255 if source[row + x] > row_thresholds[x % size] else 0
     return Image.frombytes("L", (width, height), bytes(out)).convert("1", dither=Image.Dither.NONE)
+
+
+def erode_bottom_edges(bitmap: Image.Image) -> Image.Image:
+    """Drop the bottom dot of every vertical black run of 2+ dots.
+
+    The head is still hot from the row it just burned, so the row below a
+    stroke prints dark; pre-removing it cancels that smear. Single-dot rows
+    (thin rules, isolated dither dots) are kept.
+    """
+    ink = ImageOps.invert(bitmap.convert("L"))
+    # MorphOp leaves the outermost pixel ring untouched; pad so edge columns are eroded too.
+    padded = ImageOps.expand(ink, border=1, fill=0)
+    _, eroded = _ERODE_BOTTOM.apply(padded)
+    eroded = eroded.crop((1, 1, 1 + bitmap.width, 1 + bitmap.height))
+    return ImageOps.invert(eroded).convert("1", dither=Image.Dither.NONE)
