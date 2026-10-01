@@ -55,12 +55,17 @@ def prepare(
     gamma: float = 1.3,
     sharpen: int = 100,
     contrast_cutoff: float = 1.0,
+    black_point: int = 0,
+    white_point: int = 255,
 ) -> Image.Image:
     """Return a grayscale image ``width`` px wide, toned for thermal paper.
 
     ``gamma`` > 1 lifts midtones to offset dot gain (printed dots bleed, so
-    prints come out darker than the screen preview). ``sharpen`` is an
-    unsharp-mask percent; 0 disables it.
+    prints come out darker than the screen preview). ``black_point`` and
+    ``white_point`` rescale the tones linearly into that range: near-black
+    areas keep white dots that dot gain would fill, and light skin keeps
+    dots instead of washing out. ``sharpen`` is an unsharp-mask
+    percent; 0 disables it.
     """
     image = ImageOps.exif_transpose(image)
     if image.mode.startswith("I;16") or image.mode == "I":
@@ -80,6 +85,9 @@ def prepare(
     if gamma != 1.0:
         lut = [round(255 * (value / 255) ** (1 / gamma)) for value in range(256)]
         gray = gray.point(lut)
+    if (black_point, white_point) != (0, 255):
+        span = white_point - black_point
+        gray = gray.point([round(black_point + value * span / 255) for value in range(256)])
     if sharpen > 0:
         gray = gray.filter(ImageFilter.UnsharpMask(radius=1.2, percent=sharpen, threshold=2))
     return gray

@@ -82,6 +82,18 @@ def _parse_args() -> argparse.Namespace:
         default=3,
         help="only trim vertical runs at least this tall; 3 spares dither textures (default: %(default)s)",
     )
+    parser.add_argument(
+        "--black-point",
+        type=int,
+        default=0,
+        help="map black to this grey (0-254) so dark areas keep detail on paper (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--white-point",
+        type=int,
+        default=255,
+        help="map white to this grey (1-255) so light skin keeps shading on paper (default: %(default)s)",
+    )
     parser.add_argument("--no-print", action="store_true", help="only write preview PNGs")
     parser.add_argument(
         "--artifact-dir",
@@ -90,6 +102,8 @@ def _parse_args() -> argparse.Namespace:
         help="where previews go (default: artifacts/photo-<utc-timestamp>)",
     )
     args = parser.parse_args()
+    if not 0 <= args.black_point < args.white_point <= 255:
+        parser.error("need 0 <= --black-point < --white-point <= 255")
     if args.erode_min_run < 2:
         parser.error("--erode-min-run must be at least 2")
     if not 0 < args.gamma < math.inf:
@@ -168,6 +182,8 @@ def main() -> None:
         gamma=args.gamma,
         sharpen=args.sharpen,
         contrast_cutoff=args.contrast_cutoff,
+        black_point=args.black_point,
+        white_point=args.white_point,
     )
     settings = f"gamma={args.gamma}  sharpen={args.sharpen}  cutoff={args.contrast_cutoff}"
 

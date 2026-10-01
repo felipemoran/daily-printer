@@ -85,6 +85,18 @@ def _parse_args() -> argparse.Namespace:
         help="photo autocontrast clip percent (default: %(default)s)",
     )
     parser.add_argument(
+        "--black-point",
+        type=int,
+        default=0,
+        help="map black to this grey (0-254) so dark areas keep detail on paper (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--white-point",
+        type=int,
+        default=255,
+        help="map white to this grey (1-255) so light skin keeps shading on paper (default: %(default)s)",
+    )
+    parser.add_argument(
         "--anti-aliased-text",
         dest="aliased_text",
         action="store_const",
@@ -152,6 +164,8 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not 0 < args.gamma < math.inf:
         parser.error("--gamma must be a finite number greater than 0")
+    if not 0 <= args.black_point < args.white_point <= 255:
+        parser.error("need 0 <= --black-point < --white-point <= 255")
     if args.dither == "photo" and args.photo is None:
         parser.error("--dither photo needs --photo")
     if args.font_file and not args.font:
@@ -283,6 +297,8 @@ def main() -> None:
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
+            black_point=args.black_point,
+            white_point=args.white_point,
         )
         bitmap = dither(gray, profile.method) if mode == "photo" else None
         (bitmap or gray).save(site_dir / "photo.png")
@@ -325,6 +341,9 @@ def main() -> None:
     if args.no_print:
         print(f"Artifacts: {artifact_dir}")
         return
+    if photo is not None:
+        tone = f"photo gamma {args.gamma}, range {args.black_point}-{args.white_point}, cutoff {args.contrast_cutoff}"
+        jobs = [(f"{label}; {tone}", image) for label, image in jobs]
     _print([(None if args.no_label else label, image) for label, image in jobs])
     print(f"Printed {len(jobs)} page(s). Artifacts: {artifact_dir}")
 

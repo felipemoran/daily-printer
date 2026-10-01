@@ -155,6 +155,14 @@ class PrepareTest(unittest.TestCase):
         self.assertGreater(high, 245)
         self.assertAlmostEqual(sum(out.tobytes()) / (64 * 64), 127.5, delta=10)
 
+    def test_tone_range_maps_black_and_white_to_the_given_greys(self):
+        halves = Image.new("RGB", (128, 128), "white")
+        halves.paste((0, 0, 0), (0, 0, 128, 64))
+        lifted = prepare(halves, width=64, gamma=1.0, sharpen=0, contrast_cutoff=0, black_point=64)
+        squeezed = prepare(halves, width=64, gamma=1.0, sharpen=0, contrast_cutoff=0, black_point=48, white_point=216)
+        self.assertEqual(lifted.getextrema(), (64, 255))
+        self.assertEqual(squeezed.getextrema(), (48, 216))
+
     def test_gamma_above_one_lightens_midtones(self):
         gradient = Image.linear_gradient("L").convert("RGB")
         neutral = prepare(gradient, width=64, gamma=1.0, sharpen=0, contrast_cutoff=0)
