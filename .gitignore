@@ -97,6 +97,7 @@ ipython_config.py
 node_modules/
 **/node_modules.bak/
 artifacts/
+/data/
 
 # UV
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
