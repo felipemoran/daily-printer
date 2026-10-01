@@ -16,6 +16,7 @@ BLE uses a Dummy buffer (commands accumulated, sent in bulk on context exit).
 The caller sees the same escpos API either way.
 """
 
+import os
 import sys
 import asyncio
 from contextlib import contextmanager
@@ -35,6 +36,10 @@ PRODUCT_ID = 0x0200
 BT_PRINTER_NAME = "MPT-II"
 MLDP_TX_CHAR    = "49535343-8841-43f4-a8d4-ecbe34729bb3"
 BLE_CHUNK_SIZE  = 20  # safe MTU floor for all BLE peripherals
+# MLDP is write-without-response with no flow control: sent faster than the
+# printer drains, an image garbles after a line or two. Override with the
+# DAILY_PRINTER_BLE_BPS env var when tuning.
+BLE_BYTES_PER_SECOND = 800
 
 # Print width: confirmed 384 dots by physical calibration (48 mm at 203 DPI).
 PRINT_WIDTH_DOTS = 384
@@ -50,6 +55,30 @@ def _apply_profile(p) -> None:
 
 def _usb_available() -> bool:
     return usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID) is not None
+
+
+def _ble_bytes_per_second() -> float:
+    raw = os.environ.get("DAILY_PRINTER_BLE_BPS")
+    if raw is None:
+        return BLE_BYTES_PER_SECOND
+    rate = float(raw)
+    if not rate > 0:
+        raise ValueError(f"DAILY_PRINTER_BLE_BPS must be > 0, got {raw!r}")
+    return rate
+
+
+async def _send_paced(write, data: bytes, *, chunk_size: int, bytes_per_second: float) -> None:
+    """Call ``write(chunk)`` for each chunk, holding the average rate to ``bytes_per_second``."""
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    sent = 0
+    for i in range(0, len(data), chunk_size):
+        chunk = data[i:i + chunk_size]
+        await write(chunk)
+        sent += len(chunk)
+        delay = start + sent / bytes_per_second - loop.time()
+        if delay > 0:
+            await asyncio.sleep(delay)
 
 
 async def _ble_find_and_send(data: bytes) -> None:
@@ -69,11 +98,13 @@ async def _ble_find_and_send(data: bytes) -> None:
     if not address:
         raise RuntimeError(f'BLE printer "{BT_PRINTER_NAME}" not found in scan.')
 
+    rate = _ble_bytes_per_second()
+    print(f"BLE: sending {len(data)} bytes at {rate:.0f} B/s (~{len(data) / rate:.0f}s)")
     async with BleakClient(address, timeout=10.0) as client:
-        for i in range(0, len(data), BLE_CHUNK_SIZE):
-            await client.write_gatt_char(
-                MLDP_TX_CHAR, data[i:i + BLE_CHUNK_SIZE], response=False
-            )
+        async def write(chunk: bytes) -> None:
+            await client.write_gatt_char(MLDP_TX_CHAR, chunk, response=False)
+
+        await _send_paced(write, data, chunk_size=BLE_CHUNK_SIZE, bytes_per_second=rate)
         await asyncio.sleep(0.5)  # let the BT stack flush before disconnect
 
 
