@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel fonts</title>
+<style>
+@font-face { font-family: 'JetBrains Mono'; src: url('fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Spleen 6x12'; src: url('fonts/pixel/spleen-6x12.woff2') format('woff2'); }
+@font-face { font-family: 'Spleen 8x16'; src: url('fonts/pixel/spleen-8x16.woff2') format('woff2'); }
+@font-face { font-family: 'Spleen 12x24'; src: url('fonts/pixel/spleen-12x24.woff2') format('woff2'); }
+@font-face { font-family: 'Departure Mono'; src: url('fonts/pixel/DepartureMono-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Cozette'; src: url('fonts/pixel/CozetteVector.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'Cozette'; src: url('fonts/pixel/CozetteVectorBold.ttf') format('truetype'); font-weight: 700; }
+html, body { margin: 0; background: #fff; }
+#receipt { box-sizing: border-box; width: 384px; padding: 4px 0 12px; color: #000; }
+.family { margin: 10px 0 4px; padding: 3px 8px; background: #000; color: #fff; font: 22px/26px 'Departure Mono'; }
+.tag { font: 11px/13px 'Departure Mono'; padding: 0 8px; }
+.row { padding: 0 8px 4px; white-space: nowrap; overflow: hidden; }
+</style>
+</head>
+<body>
+<main id="receipt"></main>
+<script>
+const SAMPLE = "Quick fox 0123 @18:30";
+const ROWS = [
+  ["Spleen 12x24", [["Spleen 12x24", 24, 400, "24px native (= Font A cell)"]]],
+  ["Spleen 6x12", [["Spleen 6x12", 12, 400, "12px native"], ["Spleen 6x12", 24, 400, "24px (2x)"]]],
+  ["Spleen 8x16", [["Spleen 8x16", 16, 400, "16px native"], ["Spleen 8x16", 32, 400, "32px (2x)"]]],
+  ["Departure Mono", [["Departure Mono", 11, 400, "11px native"], ["Departure Mono", 22, 400, "22px (2x)"], ["Departure Mono", 33, 400, "33px (3x)"]]],
+  ["Cozette", [["Cozette", 13, 400, "13px native"], ["Cozette", 26, 400, "26px (2x)"], ["Cozette", 26, 700, "26px (2x) bold"]]],
+  ["JetBrains Mono (now)", [["JetBrains Mono", 24, 400, "24px reference"]]],
+];
+const receipt = document.getElementById("receipt");
+for (const [name, variants] of ROWS) {
+  const header = document.createElement("div");
+  header.className = "family";
+  header.textContent = name;
+  receipt.append(header);
+  for (const [family, size, weight, note] of variants) {
+    const tag = document.createElement("div");
+    tag.className = "tag";
+    tag.textContent = note;
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.font = `${weight} ${size}px/${size + Math.round(size / 4)}px '${family}'`;
+    row.textContent = SAMPLE;
+    receipt.append(tag, row);
+  }
+}
+</script>
+</body>
+</html>
