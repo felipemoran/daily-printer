@@ -37,6 +37,23 @@ FONTS = _PROJECT_ROOT / "web" / "public" / "fonts"
 SLOT_SELECTOR = "[data-photo-slot]"
 PHOTO_SELECTOR = "img[data-photo]"
 
+# A 1-dot black outline around light text keeps thin white strokes from merging
+# into dithered or heat-smeared dark backgrounds.
+LIGHT_TEXT_HALO_JS = """
+() => {
+  const luminance = (color) => {
+    const [r, g, b, a = 1] = (color.match(/[\\d.]+/g) || []).map(Number);
+    return a === 0 ? 0 : (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  };
+  const halo = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+    .map(([x, y]) => `${x}px ${y}px 0 #000`).join(', ');
+  for (const el of document.querySelectorAll('#receipt, #receipt *')) {
+    const hasText = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+    if (hasText && luminance(getComputedStyle(el).color) > 0.6) el.style.textShadow = halo;
+  }
+}
+"""
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render an HTML page, dither it, print it.")
@@ -78,6 +95,11 @@ def _parse_args() -> argparse.Namespace:
         help="override every font on the page, e.g. Verdana",
     )
     parser.add_argument(
+        "--light-text-halo",
+        action="store_true",
+        help="outline light text in black so it stays readable over dithered backgrounds",
+    )
+    parser.add_argument(
         "--no-erode",
         action="store_true",
         help="skip bottom-edge erosion (it offsets the print head's heat smear below strokes)",
@@ -114,7 +136,14 @@ def _build_site(page_dir: Path, site_dir: Path) -> None:
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
 
 
-def _render(site_dir: Path, out_png: Path, selector: str, aliased_text: bool, font: str | None) -> list[dict]:
+def _render(
+    site_dir: Path,
+    out_png: Path,
+    selector: str,
+    aliased_text: bool,
+    font: str | None,
+    halo: bool = False,
+) -> list[dict]:
     _, boxes = capture_receipt(
         site_dir,
         out_png=out_png,
@@ -122,6 +151,7 @@ def _render(site_dir: Path, out_png: Path, selector: str, aliased_text: bool, fo
         snap_selector=PHOTO_SELECTOR,
         aliased_text=aliased_text,
         extra_css=f"#receipt, #receipt * {{ font-family: '{font}' !important; }}" if font else None,
+        prepare_js=LIGHT_TEXT_HALO_JS if halo else None,
     )
     return boxes
 
@@ -204,7 +234,7 @@ def main() -> None:
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font)
+    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font, args.light_text_halo)
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
@@ -219,6 +249,7 @@ def main() -> None:
     text = ", ".join([
         args.font or "page fonts",
         "aliased" if args.aliased_text else "anti-aliased",
+        *(["halo"] if args.light_text_halo else []),
         "no erosion" if args.no_erode else f"erosion run>={args.erode_min_run}",
     ])
     jobs: list[tuple[str | None, Image.Image]] = []

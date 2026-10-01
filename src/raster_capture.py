@@ -118,11 +118,13 @@ def capture_receipt(
     snap_selector: str | None = None,
     aliased_text: bool = False,
     extra_css: str | None = None,
+    prepare_js: str | None = None,
 ) -> tuple[str, list[dict]]:
     """Like ``screenshot_receipt_dist``, plus CSS-pixel boxes (relative to ``#receipt``)
     of every element matching ``measure_selector``. Elements matching
     ``snap_selector`` are nudged onto whole pixels before the screenshot.
-    ``aliased_text`` turns off text anti-aliasing; ``extra_css`` is injected after load."""
+    ``aliased_text`` turns off text anti-aliasing; ``extra_css`` is injected after load; ``prepare_js`` (a function
+    expression) runs after that, before snapping and the screenshot."""
     dist_dir = dist_dir.resolve()
     out_png.parent.mkdir(parents=True, exist_ok=True)
     boxes: list[dict] = []
@@ -143,6 +145,8 @@ def capture_receipt(
                     if extra_css:
                         page.add_style_tag(content=extra_css)
                         page.evaluate("document.fonts.ready")
+                    if prepare_js:
+                        page.evaluate(prepare_js)
                     if snap_selector:
                         page.evaluate(_SNAP_JS, snap_selector)
                     page.locator("#receipt").screenshot(path=str(out_png))
