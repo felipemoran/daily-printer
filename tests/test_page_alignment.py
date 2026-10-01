@@ -99,7 +99,7 @@ class LightTextHaloTest(unittest.TestCase):
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(f"http://127.0.0.1:{port}/index.html")
-            page.evaluate(page_print.LIGHT_TEXT_HALO_JS)
+            page.evaluate(page_print.text_effects_js(halo=True, faux_bold=False))
             light, dark = page.evaluate(probe)
             browser.close()
         self.assertIn("rgb(0, 0, 0)", light)

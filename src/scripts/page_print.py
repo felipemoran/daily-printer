@@ -37,22 +37,36 @@ FONTS = _PROJECT_ROOT / "web" / "public" / "fonts"
 SLOT_SELECTOR = "[data-photo-slot]"
 PHOTO_SELECTOR = "img[data-photo]"
 
-# A 1-dot black outline around light text keeps thin white strokes from merging
-# into dithered or heat-smeared dark backgrounds.
-LIGHT_TEXT_HALO_JS = """
+# Shadows are pixel-exact on aliased text. Faux-bold: a 1px-right copy turns
+# 1-dot stems into 2-dot stems. Halo: a 1-dot black outline keeps light text
+# from merging into dithered or heat-smeared dark backgrounds.
+_TEXT_EFFECTS_JS = """
 () => {
+  const HALO = %(halo)s, FAUX_BOLD = %(faux_bold)s;
   const luminance = (color) => {
     const [r, g, b, a = 1] = (color.match(/[\\d.]+/g) || []).map(Number);
     return a === 0 ? 0 : (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   };
-  const halo = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
-    .map(([x, y]) => `${x}px ${y}px 0 #000`).join(', ');
   for (const el of document.querySelectorAll('#receipt, #receipt *')) {
     const hasText = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
-    if (hasText && luminance(getComputedStyle(el).color) > 0.6) el.style.textShadow = halo;
+    if (!hasText) continue;
+    const color = getComputedStyle(el).color;
+    const shadows = FAUX_BOLD ? [`1px 0 0 ${color}`] : [];
+    if (HALO && luminance(color) > 0.6) {
+      for (let x = -1; x <= (FAUX_BOLD ? 2 : 1); x++)
+        for (let y = -1; y <= 1; y++)
+          if (x || y) shadows.push(`${x}px ${y}px 0 #000`);
+    }
+    if (shadows.length) el.style.textShadow = shadows.join(', ');
   }
 }
 """
+
+
+def text_effects_js(*, halo: bool, faux_bold: bool) -> str | None:
+    if not (halo or faux_bold):
+        return None
+    return _TEXT_EFFECTS_JS % {"halo": str(halo).lower(), "faux_bold": str(faux_bold).lower()}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -95,6 +109,18 @@ def _parse_args() -> argparse.Namespace:
         help="override every font on the page, e.g. Verdana",
     )
     parser.add_argument(
+        "--weight",
+        choices=("normal", "faux-bold", "bold"),
+        default="normal",
+        help="faux-bold widens every stem by 1 dot; bold forces font-weight 700 (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--page-gamma",
+        type=float,
+        default=1.0,
+        help="tone curve on the page before --dither page; <1 darkens light greys (default: %(default)s)",
+    )
+    parser.add_argument(
         "--light-text-halo",
         action="store_true",
         help="outline light text in black so it stays readable over dithered backgrounds",
@@ -122,6 +148,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--gamma must be a finite number greater than 0")
     if args.dither == "photo" and args.photo is None:
         parser.error("--dither photo needs --photo")
+    if not 0 < args.page_gamma < math.inf:
+        parser.error("--page-gamma must be a finite number greater than 0")
     if args.erode_min_run < 2:
         parser.error("--erode-min-run must be at least 2")
     if args.method == "all" and args.dither != "page":
@@ -143,15 +171,21 @@ def _render(
     aliased_text: bool,
     font: str | None,
     halo: bool = False,
+    weight: str = "normal",
 ) -> list[dict]:
+    css = []
+    if font:
+        css.append(f"#receipt, #receipt * {{ font-family: '{font}' !important; }}")
+    if weight == "bold":
+        css.append("#receipt, #receipt * { font-weight: 700 !important; }")
     _, boxes = capture_receipt(
         site_dir,
         out_png=out_png,
         measure_selector=selector,
         snap_selector=PHOTO_SELECTOR,
         aliased_text=aliased_text,
-        extra_css=f"#receipt, #receipt * {{ font-family: '{font}' !important; }}" if font else None,
-        prepare_js=LIGHT_TEXT_HALO_JS if halo else None,
+        extra_css="\n".join(css) or None,
+        prepare_js=text_effects_js(halo=halo, faux_bold=weight == "faux-bold"),
     )
     return boxes
 
@@ -162,9 +196,9 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(site_dir: Path, work_dir: Path, font: str | None) -> int:
+def _slot_width(site_dir: Path, work_dir: Path, font: str | None, weight: str) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font), SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font, weight=weight), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -225,7 +259,7 @@ def main() -> None:
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir, args.font),
+            width=_slot_width(site_dir, artifact_dir, args.font, args.weight),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
@@ -234,7 +268,9 @@ def main() -> None:
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font, args.light_text_halo)
+    boxes = _render(
+        site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font, args.light_text_halo, args.weight
+    )
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
@@ -249,12 +285,16 @@ def main() -> None:
     text = ", ".join([
         args.font or "page fonts",
         "aliased" if args.aliased_text else "anti-aliased",
+        *([args.weight] if args.weight != "normal" else []),
         *(["halo"] if args.light_text_halo else []),
+        *([f"page gamma {args.page_gamma}"] if args.page_gamma != 1.0 else []),
         "no erosion" if args.no_erode else f"erosion run>={args.erode_min_run}",
     ])
     jobs: list[tuple[str | None, Image.Image]] = []
     if args.dither == "page":
         page_gray = shot.convert("L")
+        if args.page_gamma != 1.0:
+            page_gray = page_gray.point([round(255 * (v / 255) ** (1 / args.page_gamma)) for v in range(256)])
         for method in METHODS if args.method == "all" else (args.method,):
             out = dither(page_gray, method)
             if not args.no_erode:
