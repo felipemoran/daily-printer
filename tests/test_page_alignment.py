@@ -115,6 +115,22 @@ class PagePrintNoPhotoTest(unittest.TestCase):
                 with Image.open(out / mode / artifact) as image:
                     self.assertEqual((image.mode, image.width), ("1", 384))
 
+    def test_font_override_changes_the_render(self):
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out)
+        renders = {}
+        for font in (None, "Verdana"):
+            args = ["--font", font] if font else []
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"),
+                 "--page", str(ROOT / "samples" / "ui-elements"), "--dither", "none", *args,
+                 "--no-print", "--artifact-dir", str(out / str(font))],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            renders[font] = (out / str(font) / "page.png").read_bytes()
+        self.assertNotEqual(renders[None], renders["Verdana"])
+
     def test_photo_dither_requires_a_photo(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"), "--dither", "photo", "--no-print"],

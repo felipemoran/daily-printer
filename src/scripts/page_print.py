@@ -73,6 +73,11 @@ def _parse_args() -> argparse.Namespace:
         help="render text without anti-aliasing (crisp 1-bit glyphs)",
     )
     parser.add_argument(
+        "--font",
+        default=None,
+        help="override every font on the page, e.g. Verdana",
+    )
+    parser.add_argument(
         "--no-erode",
         action="store_true",
         help="skip bottom-edge erosion (it offsets the print head's heat smear below strokes)",
@@ -101,13 +106,14 @@ def _build_site(page_dir: Path, site_dir: Path) -> None:
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
 
 
-def _render(site_dir: Path, out_png: Path, selector: str, aliased_text: bool) -> list[dict]:
+def _render(site_dir: Path, out_png: Path, selector: str, aliased_text: bool, font: str | None) -> list[dict]:
     _, boxes = capture_receipt(
         site_dir,
         out_png=out_png,
         measure_selector=selector,
         snap_selector=PHOTO_SELECTOR,
         aliased_text=aliased_text,
+        extra_css=f"#receipt, #receipt * {{ font-family: '{font}' !important; }}" if font else None,
     )
     return boxes
 
@@ -118,9 +124,9 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(site_dir: Path, work_dir: Path) -> int:
+def _slot_width(site_dir: Path, work_dir: Path, font: str | None) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False), SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -181,7 +187,7 @@ def main() -> None:
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir),
+            width=_slot_width(site_dir, artifact_dir, args.font),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
@@ -190,7 +196,7 @@ def main() -> None:
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text)
+    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font)
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
@@ -202,7 +208,11 @@ def main() -> None:
     for problem in problems:
         print(f"WARNING: {problem}", file=sys.stderr)
 
-    text = "aliased text" if args.aliased_text else "anti-aliased text"
+    text = ", ".join([
+        args.font or "page fonts",
+        "aliased" if args.aliased_text else "anti-aliased",
+        "no erosion" if args.no_erode else "erosion",
+    ])
     jobs: list[tuple[str | None, Image.Image]] = []
     if args.dither == "page":
         page_gray = shot.convert("L")
