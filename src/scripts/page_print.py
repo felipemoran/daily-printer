@@ -84,6 +84,22 @@ def font_scale_js(scale: float) -> str | None:
     return None if scale == 1.0 else _FONT_SCALE_JS % {"scale": scale}
 
 
+# Measured on aliased Verdana and Tahoma: bold gives 2-dot stems up to ~18px,
+# regular gives 2-dot stems from ~19px; past that bold reaches 3-4 dots.
+AUTO_WEIGHT_MAX_BOLD_PX = 18.5
+_AUTO_WEIGHT_JS = """
+() => {
+  const sized = [...document.querySelectorAll('#receipt, #receipt *')]
+    .map((el) => [el, parseFloat(getComputedStyle(el).fontSize)]);
+  for (const [el, size] of sized) el.style.fontWeight = size < %(max_bold)s ? '700' : '400';
+}
+"""
+
+
+def auto_weight_js() -> str:
+    return _AUTO_WEIGHT_JS % {"max_bold": AUTO_WEIGHT_MAX_BOLD_PX}
+
+
 def text_effects_js(*, halo: bool, faux_bold: bool) -> str | None:
     if not (halo or faux_bold):
         return None
@@ -143,9 +159,10 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--weight",
-        choices=("normal", "faux-bold", "bold"),
+        choices=("normal", "faux-bold", "bold", "auto"),
         default="normal",
-        help="faux-bold widens every stem by 1 dot; bold forces font-weight 700 (default: %(default)s)",
+        help="faux-bold widens every stem by 1 dot; bold forces font-weight 700; "
+        f"auto is bold below {AUTO_WEIGHT_MAX_BOLD_PX}px, regular above (default: %(default)s)",
     )
     parser.add_argument(
         "--page-gamma",
@@ -233,7 +250,11 @@ def _render(
         snap_selector=PHOTO_SELECTOR,
         aliased_text=aliased_text,
         extra_css="\n".join(css) or None,
-        prepare_js=_join_js(font_scale_js(font_scale), text_effects_js(halo=halo, faux_bold=weight == "faux-bold")),
+        prepare_js=_join_js(
+            font_scale_js(font_scale),
+            auto_weight_js() if weight == "auto" else None,
+            text_effects_js(halo=halo, faux_bold=weight == "faux-bold"),
+        ),
     )
     return boxes
 

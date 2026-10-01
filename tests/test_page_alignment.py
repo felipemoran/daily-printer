@@ -106,6 +106,28 @@ class LightTextHaloTest(unittest.TestCase):
         self.assertEqual(dark, "")
 
 
+class AutoWeightTest(unittest.TestCase):
+    def test_small_text_goes_bold_and_large_text_regular(self):
+        site = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, site)
+        (site / "index.html").write_text(
+            '<main id="receipt" style="width:384px">'
+            '<p id="small" style="font-size:16px">small</p><p id="large" style="font-size:24px">large</p></main>'
+        )
+        from playwright.sync_api import sync_playwright
+        from raster_capture import static_server
+        with static_server(site) as port, sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(f"http://127.0.0.1:{port}/index.html")
+            page.evaluate(page_print.auto_weight_js())
+            weights = page.evaluate(
+                "() => ['small', 'large'].map((id) => getComputedStyle(document.getElementById(id)).fontWeight)"
+            )
+            browser.close()
+        self.assertEqual(weights, ["700", "400"])
+
+
 class PagePrintCliTest(unittest.TestCase):
     def test_photo_mode_on_sample_page_is_pixel_exact(self):
         out = Path(tempfile.mkdtemp())
