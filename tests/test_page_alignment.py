@@ -75,12 +75,37 @@ class PagePrintCliTest(unittest.TestCase):
         Image.linear_gradient("L").convert("RGB").resize((500, 400)).save(photo)
         result = subprocess.run(
             [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"),
-             "--photo", str(photo), "--mode", "photo", "--no-print", "--artifact-dir", str(out / "run")],
+             "--photo", str(photo), "--dither", "photo", "--no-print", "--artifact-dir", str(out / "run")],
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("render + threshold: 0 of", result.stdout)
         self.assertNotIn("WARNING", result.stderr)
+
+
+class PagePrintNoPhotoTest(unittest.TestCase):
+    def test_ui_page_renders_with_and_without_dithering(self):
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out)
+        for mode, artifact in (("page", "page-atkinson.png"), ("none", "threshold.png")):
+            with self.subTest(dither=mode):
+                result = subprocess.run(
+                    [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"),
+                     "--page", str(ROOT / "samples" / "ui-elements"), "--dither", mode,
+                     "--no-print", "--artifact-dir", str(out / mode)],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                with Image.open(out / mode / artifact) as image:
+                    self.assertEqual((image.mode, image.width), ("1", 384))
+
+    def test_photo_dither_requires_a_photo(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"), "--dither", "photo", "--no-print"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--dither photo needs --photo", result.stderr)
 
 
 if __name__ == "__main__":

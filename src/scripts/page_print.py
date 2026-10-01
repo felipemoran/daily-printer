@@ -1,15 +1,16 @@
 """
-Render an HTML page with a photo (384 CSS px = 384 dots), dither, and print.
+Render an HTML page (384 CSS px = 384 dots), dither, and print.
 
-  --mode page   dither the whole screenshot, once per --method (default: all)
-  --mode photo  dither only the photo at its exact on-page size, then threshold the page
+  --dither page   dither the whole screenshot (--method all prints every method)
+  --dither photo  dither only the --photo at its exact on-page size, threshold the rest
+  --dither none   threshold the whole screenshot, as receipt_print does
 
-The page needs a #receipt element and one <img data-photo src="photo.png">
-inside a [data-photo-slot] block (see samples/photo-page/).
+With --photo, the page needs one <img data-photo src="photo.png"> inside a
+[data-photo-slot] block (see samples/photo-page/).
 
 Examples:
-  uv run src/scripts/page_print.py --photo data/me.jpg --mode page --no-print
-  uv run src/scripts/page_print.py --photo data/me.jpg --mode photo --method atkinson
+  uv run src/scripts/page_print.py --page samples/ui-elements --dither none
+  uv run src/scripts/page_print.py --photo data/me.jpg --dither photo
 """
 
 from __future__ import annotations
@@ -38,8 +39,8 @@ PHOTO_SELECTOR = "img[data-photo]"
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render an HTML page with a photo, dither it, print it.")
-    parser.add_argument("--photo", type=Path, required=True, help="photo shown in the page")
+    parser = argparse.ArgumentParser(description="Render an HTML page, dither it, print it.")
+    parser.add_argument("--photo", type=Path, default=None, help="photo for the page's img[data-photo]")
     parser.add_argument(
         "--page",
         type=Path,
@@ -47,16 +48,16 @@ def _parse_args() -> argparse.Namespace:
         help="directory with index.html (default: samples/photo-page)",
     )
     parser.add_argument(
-        "--mode",
-        choices=("page", "photo"),
+        "--dither",
+        choices=("page", "photo", "none"),
         default="page",
-        help="page: dither the whole render; photo: dither only the photo (default: %(default)s)",
+        help="what gets dithered (default: %(default)s)",
     )
     parser.add_argument(
         "--method",
         choices=(*METHODS, "all"),
-        default=None,
-        help="default: all for --mode page, atkinson for --mode photo",
+        default="atkinson",
+        help="default: %(default)s; 'all' only with --dither page",
     )
     parser.add_argument("--gamma", type=float, default=1.3, help="photo midtone lift (default: %(default)s)")
     parser.add_argument("--sharpen", type=int, default=100, help="photo unsharp-mask percent (default: %(default)s)")
@@ -76,10 +77,10 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not 0 < args.gamma < math.inf:
         parser.error("--gamma must be a finite number greater than 0")
-    if args.method is None:
-        args.method = "all" if args.mode == "page" else "atkinson"
-    if args.mode == "photo" and args.method == "all":
-        parser.error("--mode photo takes one --method")
+    if args.dither == "photo" and args.photo is None:
+        parser.error("--dither photo needs --photo")
+    if args.method == "all" and args.dither != "page":
+        parser.error("--method all only works with --dither page")
     return args
 
 
@@ -90,10 +91,14 @@ def _build_site(page_dir: Path, site_dir: Path) -> None:
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
 
 
-def _render(site_dir: Path, out_png: Path, selector: str) -> dict:
+def _render(site_dir: Path, out_png: Path, selector: str) -> list[dict]:
     _, boxes = capture_receipt(
         site_dir, out_png=out_png, measure_selector=selector, snap_selector=PHOTO_SELECTOR
     )
+    return boxes
+
+
+def _one(boxes: list[dict], selector: str) -> dict:
     if len(boxes) != 1:
         sys.exit(f"ERROR: page must contain exactly one {selector}, found {len(boxes)}")
     return boxes[0]
@@ -101,7 +106,7 @@ def _render(site_dir: Path, out_png: Path, selector: str) -> dict:
 
 def _slot_width(site_dir: Path, work_dir: Path) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _render(site_dir, work_dir / "measure.png", SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -146,50 +151,62 @@ def _print(jobs: list[tuple[str | None, Image.Image]]) -> None:
 
 def main() -> None:
     args = _parse_args()
-    try:
-        photo = load(args.photo)
-    except PhotoError as error:
-        sys.exit(f"ERROR: {error}")
+    photo = None
+    if args.photo:
+        try:
+            photo = load(args.photo)
+        except PhotoError as error:
+            sys.exit(f"ERROR: {error}")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"page-{stamp}").resolve()
     site_dir = artifact_dir / "site"
     _build_site(args.page.resolve(), site_dir)
 
-    width = _slot_width(site_dir, artifact_dir)
-    gray = prepare(
-        photo,
-        width=width,
-        gamma=args.gamma,
-        sharpen=args.sharpen,
-        contrast_cutoff=args.contrast_cutoff,
-    )
-    bitmap = dither(gray, args.method) if args.mode == "photo" else None
-    (bitmap or gray).save(site_dir / "photo.png")
+    gray = bitmap = None
+    if photo is not None:
+        gray = prepare(
+            photo,
+            width=_slot_width(site_dir, artifact_dir),
+            gamma=args.gamma,
+            sharpen=args.sharpen,
+            contrast_cutoff=args.contrast_cutoff,
+        )
+        bitmap = dither(gray, args.method) if args.dither == "photo" else None
+        (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    box = _render(site_dir, shot_path, PHOTO_SELECTOR)
+    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR)
     shot = Image.open(shot_path)
-    problems = alignment_problems(shot.width, box, gray.size)
-    print(f"Photo slot {gray.width}x{gray.height} at ({box['x']}, {box['y']}) on a {shot.width}px page")
+    print(f"Rendered {shot.width}x{shot.height} px")
+    problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
+    box = None
+    if gray is not None:
+        box = _one(boxes, PHOTO_SELECTOR)
+        problems = alignment_problems(shot.width, box, gray.size)
+        print(f"Photo slot {gray.width}x{gray.height} at ({box['x']}, {box['y']})")
     for problem in problems:
         print(f"WARNING: {problem}", file=sys.stderr)
 
     jobs: list[tuple[str | None, Image.Image]] = []
-    if args.mode == "page":
+    if args.dither == "page":
         page_gray = shot.convert("L")
         for method in METHODS if args.method == "all" else (args.method,):
             out = dither(page_gray, method)
             out.save(artifact_dir / f"page-{method}.png")
-            jobs.append((f"page dither: {method}", out))
+            jobs.append((f"dither: page / {method}", out))
     else:
         out = prepare_for_escpos(shot_path, target_width=PRINT_WIDTH_DOTS, dither=False)
-        out.save(artifact_dir / f"photo-{args.method}.png")
-        mismatches = mismatched_pixels(out, box, bitmap)
-        print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
-        if problems or mismatches:
-            sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
-        jobs.append((None, out))
+        if args.dither == "photo":
+            out.save(artifact_dir / f"photo-{args.method}.png")
+            mismatches = mismatched_pixels(out, box, bitmap)
+            print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
+            if problems or mismatches:
+                sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
+            jobs.append((f"dither: photo / {args.method}", out))
+        else:
+            out.save(artifact_dir / "threshold.png")
+            jobs.append(("dither: none (threshold)", out))
 
     if args.no_print:
         print(f"Artifacts: {artifact_dir}")

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UI elements</title>
+<style>
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+}
+html, body { margin: 0; background: #fff; }
+#receipt {
+  box-sizing: border-box;
+  width: 384px;
+  padding: 0 16px 20px;
+  color: #000;
+  font: 400 16px/1.35 'JetBrains Mono', monospace;
+}
+h2 { margin: 16px 0 6px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.hero {
+  margin: 0 -16px;
+  padding: 18px 16px;
+  background: linear-gradient(90deg, #000 0%, #fff 100%);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+}
+.hero small { display: block; font-size: 13px; font-weight: 400; }
+
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #fff; }
+.badge--red { background: #d62828; }
+.badge--blue { background: #1d4ed8; }
+.badge--green { background: #2a9d8f; }
+.badge--yellow { background: #f4d35e; color: #000; }
+.badge--outline { background: none; color: #000; border: 2px solid #000; }
+
+.bar { height: 16px; border: 2px solid #000; margin: 6px 0; }
+.bar > div { height: 100%; }
+.bar--25 > div { width: 25%; background: #333; }
+.bar--50 > div { width: 50%; background: #888; }
+.bar--75 > div { width: 75%; background: #ccc; }
+
+.card {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: #e6e6e6;
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 #000;
+}
+.card--soft { background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+
+.chart { display: flex; align-items: flex-end; gap: 6px; height: 90px; border-bottom: 2px solid #000; }
+.chart > div { flex: 1; }
+
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); height: 28px; border: 2px solid #000; }
+
+.orb {
+  width: 90px;
+  height: 90px;
+  margin: 8px auto 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #999 45%, #000 100%);
+}
+
+mark { background: #fde68a; padding: 0 2px; }
+.emoji { font-size: 28px; text-align: center; }
+.stripes {
+  height: 22px;
+  margin-top: 6px;
+  background: repeating-linear-gradient(45deg, #000 0 6px, #fff 6px 12px);
+}
+</style>
+</head>
+<body>
+<main id="receipt">
+  <div class="hero">Gradient header<small>linear black to white</small></div>
+
+  <h2>Badges</h2>
+  <div class="badges">
+    <span class="badge badge--red">urgent</span>
+    <span class="badge badge--blue">work</span>
+    <span class="badge badge--green">done</span>
+    <span class="badge badge--yellow">idea</span>
+    <span class="badge badge--outline">outline</span>
+  </div>
+
+  <h2>Progress</h2>
+  <div class="bar bar--25"><div></div></div>
+  <div class="bar bar--50"><div></div></div>
+  <div class="bar bar--75"><div></div></div>
+
+  <h2>Cards</h2>
+  <div class="card">Grey card with a hard shadow.</div>
+  <div class="card card--soft" style="margin-top: 14px">White card, soft blurred shadow.</div>
+
+  <h2>Chart</h2>
+  <div class="chart">
+    <div style="height: 30%; background: #222"></div>
+    <div style="height: 55%; background: #555"></div>
+    <div style="height: 80%; background: #888"></div>
+    <div style="height: 65%; background: #aaa"></div>
+    <div style="height: 95%; background: #ccc"></div>
+    <div style="height: 45%; background: linear-gradient(#000, #fff)"></div>
+  </div>
+
+  <h2>Grey ramp</h2>
+  <div class="swatches">
+    <div style="background: #000"></div><div style="background: #242424"></div>
+    <div style="background: #494949"></div><div style="background: #6d6d6d"></div>
+    <div style="background: #929292"></div><div style="background: #b6b6b6"></div>
+    <div style="background: #dbdbdb"></div><div style="background: #fff"></div>
+  </div>
+
+  <h2>Radial + pattern</h2>
+  <div class="orb"></div>
+  <div class="stripes"></div>
+
+  <h2>Text</h2>
+  <p style="margin: 0">Plain text, <strong>bold</strong>, <em>italic</em>, and <mark>highlighted</mark> words. <span style="color: #777">Grey text too.</span></p>
+  <div class="emoji">&#9749; &#127881; &#128247;</div>
+</main>
+</body>
+</html>
