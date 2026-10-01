@@ -137,6 +137,11 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help=f"only trim vertical runs at least this tall (default: {DEFAULT_PROFILE.erode_min_run})",
     )
+    parser.add_argument(
+        "--no-label",
+        action="store_true",
+        help="skip the settings line printed above each page (for keepsakes, not tests)",
+    )
     parser.add_argument("--no-print", action="store_true", help="only write PNGs")
     parser.add_argument(
         "--artifact-dir",
@@ -320,7 +325,7 @@ def main() -> None:
     if args.no_print:
         print(f"Artifacts: {artifact_dir}")
         return
-    _print(jobs)
+    _print([(None if args.no_label else label, image) for label, image in jobs])
     print(f"Printed {len(jobs)} page(s). Artifacts: {artifact_dir}")
 
 
