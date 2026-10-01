@@ -107,3 +107,5 @@ docs/setup-usb-macos-troubleshooting.md
 | Print width | 48 mm / **384 dots** at 203 DPI (confirmed by calibration) |
 | Library | `python-escpos` (v3.1+) + `bleak` (BLE) |
 | BLE TX char | `49535343-8841-43f4-a8d4-ecbe34729bb3` (MLDP) |
+| Images | USB cable only: BLE garbles rasters (`docs/setup-bluetooth-investigation.md`) |
+| Print settings | `src/print_profile.py`; why: `docs/research-print-quality.md` |

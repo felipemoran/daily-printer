@@ -44,7 +44,7 @@ uv run python src/scripts/receipt_print.py --help
 | `--artifact-dir DIR` | `artifacts/<UTC>/` e.g. `artifacts/20260413T120000Z` | Directory for **`payload.json`** (copy), **`receipt.png`**, **`preview.txt`**. Created if missing. |
 | `--no-print` | off | **Only** write artifacts; do **not** open the printer. Use this for safe iteration. |
 | `--no-build` | off | Skip **`npm run build`**; use whatever is already in **`web/dist/`** (faster when the UI is unchanged). |
-| `--dither` | off | **Floyd–Steinberg** dithering when converting the PNG to **1-bit** for ESC/POS; default is a simple threshold. |
+| `--legacy` | off | Pre-2026-10 raster: anti-aliased text, threshold at 200, no erosion. Default: `print_profile.DEFAULT_PROFILE` (aliased text, automatic weight, halo, Atkinson dithering, erosion; see `research-print-quality.md`). |
 | `--device-scale-factor N` | `1.0` | Playwright **`deviceScaleFactor`** (e.g. **`2`** for sharper screenshots; larger files / slower). |
 | `--max-height-px N` | `4000` | Reserved for **vertical splitting** of long rasters; **`split_raster_vertical`** is still a **stub** (always one strip). |
 
@@ -68,7 +68,7 @@ uv run python src/scripts/receipt_print.py --help
 4. Create **`artifact_dir`**; copy payload to **`artifact_dir/payload.json`** and **`web/dist/payload.json`** (**overwrites** the latter).
 5. Start a short-lived **HTTP server** on **`127.0.0.1`** with a **random port**, serving **`web/dist/`**.
 6. **Playwright** loads **`/index.html`**, waits for **`networkidle`**, **screenshot of `#receipt`** (height = laid-out content) → **`receipt.png`**.
-7. **Pillow**: resize to **384 px** width (`PRINT_WIDTH_DOTS`), then 1-bit (threshold or dither).
+7. **Pillow**: resize to **384 px** width (`PRINT_WIDTH_DOTS`), then 1-bit per the print profile → **`print.png`**.
 8. **`split_raster_vertical`** (stub): one strip.
 9. Unless **`--no-print`**, print each strip with **`p.image(...)`**, then **`ln(3)`** (no cut).
 
@@ -81,6 +81,7 @@ uv run python src/scripts/receipt_print.py --help
 | **`payload.json`** | Copy of the input payload (replay / audit). |
 | **`receipt.png`** | RGBA/RGB screenshot as captured (before 1-bit conversion used for printing). |
 | **`preview.txt`** | **`capture_url`** used during the run, path to saved payload, and **replay** hints. |
+| **`print.png`** | The 1-bit image sent to the printer (written with `--no-print` too). |
 
 ---
 

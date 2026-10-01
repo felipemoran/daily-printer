@@ -18,6 +18,7 @@ Previews go to `artifacts/photo-<utc>/`. That directory is gitignored.
 | `--gamma` | `1.3` | Midtone lift. Raise it if faces print muddy. |
 | `--sharpen` | `100` | Unsharp-mask percent. `0` disables it. |
 | `--contrast-cutoff` | `1.0` | Autocontrast clip percent. `0` disables it. |
+| `--black-point`, `--white-point` | `0`, `255` | Rescale tones into this range. Lifting black keeps dark areas from printing solid; the owner preferred the defaults (`research-print-quality.md`, E19). |
 | `--erode` | off | Trim the bottom dot of vertical runs to offset heat smear (see `feature-page-print.md`). |
 | `--erode-min-run` | `3` | Only trim runs at least this tall. |
 | `--compare` / `--test-strip` | off | Screen sheet / paper strip of every method. |
