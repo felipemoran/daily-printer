@@ -109,6 +109,12 @@ def _parse_args() -> argparse.Namespace:
         help="override every font on the page, e.g. Verdana",
     )
     parser.add_argument(
+        "--font-file",
+        type=Path,
+        default=None,
+        help="font file served to the page as the --font family (for fonts not installed)",
+    )
+    parser.add_argument(
         "--weight",
         choices=("normal", "faux-bold", "bold"),
         default="normal",
@@ -148,6 +154,10 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--gamma must be a finite number greater than 0")
     if args.dither == "photo" and args.photo is None:
         parser.error("--dither photo needs --photo")
+    if args.font_file and not args.font:
+        parser.error("--font-file needs --font to name the family")
+    if args.font_file and not args.font_file.is_file():
+        parser.error(f"--font-file not found: {args.font_file}")
     if not 0 < args.page_gamma < math.inf:
         parser.error("--page-gamma must be a finite number greater than 0")
     if args.erode_min_run < 2:
@@ -157,11 +167,14 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
-def _build_site(page_dir: Path, site_dir: Path) -> None:
+def _build_site(page_dir: Path, site_dir: Path, font_file: Path | None) -> None:
     if not (page_dir / "index.html").is_file():
         sys.exit(f"ERROR: no index.html in {page_dir}")
     shutil.copytree(page_dir, site_dir, dirs_exist_ok=True)
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
+    if font_file:
+        (site_dir / "fonts" / "override").mkdir(exist_ok=True)
+        shutil.copy2(font_file, site_dir / "fonts" / "override" / font_file.name)
 
 
 def _render(
@@ -172,8 +185,13 @@ def _render(
     font: str | None,
     halo: bool = False,
     weight: str = "normal",
+    font_file: Path | None = None,
 ) -> list[dict]:
     css = []
+    if font_file:
+        css.append(
+            f"@font-face {{ font-family: '{font}'; src: url('/fonts/override/{font_file.name}'); font-weight: 100 900; }}"
+        )
     if font:
         css.append(f"#receipt, #receipt * {{ font-family: '{font}' !important; }}")
     if weight == "bold":
@@ -196,9 +214,9 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(site_dir: Path, work_dir: Path, font: str | None, weight: str) -> int:
+def _slot_width(site_dir: Path, work_dir: Path, font: str | None, weight: str, font_file: Path | None) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font, weight=weight), SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font, weight=weight, font_file=font_file), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -253,13 +271,13 @@ def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"page-{stamp}").resolve()
     site_dir = artifact_dir / "site"
-    _build_site(args.page.resolve(), site_dir)
+    _build_site(args.page.resolve(), site_dir, args.font_file)
 
     gray = bitmap = None
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir, args.font, args.weight),
+            width=_slot_width(site_dir, artifact_dir, args.font, args.weight, args.font_file),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
@@ -269,7 +287,14 @@ def main() -> None:
 
     shot_path = artifact_dir / "page.png"
     boxes = _render(
-        site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text, args.font, args.light_text_halo, args.weight
+        site_dir,
+        shot_path,
+        PHOTO_SELECTOR,
+        args.aliased_text,
+        args.font,
+        args.light_text_halo,
+        args.weight,
+        args.font_file,
     )
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
