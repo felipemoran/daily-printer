@@ -67,6 +67,11 @@ def _parse_args() -> argparse.Namespace:
         default=1.0,
         help="photo autocontrast clip percent (default: %(default)s)",
     )
+    parser.add_argument(
+        "--aliased-text",
+        action="store_true",
+        help="render text without anti-aliasing (crisp 1-bit glyphs)",
+    )
     parser.add_argument("--no-print", action="store_true", help="only write PNGs")
     parser.add_argument(
         "--artifact-dir",
@@ -91,9 +96,13 @@ def _build_site(page_dir: Path, site_dir: Path) -> None:
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
 
 
-def _render(site_dir: Path, out_png: Path, selector: str) -> list[dict]:
+def _render(site_dir: Path, out_png: Path, selector: str, aliased_text: bool) -> list[dict]:
     _, boxes = capture_receipt(
-        site_dir, out_png=out_png, measure_selector=selector, snap_selector=PHOTO_SELECTOR
+        site_dir,
+        out_png=out_png,
+        measure_selector=selector,
+        snap_selector=PHOTO_SELECTOR,
+        aliased_text=aliased_text,
     )
     return boxes
 
@@ -106,7 +115,7 @@ def _one(boxes: list[dict], selector: str) -> dict:
 
 def _slot_width(site_dir: Path, work_dir: Path) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR), SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -176,7 +185,7 @@ def main() -> None:
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR)
+    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, args.aliased_text)
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
@@ -188,13 +197,14 @@ def main() -> None:
     for problem in problems:
         print(f"WARNING: {problem}", file=sys.stderr)
 
+    text = "aliased text" if args.aliased_text else "anti-aliased text"
     jobs: list[tuple[str | None, Image.Image]] = []
     if args.dither == "page":
         page_gray = shot.convert("L")
         for method in METHODS if args.method == "all" else (args.method,):
             out = dither(page_gray, method)
             out.save(artifact_dir / f"page-{method}.png")
-            jobs.append((f"dither: page / {method}", out))
+            jobs.append((f"dither: page / {method}, {text}", out))
     else:
         out = prepare_for_escpos(shot_path, target_width=PRINT_WIDTH_DOTS, dither=False)
         if args.dither == "photo":
@@ -203,10 +213,10 @@ def main() -> None:
             print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
             if problems or mismatches:
                 sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
-            jobs.append((f"dither: photo / {args.method}", out))
+            jobs.append((f"dither: photo / {args.method}, {text}", out))
         else:
             out.save(artifact_dir / "threshold.png")
-            jobs.append(("dither: none (threshold)", out))
+            jobs.append((f"dither: none (threshold), {text}", out))
 
     if args.no_print:
         print(f"Artifacts: {artifact_dir}")

@@ -83,6 +83,11 @@ _SNAP_JS = """
 """
 
 
+# Honoured by headless Chromium on macOS: glyphs come out 1-bit, so the
+# threshold neither fattens nor thins strokes.
+_ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
+
+
 def screenshot_receipt_dist(
     dist_dir: Path,
     *,
@@ -111,10 +116,12 @@ def capture_receipt(
     device_scale_factor: float = 1.0,
     measure_selector: str | None = None,
     snap_selector: str | None = None,
+    aliased_text: bool = False,
 ) -> tuple[str, list[dict]]:
     """Like ``screenshot_receipt_dist``, plus CSS-pixel boxes (relative to ``#receipt``)
     of every element matching ``measure_selector``. Elements matching
-    ``snap_selector`` are nudged onto whole pixels before the screenshot."""
+    ``snap_selector`` are nudged onto whole pixels before the screenshot.
+    ``aliased_text`` turns off text anti-aliasing."""
     dist_dir = dist_dir.resolve()
     out_png.parent.mkdir(parents=True, exist_ok=True)
     boxes: list[dict] = []
@@ -130,6 +137,8 @@ def capture_receipt(
                         viewport={"width": 384, "height": 720},
                     )
                     page.goto(url, wait_until="networkidle", timeout=60_000)
+                    if aliased_text:
+                        page.add_style_tag(content=_ALIASED_TEXT_CSS)
                     if snap_selector:
                         page.evaluate(_SNAP_JS, snap_selector)
                     page.locator("#receipt").screenshot(path=str(out_png))

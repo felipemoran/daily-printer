@@ -67,6 +67,22 @@ class PageAlignmentTest(unittest.TestCase):
         self.assertEqual(page_print.mismatched_pixels(page, box, self.bitmap), 0)
 
 
+class AliasedTextTest(unittest.TestCase):
+    def test_aliased_text_renders_only_black_and_white(self):
+        site = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, site)
+        (site / "index.html").write_text(
+            '<main id="receipt" style="width:384px;font:19px serif">Anti-aliasing would add greys here.</main>'
+        )
+        levels = {}
+        for aliased in (False, True):
+            capture_receipt(site, out_png=site / "shot.png", aliased_text=aliased)
+            with Image.open(site / "shot.png") as shot:
+                levels[aliased] = len(set(shot.convert("L").tobytes()))
+        self.assertGreater(levels[False], 2)
+        self.assertEqual(levels[True], 2)
+
+
 class PagePrintCliTest(unittest.TestCase):
     def test_photo_mode_on_sample_page_is_pixel_exact(self):
         out = Path(tempfile.mkdtemp())

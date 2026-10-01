@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Type specimen</title>
+<style>
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+}
+html, body { margin: 0; background: #fff; }
+#receipt { box-sizing: border-box; width: 384px; padding: 4px 8px 12px; color: #000; }
+.family {
+  margin: 10px -8px 4px;
+  padding: 3px 8px;
+  background: #000;
+  color: #fff;
+  font: 700 16px/20px Verdana, sans-serif;
+}
+.row { white-space: nowrap; overflow: hidden; }
+.tag { display: inline-block; width: 52px; font: 400 11px/14px Verdana, sans-serif; vertical-align: middle; }
+.on-black, .on-grey { margin: 4px -8px 0; padding: 4px 8px; color: #fff; font: 400 18px/24px Verdana, sans-serif; }
+.on-black { background: #000; }
+.on-grey { background: #808080; }
+</style>
+</head>
+<body>
+<main id="receipt"></main>
+<script>
+const FAMILIES = [
+  ["JetBrains Mono", "'JetBrains Mono', monospace"],
+  ["Verdana", "Verdana, sans-serif"],
+  ["Monaco", "Monaco, monospace"],
+  ["Helvetica", "Helvetica, sans-serif"],
+];
+const ROWS = [[14, 400], [18, 400], [24, 400], [32, 400], [14, 700], [18, 700], [24, 700]];
+const receipt = document.getElementById("receipt");
+for (const [name, stack] of FAMILIES) {
+  const header = document.createElement("div");
+  header.className = "family";
+  header.textContent = name;
+  receipt.append(header);
+  for (const [size, weight] of ROWS) {
+    const row = document.createElement("div");
+    row.className = "row";
+    // Whole-pixel line heights keep every row on the pixel grid.
+    row.style.font = `${weight} ${size}px/${Math.round(size * 1.3)}px ${stack}`;
+    row.innerHTML = `<span class="tag">${size}${weight === 700 ? "b" : ""}</span>Quick fox 0123`;
+    receipt.append(row);
+  }
+}
+for (const cls of ["on-black", "on-grey"]) {
+  const row = document.createElement("div");
+  row.className = cls;
+  row.textContent = cls === "on-black" ? "White on black: readable" : "White on 50% grey: is it?";
+  receipt.append(row);
+}
+</script>
+</body>
+</html>
