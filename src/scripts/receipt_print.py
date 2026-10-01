@@ -25,10 +25,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _SRC = _PROJECT_ROOT / "src"
 sys.path.insert(0, str(_SRC))
 
-from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
-from raster_capture import screenshot_receipt_dist  # noqa: E402
+from print_profile import DEFAULT_PROFILE, LEGACY_PROFILE, capture_options, load_gray, to_bitmap  # noqa: E402
+from printer import open_printer  # noqa: E402
+from raster_capture import capture_receipt  # noqa: E402
 from raster_split import split_raster_vertical  # noqa: E402
-from receipt_image import prepare_for_escpos  # noqa: E402
 
 DEFAULT_MAX_HEIGHT_PX = 4000  # ~50 cm at 8 dots/mm; tune with physical tests
 
@@ -75,9 +75,9 @@ def _parse_args() -> argparse.Namespace:
         help="Skip printer; only write artifacts",
     )
     p.add_argument(
-        "--dither",
+        "--legacy",
         action="store_true",
-        help="Use Floyd–Steinberg dithering when converting to 1-bit",
+        help="pre-2026-10 raster: anti-aliased text, threshold, no erosion",
     )
     p.add_argument(
         "--device-scale-factor",
@@ -146,11 +146,13 @@ def main() -> None:
     shutil.copy2(payload_path, dist_dir / "payload.json")
 
     out_png = artifact_dir / "receipt.png"
+    profile = LEGACY_PROFILE if args.legacy else DEFAULT_PROFILE
     try:
-        capture_url = screenshot_receipt_dist(
+        capture_url, _ = capture_receipt(
             dist_dir,
             out_png=out_png,
             device_scale_factor=args.device_scale_factor,
+            **capture_options(profile),
         )
     except Exception as e:
         print(f"ERROR: screenshot failed: {e}", file=sys.stderr)
@@ -174,11 +176,8 @@ def main() -> None:
     )
 
     try:
-        bitmap = prepare_for_escpos(
-            out_png,
-            target_width=PRINT_WIDTH_DOTS,
-            dither=args.dither,
-        )
+        bitmap = to_bitmap(load_gray(out_png), profile)
+        bitmap.save(artifact_dir / "print.png")
     except Exception as e:
         print(f"ERROR: image prepare failed: {e}", file=sys.stderr)
         sys.exit(1)

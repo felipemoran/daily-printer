@@ -14,22 +14,19 @@
 }
 
 .receipt {
-  /* 16px design base × scale; all em below are ratios to this */
-    font-size: calc(16px * var(--receipt-scale));
+  /* 18px text base (12px × scale), picked on paper: docs/research-print-quality.md.
+     All em below are ratios to this; the capture rounds sizes to whole pixels. */
+  font-size: calc(12px * var(--receipt-scale));
   box-sizing: border-box;
   width: 384px;
   margin: 0;
   padding: calc(10em / 16) 0 calc(18em / 16);
   background: #fff;
   color: #000;
-  font-family:
-    'JetBrains Mono',
-      ui-monospace,
-      SFMono-Regular,
-      Menlo,
-      Monaco,
-      Consolas,
-      monospace;
+  /* Tahoma is a macOS/Windows system font: render on a machine that has it. */
+  font-family: Tahoma, Verdana, sans-serif;
+  /* Same 1-bit glyphs as the print capture, so the dev preview matches paper. */
+  -webkit-font-smoothing: none;
   line-height: 1.35;
 }
 
@@ -62,7 +59,7 @@
 }
 
 .section-header {
-  font-size: 1em;
+  font-size: calc(17em / 16);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -101,7 +98,7 @@
   font-weight: 700;
 } */
 .task-meta {
-  font-size: calc(12em / 16);
+  font-size: calc(13em / 16);
   color: #000;
   margin-top: calc(3em / 16);
     padding-left: 0;
