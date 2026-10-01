@@ -154,6 +154,22 @@ class PagePrintNoPhotoTest(unittest.TestCase):
             renders[font] = (out / str(font) / "page.png").read_bytes()
         self.assertNotEqual(renders[None], renders["Verdana"])
 
+    def test_font_scale_makes_the_page_taller(self):
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out)
+        heights = {}
+        for scale in ("1.0", "1.2"):
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"),
+                 "--page", str(ROOT / "samples" / "photo-page"), "--dither", "none", "--font-scale", scale,
+                 "--no-print", "--artifact-dir", str(out / scale)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with Image.open(out / scale / "page.png") as page:
+                heights[scale] = page.height
+        self.assertGreater(heights["1.2"], heights["1.0"] * 1.05)
+
     def test_photo_dither_requires_a_photo(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "src" / "scripts" / "page_print.py"), "--dither", "photo", "--no-print"],

@@ -63,6 +63,27 @@ _TEXT_EFFECTS_JS = """
 """
 
 
+# Read every computed size first, then write: scaling while walking would
+# compound through inheritance. Whole pixels keep aliased glyphs even.
+_FONT_SCALE_JS = """
+() => {
+  const SCALE = %(scale)s;
+  const sized = [...document.querySelectorAll('#receipt, #receipt *')].map((el) => {
+    const style = getComputedStyle(el);
+    return [el, parseFloat(style.fontSize), style.lineHeight];
+  });
+  for (const [el, size, lineHeight] of sized) {
+    el.style.fontSize = `${Math.round(size * SCALE)}px`;
+    if (lineHeight.endsWith('px')) el.style.lineHeight = `${Math.round(parseFloat(lineHeight) * SCALE)}px`;
+  }
+}
+"""
+
+
+def font_scale_js(scale: float) -> str | None:
+    return None if scale == 1.0 else _FONT_SCALE_JS % {"scale": scale}
+
+
 def text_effects_js(*, halo: bool, faux_bold: bool) -> str | None:
     if not (halo or faux_bold):
         return None
@@ -115,6 +136,12 @@ def _parse_args() -> argparse.Namespace:
         help="font file served to the page as the --font family (for fonts not installed)",
     )
     parser.add_argument(
+        "--font-scale",
+        type=float,
+        default=1.0,
+        help="multiply every font size, rounded to whole pixels (default: %(default)s)",
+    )
+    parser.add_argument(
         "--weight",
         choices=("normal", "faux-bold", "bold"),
         default="normal",
@@ -158,6 +185,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--font-file needs --font to name the family")
     if args.font_file and not args.font_file.is_file():
         parser.error(f"--font-file not found: {args.font_file}")
+    if not 0 < args.font_scale < math.inf:
+        parser.error("--font-scale must be a finite number greater than 0")
     if not 0 < args.page_gamma < math.inf:
         parser.error("--page-gamma must be a finite number greater than 0")
     if args.erode_min_run < 2:
@@ -186,6 +215,7 @@ def _render(
     halo: bool = False,
     weight: str = "normal",
     font_file: Path | None = None,
+    font_scale: float = 1.0,
 ) -> list[dict]:
     css = []
     if font_file:
@@ -203,9 +233,16 @@ def _render(
         snap_selector=PHOTO_SELECTOR,
         aliased_text=aliased_text,
         extra_css="\n".join(css) or None,
-        prepare_js=text_effects_js(halo=halo, faux_bold=weight == "faux-bold"),
+        prepare_js=_join_js(font_scale_js(font_scale), text_effects_js(halo=halo, faux_bold=weight == "faux-bold")),
     )
     return boxes
+
+
+def _join_js(*scripts: str | None) -> str | None:
+    bodies = [script.strip() for script in scripts if script]
+    if not bodies:
+        return None
+    return "() => {\n" + "\n".join(f"({body})();" for body in bodies) + "\n}"
 
 
 def _one(boxes: list[dict], selector: str) -> dict:
@@ -214,9 +251,26 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(site_dir: Path, work_dir: Path, font: str | None, weight: str, font_file: Path | None) -> int:
+def _slot_width(
+    site_dir: Path,
+    work_dir: Path,
+    font: str | None,
+    weight: str,
+    font_file: Path | None,
+    font_scale: float,
+) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, False, font, weight=weight, font_file=font_file), SLOT_SELECTOR)
+    boxes = _render(
+        site_dir,
+        work_dir / "measure.png",
+        SLOT_SELECTOR,
+        False,
+        font,
+        weight=weight,
+        font_file=font_file,
+        font_scale=font_scale,
+    )
+    box = _one(boxes, SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -277,7 +331,7 @@ def main() -> None:
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir, args.font, args.weight, args.font_file),
+            width=_slot_width(site_dir, artifact_dir, args.font, args.weight, args.font_file, args.font_scale),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
@@ -295,6 +349,7 @@ def main() -> None:
         args.light_text_halo,
         args.weight,
         args.font_file,
+        args.font_scale,
     )
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
@@ -311,6 +366,7 @@ def main() -> None:
         args.font or "page fonts",
         "aliased" if args.aliased_text else "anti-aliased",
         *([args.weight] if args.weight != "normal" else []),
+        *([f"fonts x{args.font_scale}"] if args.font_scale != 1.0 else []),
         *(["halo"] if args.light_text_halo else []),
         *([f"page gamma {args.page_gamma}"] if args.page_gamma != 1.0 else []),
         "no erosion" if args.no_erode else f"erosion run>={args.erode_min_run}",
