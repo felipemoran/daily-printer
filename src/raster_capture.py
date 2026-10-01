@@ -88,25 +88,6 @@ _SNAP_JS = """
 _ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
 
 
-def screenshot_receipt_dist(
-    dist_dir: Path,
-    *,
-    host: str = "127.0.0.1",
-    index_path: str = "/index.html",
-    out_png: Path,
-    device_scale_factor: float = 1.0,
-) -> str:
-    """Serve ``dist_dir``, open ``index_path``, write ``out_png``. Returns page URL."""
-    url, _ = capture_receipt(
-        dist_dir,
-        host=host,
-        index_path=index_path,
-        out_png=out_png,
-        device_scale_factor=device_scale_factor,
-    )
-    return url
-
-
 def capture_receipt(
     dist_dir: Path,
     *,
@@ -120,8 +101,8 @@ def capture_receipt(
     extra_css: str | None = None,
     prepare_js: str | None = None,
 ) -> tuple[str, list[dict]]:
-    """Like ``screenshot_receipt_dist``, plus CSS-pixel boxes (relative to ``#receipt``)
-    of every element matching ``measure_selector``. Elements matching
+    """Serve ``dist_dir``, screenshot ``#receipt`` to ``out_png``; return the page URL and
+    CSS-pixel boxes (relative to ``#receipt``) of every element matching ``measure_selector``. Elements matching
     ``snap_selector`` are nudged onto whole pixels before the screenshot.
     ``aliased_text`` turns off text anti-aliasing; ``extra_css`` is injected after load; ``prepare_js`` (a function
     expression) runs after that, before snapping and the screenshot."""

@@ -41,7 +41,7 @@ uv run python src/scripts/receipt_print.py --help
 | Flag | Default | Effect |
 |------|---------|--------|
 | *(positional)* `payload_json` | — | Path to the receipt JSON file (must exist and parse as JSON). |
-| `--artifact-dir DIR` | `artifacts/<UTC>/` e.g. `artifacts/20260413T120000Z` | Directory for **`payload.json`** (copy), **`receipt.png`**, **`preview.txt`**. Created if missing. |
+| `--artifact-dir DIR` | `artifacts/<UTC>/` e.g. `artifacts/20260413T120000Z` | Directory for **`payload.json`** (copy), **`receipt.png`**, **`print.png`**, **`preview.txt`**. Created if missing. |
 | `--no-print` | off | **Only** write artifacts; do **not** open the printer. Use this for safe iteration. |
 | `--no-build` | off | Skip **`npm run build`**; use whatever is already in **`web/dist/`** (faster when the UI is unchanged). |
 | `--legacy` | off | Pre-2026-10 raster: anti-aliased text, threshold at 200, no erosion. Default: `print_profile.DEFAULT_PROFILE` (aliased text, automatic weight, halo, Atkinson dithering, erosion; see `research-print-quality.md`). |

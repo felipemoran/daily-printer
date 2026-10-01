@@ -7,8 +7,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from print_profile import DEFAULT_PROFILE, LEGACY_PROFILE, capture_options, load_gray, to_bitmap  # noqa: E402
-from receipt_image import prepare_for_escpos  # noqa: E402
+from print_profile import DEFAULT_PROFILE, LEGACY_PROFILE, capture_options, describe, load_gray, to_bitmap  # noqa: E402
 
 
 def _screenshot(path: Path) -> Path:
@@ -30,18 +29,25 @@ class ProfileTest(unittest.TestCase):
             ("page", "atkinson", True, True, "auto", 3),
         )
 
-    def test_legacy_reproduces_the_old_threshold_pipeline(self):
+    def test_legacy_thresholds_at_200_without_erosion(self):
         with tempfile.TemporaryDirectory() as tmp:
-            shot = _screenshot(Path(tmp) / "shot.png")
-            legacy = to_bitmap(load_gray(shot), LEGACY_PROFILE)
-            old = prepare_for_escpos(shot, target_width=384, dither=False)
-            self.assertEqual(legacy.convert("L").tobytes(), old.convert("L").tobytes())
+            gray = load_gray(_screenshot(Path(tmp) / "shot.png"))
+            legacy = to_bitmap(gray, LEGACY_PROFILE).convert("L")
+            expected = [255 if value > 200 else 0 for value in gray.tobytes()]
+            self.assertEqual(list(legacy.tobytes()), expected)
 
-    def test_legacy_capture_adds_nothing(self):
-        self.assertEqual(
-            capture_options(LEGACY_PROFILE),
-            {"aliased_text": False, "extra_css": None, "prepare_js": None},
-        )
+    def test_legacy_capture_forces_anti_aliasing_and_nothing_else(self):
+        options = capture_options(LEGACY_PROFILE)
+        self.assertEqual((options["aliased_text"], options["prepare_js"]), (False, None))
+        self.assertIn("-webkit-font-smoothing: antialiased", options["extra_css"])
+
+    def test_page_gamma_is_labelled_only_when_applied(self):
+        self.assertIn("page gamma", describe(DEFAULT_PROFILE.with_(page_gamma=0.8)))
+        self.assertNotIn("page gamma", describe(DEFAULT_PROFILE.with_(page_gamma=0.8, dither="none")))
+
+    def test_font_names_are_escaped_in_css(self):
+        css = capture_options(DEFAULT_PROFILE.with_(font="O'Font"))["extra_css"]
+        self.assertIn("'O\\'Font'", css)
 
     def test_default_capture_snaps_sizes_sets_weights_and_halo(self):
         script = capture_options(DEFAULT_PROFILE)["prepare_js"]

@@ -16,7 +16,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import print_profile  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
-from receipt_image import prepare_for_escpos  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("page_print", ROOT / "src" / "scripts" / "page_print.py")
 page_print = importlib.util.module_from_spec(_spec)
@@ -63,7 +62,7 @@ class PageAlignmentTest(unittest.TestCase):
 
     def test_snapped_bitmap_survives_render_and_threshold_exactly(self):
         shot, box = self._capture(snap=True)
-        page = prepare_for_escpos(shot, target_width=384, dither=False)
+        page = print_profile.threshold(print_profile.load_gray(shot))
         self.assertEqual(page_print.alignment_problems(page.width, box, self.bitmap.size), [])
         self.assertEqual(page_print.mismatched_pixels(page, box, self.bitmap), 0)
 
@@ -106,6 +105,29 @@ class LightTextHaloTest(unittest.TestCase):
         self.assertIn("rgb(0, 0, 0)", light)
         self.assertEqual(dark, "")
 
+    def test_dark_text_nested_in_light_text_gets_no_halo(self):
+        site = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, site)
+        (site / "index.html").write_text(
+            '<main id="receipt" style="width:384px;background:#888">'
+            '<p id="light" style="color:oklch(0.98 0 0)">Light <b id="dark" style="color:#000">dark</b>'
+            ' <i id="own" style="color:#000;text-shadow:2px 2px 0 red">own</i></p></main>'
+        )
+        from playwright.sync_api import sync_playwright
+        from raster_capture import static_server
+        with static_server(site) as port, sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(f"http://127.0.0.1:{port}/index.html")
+            page.evaluate(print_profile.text_effects_js(halo=True, faux_bold=False))
+            light, dark, own = page.evaluate(
+                "() => ['light', 'dark', 'own'].map((id) => getComputedStyle(document.getElementById(id)).textShadow)"
+            )
+            browser.close()
+        self.assertIn("rgb(0, 0, 0)", light)
+        self.assertEqual(dark, "none")
+        self.assertIn("rgb(255, 0, 0)", own)
+
 
 class AutoWeightTest(unittest.TestCase):
     def test_small_text_goes_bold_and_large_text_regular(self):
@@ -127,6 +149,23 @@ class AutoWeightTest(unittest.TestCase):
             )
             browser.close()
         self.assertEqual(weights, ["700", "400"])
+
+
+class LegacyAntiAliasingTest(unittest.TestCase):
+    def test_legacy_restores_anti_aliasing_on_pages_that_turn_it_off(self):
+        site = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, site)
+        (site / "index.html").write_text(
+            '<main id="receipt" style="width:384px;font:19px serif;-webkit-font-smoothing:none">'
+            "Greys only with anti-aliasing.</main>"
+        )
+        levels = {}
+        for name, profile in (("default", print_profile.DEFAULT_PROFILE), ("legacy", print_profile.LEGACY_PROFILE)):
+            capture_receipt(site, out_png=site / "shot.png", **print_profile.capture_options(profile))
+            with Image.open(site / "shot.png") as shot:
+                levels[name] = len(set(shot.convert("L").tobytes()))
+        self.assertEqual(levels["default"], 2)
+        self.assertGreater(levels["legacy"], 2)
 
 
 class PagePrintCliTest(unittest.TestCase):

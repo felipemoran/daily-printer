@@ -216,7 +216,7 @@ Document in **`web/README.md`**: how to build (`npm install`, `npm run build`), 
 ### Python dependencies (additive)
 
 - **`playwright`** (capture).
-- **`pillow`** (post-process before ESC/POS; see `receipt_image.py`).
+- **`pillow`** (post-process before ESC/POS; see `print_profile.py`).
 
 Use **`uv add playwright pillow`** (or optional dependency group **`[receipt-render]`** if you want a slimmer default install — your call at implementation time).
 

@@ -27,7 +27,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 from photo_dither import erode_bottom_edges  # noqa: E402
-from printer import _apply_profile, open_printer  # noqa: E402
+from printer import _apply_profile, _usb_available, open_printer  # noqa: E402
 
 
 def _esc7(dots: int, heat_time: int, interval: int) -> bytes:
@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("--test", choices=("esc7", "feed", "erosion"), required=True)
     args = parser.parse_args()
 
+    if not _usb_available():
+        sys.exit("ERROR: these tests need the USB cable; over BLE the timings and heat results mean nothing")
     image = Image.open(args.image).convert("L")
     if args.rows:
         top, bottom = map(int, args.rows.split(","))

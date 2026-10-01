@@ -14,7 +14,7 @@ Settings come from `print_profile.DEFAULT_PROFILE`, the same profile `daily_prin
 | `--anti-aliased-text` | off | Keep text anti-aliasing (default: aliased 1-bit glyphs) |
 | `--weight normal/bold/faux-bold/auto` | `auto` | `auto`: bold below 18.5 px, regular above, for 2-dot stems |
 | `--font`, `--font-file` | page fonts | Override every font; `--font-file` serves a font that is not installed |
-| `--font-scale` | `1.0` | Multiply font sizes; sizes always round to whole pixels |
+| `--font-scale` | `1.0` | Multiply font sizes; sizes round to whole pixels (except `--legacy` at 1.0) |
 | `--no-halo` | off | Skip the black outline around light text |
 | `--page-gamma` | `1.0` | Tone curve before whole-page dithering; below 1 darkens |
 | `--no-erode`, `--erode-min-run` | erode, `3` | Bottom-edge erosion against heat smear |

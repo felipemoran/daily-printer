@@ -16,6 +16,7 @@ BLE uses a Dummy buffer (commands accumulated, sent in bulk on context exit).
 The caller sees the same escpos API either way.
 """
 
+import math
 import os
 import sys
 import asyncio
@@ -61,9 +62,12 @@ def _ble_bytes_per_second() -> float:
     raw = os.environ.get("DAILY_PRINTER_BLE_BPS")
     if raw is None:
         return BLE_BYTES_PER_SECOND
-    rate = float(raw)
+    try:
+        rate = float(raw)
+    except ValueError:
+        rate = math.nan
     if not rate > 0:
-        raise ValueError(f"DAILY_PRINTER_BLE_BPS must be > 0, got {raw!r}")
+        raise ValueError(f"DAILY_PRINTER_BLE_BPS must be a number > 0, got {raw!r}")
     return rate
 
 
@@ -81,7 +85,7 @@ async def _send_paced(write, data: bytes, *, chunk_size: int, bytes_per_second: 
             await asyncio.sleep(delay)
 
 
-async def _ble_find_and_send(data: bytes) -> None:
+async def _ble_find_and_send(data: bytes, rate: float) -> None:
     """Single BLE session: scan → connect → send → flush → disconnect.
 
     Must be one session; two sequential asyncio.run() calls (two connections)
@@ -98,7 +102,6 @@ async def _ble_find_and_send(data: bytes) -> None:
     if not address:
         raise RuntimeError(f'BLE printer "{BT_PRINTER_NAME}" not found in scan.')
 
-    rate = _ble_bytes_per_second()
     print(f"BLE: sending {len(data)} bytes at {rate:.0f} B/s (~{len(data) / rate:.0f}s)")
     async with BleakClient(address, timeout=10.0) as client:
         async def write(chunk: bytes) -> None:
@@ -140,6 +143,16 @@ def open_printer():
 
     else:
         # --- BLE path ---
+        try:
+            rate = _ble_bytes_per_second()
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+        print(
+            "USB printer not found; falling back to Bluetooth (BLE). "
+            "Text prints; images usually garble over BLE. Plug in the USB cable for images.",
+            file=sys.stderr,
+        )
         p = Dummy()
         _apply_profile(p)
         p.hw("INIT")
@@ -150,7 +163,7 @@ def open_printer():
         if not data:
             return
         try:
-            asyncio.run(_ble_find_and_send(data))
+            asyncio.run(_ble_find_and_send(data, rate))
         except Exception as e:
             print(f"ERROR: BLE send failed — {e}")
             print("  • Printer powered on with BT enabled?")

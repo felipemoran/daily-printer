@@ -15,12 +15,19 @@ from printer import PRINT_WIDTH_DOTS
 
 # Shadows are pixel-exact on aliased text. Faux-bold: a 1px-right copy turns
 # 1-dot stems into 2-dot stems. Halo: a 1-dot black outline keeps light text
-# from merging into dithered or heat-smeared dark backgrounds.
+# from merging into dithered or heat-smeared dark backgrounds. text-shadow is
+# inherited, so dark text nested in haloed text is reset to none unless it
+# sets its own shadow. Colours go
+# through a canvas pixel because computed colours can stay in oklch() or color().
 _TEXT_EFFECTS_JS = """
 () => {
   const HALO = %(halo)s, FAUX_BOLD = %(faux_bold)s;
+  const probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
   const luminance = (color) => {
-    const [r, g, b, a = 1] = (color.match(/[\\d.]+/g) || []).map(Number);
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = color;
+    probe.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
     return a === 0 ? 0 : (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   };
   for (const el of document.querySelectorAll('#receipt, #receipt *')) {
@@ -33,7 +40,11 @@ _TEXT_EFFECTS_JS = """
         for (let y = -1; y <= 1; y++)
           if (x || y) shadows.push(`${x}px ${y}px 0 #000`);
     }
+    if (shadows.length > (FAUX_BOLD ? 1 : 0)) el.dataset.printHalo = '';
     if (shadows.length) el.style.textShadow = shadows.join(', ');
+    else if (el.parentElement && el.parentElement.closest('[data-print-halo]')
+             && getComputedStyle(el).textShadow === getComputedStyle(el.parentElement).textShadow)
+      el.style.textShadow = 'none';
   }
 }
 """
@@ -115,16 +126,23 @@ LEGACY_PROFILE = PrintProfile(
 )
 
 
+def _css_string(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
 def capture_options(profile: PrintProfile) -> dict:
     """Keyword arguments for ``raster_capture.capture_receipt``."""
     css = []
+    if not profile.aliased_text:
+        # Pages may turn smoothing off themselves (the receipt app does).
+        css.append("#receipt, #receipt * { -webkit-font-smoothing: antialiased !important; }")
     if profile.font_file:
         css.append(
-            f"@font-face {{ font-family: '{profile.font}'; "
+            f"@font-face {{ font-family: {_css_string(profile.font)}; "
             f"src: url('/fonts/override/{profile.font_file.name}'); font-weight: 100 900; }}"
         )
     if profile.font:
-        css.append(f"#receipt, #receipt * {{ font-family: '{profile.font}' !important; }}")
+        css.append(f"#receipt, #receipt * {{ font-family: {_css_string(profile.font)} !important; }}")
     if profile.weight == "bold":
         css.append("#receipt, #receipt * { font-weight: 700 !important; }")
     scale = profile.font_scale if (profile.font_scale != 1.0 or profile.snap_font_sizes) else None
@@ -184,7 +202,7 @@ def describe(profile: PrintProfile) -> str:
         parts.append(f"fonts x{profile.font_scale}")
     if profile.light_text_halo:
         parts.append("halo")
-    if profile.page_gamma != 1.0:
+    if profile.page_gamma != 1.0 and profile.dither == "page":
         parts.append(f"page gamma {profile.page_gamma}")
     parts.append("no erosion" if profile.erode_min_run is None else f"erosion run>={profile.erode_min_run}")
     return ", ".join(parts)

@@ -178,7 +178,8 @@ def _parse_args() -> argparse.Namespace:
             parser.error(f"--{name.replace('_', '-')} must be a finite number greater than 0")
     if args.erode_min_run is not None and args.erode_min_run < 2:
         parser.error("--erode-min-run must be at least 2")
-    if args.method == "all" and args.dither not in (None, "page"):
+    effective_dither = args.dither or (LEGACY_PROFILE if args.legacy else DEFAULT_PROFILE).dither
+    if args.method == "all" and effective_dither != "page":
         parser.error("--method all only works with --dither page")
     return args
 

@@ -44,7 +44,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--erode-min-run", type=int, default=3, help="0 disables erosion (default: %(default)s)")
     parser.add_argument("--no-print", action="store_true")
     parser.add_argument("--out", type=Path, default=_PROJECT_ROOT / "artifacts" / "tone-sweep.png")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not [value for value in args.values.split(",") if value.strip()]:
+        parser.error("--values needs at least one value")
+    if args.erode_min_run == 1 or args.erode_min_run < 0:
+        parser.error("--erode-min-run must be 0 (off) or at least 2")
+    return args
 
 
 def _settings(args: argparse.Namespace, value: str) -> dict:

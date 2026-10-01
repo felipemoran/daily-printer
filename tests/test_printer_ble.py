@@ -45,7 +45,7 @@ class RateOverrideTest(unittest.TestCase):
             self.assertEqual(_ble_bytes_per_second(), 1500)
 
     def test_rejects_non_positive_rate(self):
-        for raw in ("0", "-5", "nan"):
+        for raw in ("0", "-5", "nan", "abc"):
             with self.subTest(raw=raw), mock.patch.dict(os.environ, {"DAILY_PRINTER_BLE_BPS": raw}):
                 with self.assertRaises(ValueError):
                     _ble_bytes_per_second()
