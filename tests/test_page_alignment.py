@@ -14,6 +14,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+import print_profile  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
 from receipt_image import prepare_for_escpos  # noqa: E402
 
@@ -99,7 +100,7 @@ class LightTextHaloTest(unittest.TestCase):
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(f"http://127.0.0.1:{port}/index.html")
-            page.evaluate(page_print.text_effects_js(halo=True, faux_bold=False))
+            page.evaluate(print_profile.text_effects_js(halo=True, faux_bold=False))
             light, dark = page.evaluate(probe)
             browser.close()
         self.assertIn("rgb(0, 0, 0)", light)
@@ -120,7 +121,7 @@ class AutoWeightTest(unittest.TestCase):
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(f"http://127.0.0.1:{port}/index.html")
-            page.evaluate(page_print.auto_weight_js())
+            page.evaluate(print_profile.auto_weight_js())
             weights = page.evaluate(
                 "() => ['small', 'large'].map((id) => getComputedStyle(document.getElementById(id)).fontWeight)"
             )

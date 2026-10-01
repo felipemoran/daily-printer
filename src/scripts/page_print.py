@@ -1,15 +1,20 @@
 """
-Render an HTML page (384 CSS px = 384 dots), dither, and print.
+Render an HTML page (384 CSS px = 384 dots), convert it to 1-bit, and print.
+
+Defaults come from print_profile.DEFAULT_PROFILE (the settings picked on
+paper); every flag below overrides one setting. --legacy starts from the
+pre-2026-10 pipeline instead.
 
   --dither page   dither the whole screenshot (--method all prints every method)
   --dither photo  dither only the --photo at its exact on-page size, threshold the rest
-  --dither none   threshold the whole screenshot, as receipt_print does
+  --dither none   threshold the whole screenshot
 
 With --photo, the page needs one <img data-photo src="photo.png"> inside a
 [data-photo-slot] block (see samples/photo-page/).
 
 Examples:
-  uv run src/scripts/page_print.py --page samples/ui-elements --dither none
+  uv run src/scripts/page_print.py --page samples/ui-elements
+  uv run src/scripts/page_print.py --page web/dist --legacy
   uv run src/scripts/page_print.py --photo data/me.jpg --dither photo
 """
 
@@ -27,87 +32,30 @@ from PIL import Image, ImageChops
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from photo_dither import METHODS, PhotoError, dither, erode_bottom_edges, load, prepare  # noqa: E402
+from photo_dither import METHODS, PhotoError, dither, load, prepare  # noqa: E402
+from print_profile import (  # noqa: E402
+    AUTO_WEIGHT_MAX_BOLD_PX,
+    DEFAULT_PROFILE,
+    LEGACY_PROFILE,
+    PrintProfile,
+    capture_options,
+    describe,
+    erode,
+    load_gray,
+    threshold,
+    to_bitmap,
+)
 from printer import PRINT_WIDTH_DOTS, open_printer  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
-from receipt_image import prepare_for_escpos  # noqa: E402
 
 DEFAULT_PAGE = _PROJECT_ROOT / "samples" / "photo-page"
 FONTS = _PROJECT_ROOT / "web" / "public" / "fonts"
 SLOT_SELECTOR = "[data-photo-slot]"
 PHOTO_SELECTOR = "img[data-photo]"
 
-# Shadows are pixel-exact on aliased text. Faux-bold: a 1px-right copy turns
-# 1-dot stems into 2-dot stems. Halo: a 1-dot black outline keeps light text
-# from merging into dithered or heat-smeared dark backgrounds.
-_TEXT_EFFECTS_JS = """
-() => {
-  const HALO = %(halo)s, FAUX_BOLD = %(faux_bold)s;
-  const luminance = (color) => {
-    const [r, g, b, a = 1] = (color.match(/[\\d.]+/g) || []).map(Number);
-    return a === 0 ? 0 : (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  };
-  for (const el of document.querySelectorAll('#receipt, #receipt *')) {
-    const hasText = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
-    if (!hasText) continue;
-    const color = getComputedStyle(el).color;
-    const shadows = FAUX_BOLD ? [`1px 0 0 ${color}`] : [];
-    if (HALO && luminance(color) > 0.6) {
-      for (let x = -1; x <= (FAUX_BOLD ? 2 : 1); x++)
-        for (let y = -1; y <= 1; y++)
-          if (x || y) shadows.push(`${x}px ${y}px 0 #000`);
-    }
-    if (shadows.length) el.style.textShadow = shadows.join(', ');
-  }
-}
-"""
-
-
-# Read every computed size first, then write: scaling while walking would
-# compound through inheritance. Whole pixels keep aliased glyphs even.
-_FONT_SCALE_JS = """
-() => {
-  const SCALE = %(scale)s;
-  const sized = [...document.querySelectorAll('#receipt, #receipt *')].map((el) => {
-    const style = getComputedStyle(el);
-    return [el, parseFloat(style.fontSize), style.lineHeight];
-  });
-  for (const [el, size, lineHeight] of sized) {
-    el.style.fontSize = `${Math.round(size * SCALE)}px`;
-    if (lineHeight.endsWith('px')) el.style.lineHeight = `${Math.round(parseFloat(lineHeight) * SCALE)}px`;
-  }
-}
-"""
-
-
-def font_scale_js(scale: float) -> str | None:
-    return None if scale == 1.0 else _FONT_SCALE_JS % {"scale": scale}
-
-
-# Measured on aliased Verdana and Tahoma: bold gives 2-dot stems up to ~18px,
-# regular gives 2-dot stems from ~19px; past that bold reaches 3-4 dots.
-AUTO_WEIGHT_MAX_BOLD_PX = 18.5
-_AUTO_WEIGHT_JS = """
-() => {
-  const sized = [...document.querySelectorAll('#receipt, #receipt *')]
-    .map((el) => [el, parseFloat(getComputedStyle(el).fontSize)]);
-  for (const [el, size] of sized) el.style.fontWeight = size < %(max_bold)s ? '700' : '400';
-}
-"""
-
-
-def auto_weight_js() -> str:
-    return _AUTO_WEIGHT_JS % {"max_bold": AUTO_WEIGHT_MAX_BOLD_PX}
-
-
-def text_effects_js(*, halo: bool, faux_bold: bool) -> str | None:
-    if not (halo or faux_bold):
-        return None
-    return _TEXT_EFFECTS_JS % {"halo": str(halo).lower(), "faux_bold": str(faux_bold).lower()}
-
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render an HTML page, dither it, print it.")
+    parser = argparse.ArgumentParser(description="Render an HTML page, convert it to 1-bit, print it.")
     parser.add_argument("--photo", type=Path, default=None, help="photo for the page's img[data-photo]")
     parser.add_argument(
         "--page",
@@ -115,17 +63,18 @@ def _parse_args() -> argparse.Namespace:
         default=DEFAULT_PAGE,
         help="directory with index.html (default: samples/photo-page)",
     )
+    parser.add_argument("--legacy", action="store_true", help="start from the pre-2026-10 profile")
     parser.add_argument(
         "--dither",
         choices=("page", "photo", "none"),
-        default="page",
-        help="what gets dithered (default: %(default)s)",
+        default=None,
+        help="what gets dithered (default: page; none with --legacy)",
     )
     parser.add_argument(
         "--method",
         choices=(*METHODS, "all"),
-        default="atkinson",
-        help="default: %(default)s; 'all' only with --dither page",
+        default=None,
+        help=f"default: {DEFAULT_PROFILE.method}; 'all' only with --dither page",
     )
     parser.add_argument("--gamma", type=float, default=1.3, help="photo midtone lift (default: %(default)s)")
     parser.add_argument("--sharpen", type=int, default=100, help="photo unsharp-mask percent (default: %(default)s)")
@@ -136,15 +85,14 @@ def _parse_args() -> argparse.Namespace:
         help="photo autocontrast clip percent (default: %(default)s)",
     )
     parser.add_argument(
-        "--aliased-text",
-        action="store_true",
-        help="render text without anti-aliasing (crisp 1-bit glyphs)",
-    )
-    parser.add_argument(
-        "--font",
+        "--anti-aliased-text",
+        dest="aliased_text",
+        action="store_const",
+        const=False,
         default=None,
-        help="override every font on the page, e.g. Verdana",
+        help="keep text anti-aliasing (default: aliased 1-bit glyphs)",
     )
+    parser.add_argument("--font", default=None, help="override every font on the page, e.g. Verdana")
     parser.add_argument(
         "--font-file",
         type=Path,
@@ -154,26 +102,29 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--font-scale",
         type=float,
-        default=1.0,
-        help="multiply every font size, rounded to whole pixels (default: %(default)s)",
+        default=None,
+        help="multiply every font size; sizes are rounded to whole pixels (default: 1.0)",
     )
     parser.add_argument(
         "--weight",
         choices=("normal", "faux-bold", "bold", "auto"),
-        default="normal",
-        help="faux-bold widens every stem by 1 dot; bold forces font-weight 700; "
-        f"auto is bold below {AUTO_WEIGHT_MAX_BOLD_PX}px, regular above (default: %(default)s)",
+        default=None,
+        help="faux-bold widens every stem by 1 dot; bold forces 700; "
+        f"auto is bold below {AUTO_WEIGHT_MAX_BOLD_PX}px, regular above (default: auto)",
     )
     parser.add_argument(
         "--page-gamma",
         type=float,
-        default=1.0,
-        help="tone curve on the page before --dither page; <1 darkens light greys (default: %(default)s)",
+        default=None,
+        help="tone curve before --dither page; <1 darkens light greys (default: 1.0)",
     )
     parser.add_argument(
-        "--light-text-halo",
-        action="store_true",
-        help="outline light text in black so it stays readable over dithered backgrounds",
+        "--no-halo",
+        dest="light_text_halo",
+        action="store_const",
+        const=False,
+        default=None,
+        help="skip the black outline around light text",
     )
     parser.add_argument(
         "--no-erode",
@@ -183,8 +134,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--erode-min-run",
         type=int,
-        default=3,
-        help="only trim vertical runs at least this tall; 3 spares dither textures (default: %(default)s)",
+        default=None,
+        help=f"only trim vertical runs at least this tall (default: {DEFAULT_PROFILE.erode_min_run})",
     )
     parser.add_argument("--no-print", action="store_true", help="only write PNGs")
     parser.add_argument(
@@ -202,15 +153,33 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--font-file needs --font to name the family")
     if args.font_file and not args.font_file.is_file():
         parser.error(f"--font-file not found: {args.font_file}")
-    if not 0 < args.font_scale < math.inf:
-        parser.error("--font-scale must be a finite number greater than 0")
-    if not 0 < args.page_gamma < math.inf:
-        parser.error("--page-gamma must be a finite number greater than 0")
-    if args.erode_min_run < 2:
+    for name in ("font_scale", "page_gamma"):
+        value = getattr(args, name)
+        if value is not None and not 0 < value < math.inf:
+            parser.error(f"--{name.replace('_', '-')} must be a finite number greater than 0")
+    if args.erode_min_run is not None and args.erode_min_run < 2:
         parser.error("--erode-min-run must be at least 2")
-    if args.method == "all" and args.dither != "page":
+    if args.method == "all" and args.dither not in (None, "page"):
         parser.error("--method all only works with --dither page")
     return args
+
+
+def profile_from_args(args: argparse.Namespace) -> PrintProfile:
+    base = LEGACY_PROFILE if args.legacy else DEFAULT_PROFILE
+    changes = {
+        key: getattr(args, key)
+        for key in ("aliased_text", "light_text_halo", "weight", "font", "font_file", "font_scale", "page_gamma")
+        if getattr(args, key) is not None
+    }
+    if args.dither in ("page", "none"):
+        changes["dither"] = args.dither
+    if args.method not in (None, "all"):
+        changes["method"] = args.method
+    if args.erode_min_run is not None:
+        changes["erode_min_run"] = args.erode_min_run
+    if args.no_erode:
+        changes["erode_min_run"] = None
+    return base.with_(**changes)
 
 
 def _build_site(page_dir: Path, site_dir: Path, font_file: Path | None) -> None:
@@ -223,47 +192,15 @@ def _build_site(page_dir: Path, site_dir: Path, font_file: Path | None) -> None:
         shutil.copy2(font_file, site_dir / "fonts" / "override" / font_file.name)
 
 
-def _render(
-    site_dir: Path,
-    out_png: Path,
-    selector: str,
-    aliased_text: bool,
-    font: str | None,
-    halo: bool = False,
-    weight: str = "normal",
-    font_file: Path | None = None,
-    font_scale: float = 1.0,
-) -> list[dict]:
-    css = []
-    if font_file:
-        css.append(
-            f"@font-face {{ font-family: '{font}'; src: url('/fonts/override/{font_file.name}'); font-weight: 100 900; }}"
-        )
-    if font:
-        css.append(f"#receipt, #receipt * {{ font-family: '{font}' !important; }}")
-    if weight == "bold":
-        css.append("#receipt, #receipt * { font-weight: 700 !important; }")
+def _render(site_dir: Path, out_png: Path, selector: str, profile: PrintProfile) -> list[dict]:
     _, boxes = capture_receipt(
         site_dir,
         out_png=out_png,
         measure_selector=selector,
         snap_selector=PHOTO_SELECTOR,
-        aliased_text=aliased_text,
-        extra_css="\n".join(css) or None,
-        prepare_js=_join_js(
-            font_scale_js(font_scale),
-            auto_weight_js() if weight == "auto" else None,
-            text_effects_js(halo=halo, faux_bold=weight == "faux-bold"),
-        ),
+        **capture_options(profile),
     )
     return boxes
-
-
-def _join_js(*scripts: str | None) -> str | None:
-    bodies = [script.strip() for script in scripts if script]
-    if not bodies:
-        return None
-    return "() => {\n" + "\n".join(f"({body})();" for body in bodies) + "\n}"
 
 
 def _one(boxes: list[dict], selector: str) -> dict:
@@ -272,26 +209,9 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(
-    site_dir: Path,
-    work_dir: Path,
-    font: str | None,
-    weight: str,
-    font_file: Path | None,
-    font_scale: float,
-) -> int:
+def _slot_width(site_dir: Path, work_dir: Path, profile: PrintProfile) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    boxes = _render(
-        site_dir,
-        work_dir / "measure.png",
-        SLOT_SELECTOR,
-        False,
-        font,
-        weight=weight,
-        font_file=font_file,
-        font_scale=font_scale,
-    )
-    box = _one(boxes, SLOT_SELECTOR)
+    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, profile), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -336,6 +256,8 @@ def _print(jobs: list[tuple[str | None, Image.Image]]) -> None:
 
 def main() -> None:
     args = _parse_args()
+    profile = profile_from_args(args)
+    mode = args.dither or profile.dither
     photo = None
     if args.photo:
         try:
@@ -346,32 +268,22 @@ def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"page-{stamp}").resolve()
     site_dir = artifact_dir / "site"
-    _build_site(args.page.resolve(), site_dir, args.font_file)
+    _build_site(args.page.resolve(), site_dir, profile.font_file)
 
     gray = bitmap = None
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir, args.font, args.weight, args.font_file, args.font_scale),
+            width=_slot_width(site_dir, artifact_dir, profile),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
         )
-        bitmap = dither(gray, args.method) if args.dither == "photo" else None
+        bitmap = dither(gray, profile.method) if mode == "photo" else None
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(
-        site_dir,
-        shot_path,
-        PHOTO_SELECTOR,
-        args.aliased_text,
-        args.font,
-        args.light_text_halo,
-        args.weight,
-        args.font_file,
-        args.font_scale,
-    )
+    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, profile)
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]
@@ -383,43 +295,27 @@ def main() -> None:
     for problem in problems:
         print(f"WARNING: {problem}", file=sys.stderr)
 
-    text = ", ".join([
-        args.font or "page fonts",
-        "aliased" if args.aliased_text else "anti-aliased",
-        *([args.weight] if args.weight != "normal" else []),
-        *([f"fonts x{args.font_scale}"] if args.font_scale != 1.0 else []),
-        *(["halo"] if args.light_text_halo else []),
-        *([f"page gamma {args.page_gamma}"] if args.page_gamma != 1.0 else []),
-        "no erosion" if args.no_erode else f"erosion run>={args.erode_min_run}",
-    ])
+    page_gray = load_gray(shot_path)
     jobs: list[tuple[str | None, Image.Image]] = []
-    if args.dither == "page":
-        page_gray = shot.convert("L")
-        if args.page_gamma != 1.0:
-            page_gray = page_gray.point([round(255 * (v / 255) ** (1 / args.page_gamma)) for v in range(256)])
-        for method in METHODS if args.method == "all" else (args.method,):
-            out = dither(page_gray, method)
-            if not args.no_erode:
-                out = erode_bottom_edges(out, min_run=args.erode_min_run)
+    if mode == "photo":
+        out = threshold(page_gray)
+        mismatches = mismatched_pixels(out, box, bitmap)
+        print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
+        if problems or mismatches:
+            sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
+        out = erode(out, profile)
+        out.save(artifact_dir / f"photo-{profile.method}.png")
+        label = describe(profile.with_(dither="none")).replace("threshold", f"photo {profile.method}", 1)
+        jobs.append((label, out))
+    elif profile.dither == "page":
+        for method in METHODS if args.method == "all" else (profile.method,):
+            out = to_bitmap(page_gray, profile, method=method)
             out.save(artifact_dir / f"page-{method}.png")
-            jobs.append((f"dither: page / {method}, {text}", out))
+            jobs.append((describe(profile.with_(method=method)), out))
     else:
-        out = prepare_for_escpos(shot_path, target_width=PRINT_WIDTH_DOTS, dither=False)
-        if args.dither == "photo":
-            out.save(artifact_dir / f"photo-{args.method}.png")
-            mismatches = mismatched_pixels(out, box, bitmap)
-            print(f"Photo pixels changed by render + threshold: {mismatches} of {bitmap.width * bitmap.height}")
-            if problems or mismatches:
-                sys.exit("ERROR: photo is not pixel-exact on the page; not printing (see warnings above)")
-            if not args.no_erode:
-                out = erode_bottom_edges(out, min_run=args.erode_min_run)
-                out.save(artifact_dir / f"photo-{args.method}.png")
-            jobs.append((f"dither: photo / {args.method}, {text}", out))
-        else:
-            if not args.no_erode:
-                out = erode_bottom_edges(out, min_run=args.erode_min_run)
-            out.save(artifact_dir / "threshold.png")
-            jobs.append((f"dither: none (threshold), {text}", out))
+        out = to_bitmap(page_gray, profile)
+        out.save(artifact_dir / "threshold.png")
+        jobs.append((describe(profile), out))
 
     if args.no_print:
         print(f"Artifacts: {artifact_dir}")
