@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-swu0fw-get-receipt-set-1-tickets-1a-1n-out-of-claude-desi
 title: Get Receipt Set 1 (tickets 1a-1n) out of Claude Design
-status: operator
+status: done
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -27,5 +27,6 @@ The Artifact tool cannot open claude.ai/design links, and DesignSync may only ru
 ## Execution log
 
 - 2026-10-12T06:36:04+00:00: Asked operator (2026-10-12) for an export, DesignSync read permission, or an artifact link. Parked.
+- 2026-10-12T06:38:21+00:00: Operator exported the Claude Design project to ~/Downloads/Receipt printer content explorations.zip (2026-10-12): Receipt Set 1 with strips 1a-1n.
 
 ## Decisions

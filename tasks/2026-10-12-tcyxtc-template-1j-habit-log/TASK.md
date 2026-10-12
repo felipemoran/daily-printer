@@ -1,0 +1,32 @@
+---
+id: 2026-10-12-tcyxtc-template-1j-habit-log
+title: 'Template 1j: habit log'
+status: in-progress
+priority: 2
+created_date: 2026-10-12
+dependencies:
+- 2026-10-12-db5wwf-template-render-infrastructure-payload-render-page
+labels: []
+type: null
+parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
+scope: null
+phase: implementing
+---
+
+## Description
+
+Implement strip 1j of Receipt Set 1 as a named template on the template infrastructure, built from design-system components.
+
+## Acceptance check
+
+<!-- AC:BEGIN -->
+- [ ]
+<!-- AC:END -->
+
+## Planning
+
+## Execution log
+
+- 2026-10-12T07:09:18+00:00: Built llrzzm (habits.tsx, sample, 8 tests). Completion = done / non-skipped days; strip's 71% does not follow from its own data (sample prints 70%).
+
+## Decisions

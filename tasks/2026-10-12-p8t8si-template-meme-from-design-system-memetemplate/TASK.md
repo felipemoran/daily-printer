@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-p8t8si-template-meme-from-design-system-memetemplate
 title: 'Template: Meme (from design-system MemeTemplate)'
-status: pending
+status: draft
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -26,4 +26,8 @@ Port design-system/components/MemeTemplate/preview.html into a named template wi
 
 ## Execution log
 
+- 2026-10-12T06:46:49+00:00: Operator (2026-10-12): not in this run; do later.
+
 ## Decisions
+
+- 2026-10-12T06:38:21+00:00: Not in Receipt Set 1 (operator wants only the first iteration, 1a-1n). Gap: no template for this print type.

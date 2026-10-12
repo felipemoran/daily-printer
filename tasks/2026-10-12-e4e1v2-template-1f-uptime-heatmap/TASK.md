@@ -1,0 +1,32 @@
+---
+id: 2026-10-12-e4e1v2-template-1f-uptime-heatmap
+title: 'Template 1f: uptime heatmap'
+status: in-progress
+priority: 2
+created_date: 2026-10-12
+dependencies:
+- 2026-10-12-db5wwf-template-render-infrastructure-payload-render-page
+labels: []
+type: null
+parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
+scope: null
+phase: implementing
+---
+
+## Description
+
+Implement strip 1f of Receipt Set 1 as a named template on the template infrastructure, built from design-system components.
+
+## Acceptance check
+
+<!-- AC:BEGIN -->
+- [ ]
+<!-- AC:END -->
+
+## Planning
+
+## Execution log
+
+- 2026-10-12T07:09:30+00:00: Built zrzolw (uptime.tsx, sample, 4 tests). Label column 51px so 51 + 24x11 + 23x3 = 384 exactly; ticks placed by the template on whole-pixel cell starts.
+
+## Decisions
