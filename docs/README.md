@@ -10,8 +10,10 @@
 | [`feature-page-print.md`](feature-page-print.md) | **`page_print.py`**: render any page with the print profile; flags and page rules |
 | [`feature-design-system.md`](feature-design-system.md) | Thermal design system: mirror of Claude Design, sync, porting, printing |
 | [`feature-ticket-templates.md`](feature-ticket-templates.md) | Print templates: the 14 templates, payload, Python API, native text, adding a template, **`print_template.py`** |
+| [`feature-print-system.md`](feature-print-system.md) | Print server and devices: run locally, send jobs, **`printctl`**, admin page, limits |
 | [`research-print-quality.md`](research-print-quality.md) | Every print-quality test (2026-10): results, picks, open questions, redo checklist |
 | [`feature-todoist-tasks.md`](feature-todoist-tasks.md) | Todoist: API research and the integration that feeds the daily receipt and the `tasks` template |
+| [`setup-deploy.md`](setup-deploy.md) | Deploy the print server and printer devices: **`deploy/wizard.sh`**, services, files |
 | [`setup-bluetooth-investigation.md`](setup-bluetooth-investigation.md) | How to connect (USB for images, never connect in Settings); BLE notes |
 
 UI quick start: [`../web/README.md`](../web/README.md).

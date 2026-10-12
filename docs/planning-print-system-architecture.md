@@ -1,6 +1,6 @@
 # Planning: print system architecture
 
-Decided 2026-10-12. Nothing in this document is built yet.
+Decided 2026-10-12. Built 2026-10-12.
 
 ## Goals
 
@@ -57,7 +57,7 @@ These rules go into device firmware, so they are expensive to change later.
 
 - The writer of a job sets its expiry; the default is 1 hour. A job not confirmed before its expiry is dropped.
 - The server sends an unconfirmed job again when the device reconnects. It stops after 3 attempts in total and marks the job failed. A duplicate print is possible when a device dies between printing and confirming.
-- Manual controls, as a CLI: list queued jobs, cancel one job, clear a printer's queue. A web page is separate work.
+- Manual controls, in the CLI and in the admin web page at `/admin`: list queued jobs, cancel one job, clear a printer's queue.
 - The queue survives a server restart.
 
 ## Devices
@@ -135,7 +135,7 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 
 | Method and path | Who | Does |
 |---|---|---|
-| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt` or `image`), `title`, `expires_in` (seconds, default 3600), and `payload` (receipt JSON) or `image` (base64). Renders, then queues. 201 with the job. |
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image` or `template`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template`. Renders, then queues. 201 with the job. |
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
 | `GET /api/jobs/{id}` | admin | Job with its events |
 | `GET /api/jobs/{id}/image` | admin | The rendered 1-bit PNG |
@@ -148,10 +148,12 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 | `GET /api/clients` | admin | `{"clients": [{id, kind, jobs_today, last_job}]}`. Each configured client (`kind` `client`), then each web sender seen (`kind` `web`, `id` the email). `last_job` is `{id, title, kind, printer, created_at}` or null. |
 | `GET /api/server` | admin | `{version, started_at, uptime_seconds, renders_in_progress}`. A render waiting for a free slot counts as in progress. |
 | `GET /api/me` | web | The sender's email and the public printers |
-| `GET /` | web | The sender web form |
+| `GET /` | web, admin (Access email) | The sender web form |
 | `GET /admin` | anyone | The admin web page. It holds no data; its API calls need admin rights. |
+| `GET /admin/{name}` | anyone | The admin page's `admin.css` and `admin.js` |
+| `GET /device` | device | The device WebSocket (see below) |
 
-Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit.
+Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit, 500 server fault (a generic message; the traceback goes only to the server log).
 
 ### Job record
 
@@ -163,7 +165,7 @@ Events (`job_id`, `at`, `event`, `detail`): `received`, `rendered`, `sending`, `
 
 ### Printer state
 
-From the config: `id`, `name`, `place`, `public`. Kept by the server: `online`, `connected_since`, `last_seen`, `address`, `route` (`tunnel` when the request carries a `Cf-Ray` header, otherwise `direct`), `latency_ms`, `client_version`, `current_job`, `queued`, `printed_today`.
+From the config: `id`, `name`, `place`, `public`. Kept by the server: `online`, `connected_since`, `last_seen`, `address`, `route` (`tunnel` when the request carries a `Cf-Ray` header, otherwise `direct`), `latency_ms`, `client_version`, `current_job`, `paused_until` (the epoch time when delivery resumes, 60 s after a device error or a reply timeout, or null), `queued`, `printed_today`.
 
 ### Stats
 
