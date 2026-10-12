@@ -8,7 +8,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
 
 def _pick_free_port(host: str = "127.0.0.1") -> int:
@@ -99,7 +99,9 @@ async () => {
       const source = /url\\((["']?)([^"')]+)\\1\\)/.exec(rule.style.getPropertyValue('src'));
       const url = source && new URL(source[2], sheet.href ?? document.baseURI).href;
       if (!url || !fetched.has(url)) continue;
-      const blob = await (await fetch(url)).blob();
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`the font ${url} answered HTTP ${response.status}`);
+      const blob = await response.blob();
       const data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -118,7 +120,10 @@ async () => {
 
 def snapshot_mhtml(page) -> bytes:
     """The page with its style sheets, images and the fonts it fetched, as Chromium's MHTML."""
-    page.evaluate(_INLINE_FONTS_JS)
+    try:
+        page.evaluate(_INLINE_FONTS_JS)
+    except PlaywrightError as error:
+        raise RuntimeError(f"cannot put the page's fonts in its MHTML snapshot: {error.message}") from None
     session = page.context.new_cdp_session(page)
     try:
         return session.send("Page.captureSnapshot", {"format": "mhtml"})["data"].encode()
@@ -170,10 +175,10 @@ def capture_receipt(
                     if snap_selector:
                         page.evaluate(_SNAP_JS, snap_selector)
                     page.locator("#receipt").screenshot(path=str(out_png))
-                    if out_mhtml:
-                        out_mhtml.write_bytes(snapshot_mhtml(page))
                     if measure_selector:
                         boxes = page.evaluate(_MEASURE_JS, measure_selector)
+                    if out_mhtml:
+                        out_mhtml.write_bytes(snapshot_mhtml(page))
                 finally:
                     browser.close()
         except Exception as e:
