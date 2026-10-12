@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-8sz28a-integrate-the-design-system-session-s-work-workspa
 title: Integrate the design-system session's work (workspace design-system__daily-printer) with the print system
-status: pending
+status: in-progress
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-6t1a04-print-system-server-devices-cli-web-form-simulatio
 scope: null
-phase: null
+phase: implementing
 ---
 
 ## Description
@@ -29,6 +29,8 @@ Operator request: merge the parallel design-system stream into this branch so th
 
 - 2026-10-12T06:35:21+00:00: Proposed to design-system session: kind 'template', payload {template, schemaVersion, data}; their module (suggested src/ticket_templates.py) validates (single site) and renders to a 1-bit 384-wide PIL image via a page I own per worker thread; TemplateError -> 422; fail fast (error boundary, explicit timeouts, DOM height check before screenshot); I keep ESC/POS, queue, devices. Merge via two-parent merge after the server wave. Awaiting their reply.
 - 2026-10-12T07:32:54+00:00: Design-system interim integration point: otvylkrs (empty merge, reviewed+gated). API unchanged; more TemplateError cases (payload > 64 KiB, field-named validation, text fit, paper edge, layout settling, 3 s in-page timeout). New npm dep qrcode-generator 2.0.4; src/web_build.py build_web(); print_profile.to_gray(); daily_print --template; samples/templates/<name>.json. Residual: a sync busy loop in a template could freeze page.evaluate (no current template can).
+- 2026-10-12T07:56:45+00:00: Final-tip follow-up for my side: call ticket_templates.check_envelope(payload) before launching Chromium (rejects bad envelope, unknown template via dist/templates.json, >64 KiB UTF-8); add kind 'text' via render_text(page, payload) -> body bytes with the raster preview from render_template on the same page.
+- 2026-10-12T08:08:14+00:00: Design-system stable point nrlvsnow: all 14 templates, gate green (187 tests x2), .receipt overflow-wrap fix. Plan: when the final tip arrives, re-parent my merge (oupows) onto it in one step (jj rebase -s <merge> -d <my line> -d <final tip>), then add check_envelope + kind 'text'. Final tip adds ServerFault mapping: template server-side failure -> RuntimeError (500), not TemplateError.
 
 ## Decisions
 

@@ -30,4 +30,6 @@ One builder after wave 3, so no two builders edit the same doc. Describe how to 
 
 ## Execution log
 
+- 2026-10-12T07:53:48+00:00: Docs task must also add 'template' to the POST /api/jobs kind list in docs/planning-print-system-architecture.md, and a docs/README row for setup-deploy.md.
+
 ## Decisions

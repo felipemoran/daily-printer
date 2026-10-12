@@ -26,4 +26,6 @@ Reported by the design-system session; no current template can loop. Option: clo
 
 ## Execution log
 
+- 2026-10-12T07:56:35+00:00: Wave 4 review: the measure/fit/profile page.evaluate calls have no timeout for both receipt and template kinds; nothing outside the render enforces a time limit. A worker-level watchdog would cover both. No sender input found that hangs today.
+
 ## Decisions
