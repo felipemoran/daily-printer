@@ -1,8 +1,14 @@
 import importlib.util
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+import print_profile  # noqa: E402
+
 _spec = importlib.util.spec_from_file_location("sync_design_system", ROOT / "src" / "scripts" / "sync_design_system.py")
 sync = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sync)
@@ -54,6 +60,39 @@ class TokensCssTest(unittest.TestCase):
     def test_refuses_a_renamed_bundle(self):
         with self.assertRaises(sync.SyncError):
             sync.check_namespace('/* @ds-bundle: {"format":4,"namespace":"Other","components":[]} */')
+
+
+@unittest.skipUnless((ROOT / "web" / "node_modules").is_dir(), "needs web dependencies: make setup-web")
+class ThermalExampleTest(unittest.TestCase):
+    """web/thermal.html renders through the print pipeline with the design system intact."""
+
+    def test_example_renders_with_self_hosted_fonts_and_its_own_weights(self):
+        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+        from playwright.sync_api import sync_playwright
+        from raster_capture import static_server
+        requests = []
+        with static_server(ROOT / "web" / "dist") as port, sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 384, "height": 720})
+            page.on("request", lambda request: requests.append(request.url))
+            page.goto(f"http://127.0.0.1:{port}/thermal.html", wait_until="networkidle")
+            page.evaluate(print_profile.capture_options(print_profile.DEFAULT_PROFILE)["prepare_js"])
+            result = page.evaluate("""async () => {
+              await document.fonts.ready;
+              const receipt = document.querySelector('#receipt');
+              return {
+                width: receipt.getBoundingClientRect().width,
+                displayWeight: getComputedStyle(receipt.querySelector('.display-xl')).fontWeight,
+                // check() is true when no face matches at all, so read the faces' status.
+                loaded: [...document.fonts].filter((face) => face.status === 'loaded')
+                  .map((face) => `${face.family.replaceAll('"', '')} ${face.weight}`).sort(),
+              };
+            }""")
+            browser.close()
+        self.assertEqual((result["width"], result["displayWeight"]), (384, "900"))
+        for face in ("Archivo 400 900", "IBM Plex Mono 500", "IBM Plex Mono 700"):
+            self.assertIn(face, result["loaded"])
+        self.assertEqual([url for url in requests if not url.startswith(f"http://127.0.0.1:{port}/")], [])
 
 
 if __name__ == "__main__":

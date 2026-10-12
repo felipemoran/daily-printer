@@ -150,6 +150,27 @@ class AutoWeightTest(unittest.TestCase):
             browser.close()
         self.assertEqual(weights, ["700", "400"])
 
+    def test_thermal_pages_keep_their_own_weights(self):
+        site = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, site)
+        (site / "index.html").write_text(
+            '<div id="receipt" class="rp-paper" style="width:384px">'
+            '<p id="display" style="font-size:92px;font-weight:900">OPS</p>'
+            '<p id="body" style="font-size:16px;font-weight:500">body</p></div>'
+        )
+        from playwright.sync_api import sync_playwright
+        from raster_capture import static_server
+        with static_server(site) as port, sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(f"http://127.0.0.1:{port}/index.html")
+            page.evaluate(print_profile.auto_weight_js())
+            weights = page.evaluate(
+                "() => ['display', 'body'].map((id) => getComputedStyle(document.getElementById(id)).fontWeight)"
+            )
+            browser.close()
+        self.assertEqual(weights, ["900", "500"])
+
 
 class LegacyAntiAliasingTest(unittest.TestCase):
     def test_legacy_restores_anti_aliasing_on_pages_that_turn_it_off(self):

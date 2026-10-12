@@ -72,6 +72,8 @@ _FONT_SCALE_JS = """
 AUTO_WEIGHT_MAX_BOLD_PX = 18.5
 _AUTO_WEIGHT_JS = """
 () => {
+  // Thermal pages (design-system/) set the weight per size themselves.
+  if (document.querySelector('#receipt.rp-paper')) return;
   const sized = [...document.querySelectorAll('#receipt, #receipt *')]
     .map((el) => [el, parseFloat(getComputedStyle(el).fontSize)]);
   for (const [el, size] of sized) el.style.fontWeight = size < %(max_bold)s ? '700' : '400';
