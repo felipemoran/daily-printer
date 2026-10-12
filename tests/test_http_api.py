@@ -555,6 +555,7 @@ class AdminTest(ServerTestCase):
         response = await self.client.get(f"/api/jobs/{job.id}/image", headers=self.admin)
         self.assertEqual((response.status, response.content_type), (200, "image/png"))
         self.assertEqual(await response.read(), b"the frozen file")
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
         shutil.rmtree(folder)
         status, body = await self.call("GET", f"/api/jobs/{job.id}/image", self.admin)
         self.assertEqual((status, body), (404, {"error": f"job {job.id} has no artifact folder with its image"}))

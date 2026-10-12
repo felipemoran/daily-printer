@@ -216,7 +216,7 @@ class _Api:
         sent.append(now)
 
     @staticmethod
-    async def stage(staging) -> Path:
+    async def saving_artifacts(staging) -> Path:
         try:
             return await staging
         except Exception:
@@ -266,8 +266,8 @@ class _Api:
                 raise ApiError(500, "rendering failed on the server") from None
 
         now = time.time()
-        files = job_files(kind, rendered, payload=payload, image=image, created_at=now)
-        staged = await self.stage(asyncio.to_thread(self.artifacts.stage, files))
+        staged = await self.saving_artifacts(asyncio.to_thread(
+            lambda: self.artifacts.stage(job_files(kind, rendered, payload=payload, image=image, created_at=now))))
         try:
             job = self.queue.add(
                 printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,
@@ -311,7 +311,7 @@ class _Api:
         png = self.artifacts.read(job.id, PRINT_PNG)
         if png is None:
             raise ApiError(404, f"job {job.id} has no artifact folder with its image")
-        return web.Response(body=png, content_type="image/png")
+        return web.Response(body=png, content_type="image/png", headers={"X-Content-Type-Options": "nosniff"})
 
     async def cancel(self, request: web.Request) -> web.Response:
         caller = await self.admin(request)
@@ -333,7 +333,8 @@ class _Api:
             raise ApiError(409, f"job {original.id} has no artifact folder with its printer bytes, "
                                 f"so it cannot be reprinted")
         now = time.time()
-        staged = await self.stage(asyncio.to_thread(self.artifacts.stage_reprint, original.id, created_at=now))
+        staged = await self.saving_artifacts(
+            asyncio.to_thread(self.artifacts.stage_reprint, original.id, created_at=now))
         try:
             job = self.queue.reprint(original.id, printer.id, data, source=caller.source, ingress=caller.ingress,
                                      artifacts=staged, now=now)

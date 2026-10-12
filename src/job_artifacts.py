@@ -48,7 +48,7 @@ def _source_name(image: bytes) -> str:
 
 
 def _json(value) -> bytes:
-    return json.dumps(value, ensure_ascii=False, indent=2).encode()
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode()
 
 
 def job_files(kind: str, rendered: Rendered, *, payload: dict | None, image: bytes | None,

@@ -40,6 +40,19 @@ CASES = {
 FONT_URL = re.compile(rb'url\("data:font/woff2;base64,([A-Za-z0-9+/=]+)"\)')
 
 
+def _nested(depth: int) -> dict:
+    node: dict = {}
+    for _ in range(depth - 1):
+        node = {"x": node}
+    return node
+
+
+def _receipt_body(depth: int) -> bytes:
+    """A receipt request whose payload nests ``depth`` objects deep."""
+    head = '{"printer":"home","kind":"receipt","title":"deep","payload":'
+    return (head + '{"x":' * (depth - 1) + "{}" + "}" * (depth - 1) + "}").encode()
+
+
 def _request(kind: str, content: dict) -> dict:
     body = {"printer": "home", "kind": kind, "title": kind}
     if "image" in content:
@@ -97,6 +110,58 @@ class IntakeTest(ArtifactTestCase):
         stored = self.file(job["id"], "payload.json")
         self.assertEqual(json.loads(stored), payload)
         self.assertEqual(json.dumps(json.loads(stored), sort_keys=True), json.dumps(payload, sort_keys=True))
+
+    async def post_raw(self, body: bytes) -> tuple[int, object]:
+        headers = {**self.admin, "Content-Type": "application/json"}
+        with mock.patch.object(http_api, "render", return_value=self.rendered["receipt"]):
+            return await self.call("POST", "/api/jobs", headers, data=body)
+
+    async def test_a_deeply_nested_payload_is_stored_no_larger_than_its_request(self):
+        body = json.dumps({"printer": "home", "kind": "receipt", "title": "deep", "payload": _nested(900)}).encode()
+        status, job = await self.post_raw(body)
+        self.assertEqual(status, 201, job)
+        stored = self.file(job["id"], "payload.json")
+        self.assertLessEqual(len(stored), len(body))
+        self.assertEqual(json.loads(stored), _nested(900))
+
+    async def test_the_deepest_body_the_parser_accepts_is_stored_or_refused_cleanly(self):
+        low, high, deepest = 1, 100_000, None
+        while low < high:
+            middle = (low + high + 1) // 2
+            status, job = await self.post_raw(_receipt_body(middle))
+            if status == 400:
+                self.assertEqual(job, {"error": "the body is not valid JSON"})
+                high = middle - 1
+            else:
+                low, deepest = middle, (status, job)
+        self.assertGreater(low, 900)
+        status, job = deepest
+        self.assertIn((status, job if status == 500 else None),
+                      [(201, None), (500, {"error": "saving the job failed on the server"})])
+        folders = {path.name for path in self.root.iterdir()}
+        self.assertEqual(folders, {listed.id for listed in self.queue.jobs()})
+        self.assertFalse([name for name in folders if name.startswith(".tmp-")])
+
+    async def test_any_failure_while_building_the_files_is_the_clean_500(self):
+        with mock.patch.object(http_api, "job_files", side_effect=RecursionError("maximum recursion depth")):
+            status, body = await self.post_raw(json.dumps(_request("receipt", {"payload": SAMPLE_PAYLOAD})).encode())
+        self.assertEqual((status, body), (500, {"error": "saving the job failed on the server"}))
+        self.assertEqual(list(self.root.iterdir()) if self.root.exists() else [], [])
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_job_folders_are_private_to_the_server_user(self):
+        for name in ("receipt", "image"):
+            with self.subTest(name):
+                job = await self.send(name)
+                self.assertEqual((self.root / job["id"]).stat().st_mode & 0o777, 0o700)
+
+    async def test_an_id_that_climbs_out_of_the_folder_is_an_unknown_job(self):
+        await self.send("image")
+        for method, path in (("GET", "/api/jobs/..%2F..%2Fdata/image"), ("POST", "/api/jobs/..%2Fartifacts/reprint"),
+                             ("GET", "/api/jobs/..%2F/image"), ("POST", "/api/jobs/..%2F/reprint")):
+            with self.subTest(path):
+                status, body = await self.call(method, path, self.admin)
+                self.assertEqual((status, body), (404, {"error": "unknown job"}))
 
     async def test_meta_json_describes_the_render(self):
         job = await self.send("text")
