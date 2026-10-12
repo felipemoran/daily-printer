@@ -14,6 +14,8 @@ A sender posts data; a template on the Thermal design system (`docs/feature-desi
 - The whole payload is at most 64 KiB, and every list in `data` has a maximum length. The page cannot stop a render that has started, so these limits keep every render short.
 
 A payload error raises `TemplateError` (`src/ticket_templates.py`) with a message for the sender, such as `data.fields[1].value: expected string`.
+A render that would print clipped content also raises `TemplateError`: text wider than its cell, a box that hides part of its text, or a box past the 384-dot paper edge (in landscape, past the bottom of the layout).
+The message quotes the text, such as `text does not fit: "123,456" is wider than its 52px cell`.
 
 Every template has a sample at `samples/templates/<name>.json`. `tests/test_ticket_templates.py` renders each one.
 

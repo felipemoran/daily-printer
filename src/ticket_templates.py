@@ -52,6 +52,53 @@ _RECEIPT_JS = """
 }
 """
 
+# The first content the print would clip or lose, as a message, or null. A box clipping its content,
+# text spilling out of its block, or a box past the paper edge. In landscape the paper runs down the page.
+_FIT_JS = """
+([paper, slack]) => {
+  const receipt = document.querySelector('#receipt');
+  const landscape = receipt.dataset.orientation === 'landscape';
+  const origin = receipt.getBoundingClientRect(), style = getComputedStyle(receipt);
+  const start = landscape
+    ? origin.top + receipt.clientTop + parseFloat(style.paddingTop)
+    : origin.left + receipt.clientLeft + parseFloat(style.paddingLeft);
+  const quote = (text) => {
+    const flat = text.replace(/\\s+/g, ' ').trim();
+    return flat.length > 40 ? `"${flat.slice(0, 39)}…"` : flat && `"${flat}"`;
+  };
+  const name = (el) => quote(el.textContent) || (el.getAttribute('class') ? `<${el.localName} class="${el.getAttribute('class')}">` : `<${el.localName}>`);
+  for (const el of receipt.querySelectorAll('*')) {
+    const box = el.getBoundingClientRect();
+    if (!box.width || !box.height) continue;
+    const [low, high] = landscape ? [box.top, box.bottom] : [box.left, box.right];
+    if (low < start - slack || high > start + paper + slack) return `content runs past the paper edge: ${name(el)}`;
+    const { overflowX, overflowY, lineHeight } = getComputedStyle(el);
+    if (overflowX !== 'visible' && el.scrollWidth > el.clientWidth + slack) {
+      return `text does not fit: ${name(el)} is wider than its ${el.clientWidth}px cell`;
+    }
+    // A glyph box taller than its line height (TextMode: 40px JetBrains Mono on 48px lines)
+    // overflows by a few dots without clipping ink; a clipped line overflows by a whole line.
+    if (overflowY !== 'visible' && el.scrollHeight > el.clientHeight + Math.max(slack, parseFloat(lineHeight) / 2 || 0)) {
+      return `text does not fit: ${name(el)} is taller than its ${el.clientHeight}px cell`;
+    }
+  }
+  const walker = document.createTreeWalker(receipt, NodeFilter.SHOW_TEXT), range = document.createRange();
+  for (let node; (node = walker.nextNode());) {
+    if (!node.data.trim()) continue;
+    range.selectNodeContents(node);
+    const text = range.getBoundingClientRect();
+    if (!text.width) continue;
+    let block = node.parentElement;
+    while (block !== receipt && ['inline', 'contents'].includes(getComputedStyle(block).display)) block = block.parentElement;
+    const left = block.getBoundingClientRect().left + block.clientLeft;
+    if (text.left < left - slack || text.right > left + block.clientWidth + slack) {
+      return `text does not fit: ${quote(node.data)} is wider than its ${block.clientWidth}px cell`;
+    }
+  }
+  return null;
+}
+"""
+
 
 class TemplateError(ValueError):
     """The payload is wrong; the message tells the sender what to fix."""
@@ -125,6 +172,9 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     length = receipt["width"] if landscape else receipt["height"]
     if length > max_height_dots:
         raise TemplateError(f"render is {length} dots long; the limit is {max_height_dots}")
+    misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
+    if misfit:
+        raise TemplateError(misfit)
     image = Image.open(io.BytesIO(page.locator("#receipt").screenshot(timeout=SCREENSHOT_TIMEOUT_MS)))
     if landscape:
         image = image.transpose(Image.Transpose.ROTATE_270)

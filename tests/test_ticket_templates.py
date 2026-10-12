@@ -19,6 +19,7 @@ TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(e
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
 NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
+BOX = "() => window.React.createElement('div', %s)"
 
 
 def setUpModule():
@@ -30,6 +31,9 @@ def ticket(**data):
     payload = copy.deepcopy(TICKET)
     payload["data"].update(data)
     return payload
+
+
+SHORT_TICKET = ticket(fields=None, comment=None, qr=None)
 
 
 class EnvelopeTest(unittest.TestCase):
@@ -154,9 +158,46 @@ class RenderTest(unittest.TestCase):
             self.assert_template_error(TICKET, "dots long; the limit is 100", max_height_dots=100)
 
     def test_landscape_render_is_rotated_onto_the_paper(self):
+        with self.landscape_page() as page:
+            image = render_template(page, SHORT_TICKET)
+            height = page.evaluate("document.querySelector('#receipt').offsetHeight")
+        self.assertEqual(height, 384)
+        self.assertEqual((image.mode, image.width), ("1", 384))
+        self.assertGreater(image.height, 384)
+        # Clockwise: the HeaderBar (top of the layout) lands on the right edge, the feed at the end.
+        self.assertEqual({image.getpixel((381, y)) for y in range(100)}, {0}, "header bar not on the right edge")
+        self.assertNotEqual({image.getpixel((2, y)) for y in range(100)}, {0})
+        self.assertIsNone(image.crop((0, image.height - 56, 384, image.height)).convert("L")
+                          .point(lambda value: 255 - value).getbbox(), "feed not at the end")
+
+    def test_clipped_cell_fails(self):
+        with self.failing_transition(BOX % "{ className: 'rp-barrow-v', style: { width: 52 } }, '123,456,789'"):
+            self.assert_template_error(TICKET, r'^text does not fit: "123,456,789" is wider than its 52px cell$')
+        with self.failing_transition(BOX % "{ style: { height: 24, overflow: 'hidden' } }, 'word '.repeat(100)"):
+            self.assert_template_error(TICKET, r'^text does not fit: "word word .*" is taller than its 24px cell$')
+
+    def test_text_spilling_out_of_its_cell_fails(self):
+        with self.failing_transition(BOX % "{ style: { width: 52, whiteSpace: 'nowrap' } }, 'x'.repeat(60)"):
+            self.assert_template_error(TICKET, rf'^text does not fit: "{"x" * 39}\u2026" is wider than its 52px cell$')
+
+    def test_content_past_the_paper_edge_fails(self):
+        with self.failing_transition(BOX % "{ style: { width: 420 } }, 'WIDE'"):
+            self.assert_template_error(TICKET, r'^content runs past the paper edge: "WIDE"$')
+        with self.failing_transition(BOX % "{ className: 'rp-fill-solid', style: { width: 400, height: 8 } }"):
+            self.assert_template_error(TICKET, r'^content runs past the paper edge: <div class="rp-fill-solid">$')
+
+    def test_landscape_edge_is_the_bottom_of_the_layout(self):
+        with self.landscape_page() as page:
+            # Wider than the paper is the length of a landscape print; taller is past its edge.
+            render_template(page, ticket(title="A title much wider than the paper " * 3, fields=None, comment=None, qr=None))
+            with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "Assignee'):
+                render_template(page, TICKET)
+
+    @contextlib.contextmanager
+    def landscape_page(self):
         page = open_render_page(self.browser)
         try:
-            render_template(page, TICKET)
+            render_template(page, SHORT_TICKET)
             self.assertEqual(page.evaluate("document.querySelector('#receipt').dataset.orientation"), "portrait")
             # No landscape template yet: mark the ticket landscape after it renders.
             page.evaluate("""() => {
@@ -166,18 +207,9 @@ class RenderTest(unittest.TestCase):
                 document.querySelector('#receipt').dataset.orientation = 'landscape';
               };
             }""")
-            image = render_template(page, TICKET)
-            height = page.evaluate("document.querySelector('#receipt').offsetHeight")
+            yield page
         finally:
             page.close()
-        self.assertEqual(height, 384)
-        self.assertEqual((image.mode, image.width), ("1", 384))
-        self.assertGreater(image.height, 384)
-        # Clockwise: the HeaderBar (top of the layout) lands on the right edge, the feed at the end.
-        self.assertEqual({image.getpixel((381, y)) for y in range(100)}, {0}, "header bar not on the right edge")
-        self.assertNotEqual({image.getpixel((2, y)) for y in range(100)}, {0})
-        self.assertIsNone(image.crop((0, image.height - 56, 384, image.height)).convert("L")
-                          .point(lambda value: 255 - value).getbbox(), "feed not at the end")
 
     @contextlib.contextmanager
     def failing_transition(self, component="() => { throw new Error('boom'); }"):
