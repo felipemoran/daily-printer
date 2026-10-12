@@ -43,12 +43,12 @@ export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => {
-    const sender = [data.printer, data.printedAt].filter(Boolean).join(' · ')
+    const sender = [data.printer, data.printedAt].filter(Boolean)
     return (
       <>
         <div className="display-lg">TEST PAGE</div>
         <div className="body-strong" style={{ marginTop: 'var(--space-2)' }}>58MM · 384 DOTS · 8/MM</div>
-        {sender ? <div className="meta">{sender}</div> : null}
+        {sender.map((line, index) => <div key={index} className="meta">{line}</div>)}
         <T.Rule weight="bar" style={section} />
 
         <T.SectionLabel style={label}>LINE WEIGHT</T.SectionLabel>

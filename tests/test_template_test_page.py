@@ -46,9 +46,14 @@ class TestPageTest(unittest.TestCase):
 
     def test_prints_the_sender_fields(self):
         render_template(self.page, test_page(printer="W" * 24, printedAt="W" * 16))
-        self.assertIn(f"{'W' * 24} · {'W' * 16}", self.page.inner_text("#receipt"))
-        render_template(self.page, test_page(printer="KITCHEN"))
-        self.assertIn("KITCHEN", self.page.inner_text("#receipt"))
+        self.assertEqual(self.lines()[2:4], ["W" * 24, "W" * 16])
+        render_template(self.page, test_page(printedAt="06:00"))
+        self.assertEqual(self.lines()[2], "06:00")
+        render_template(self.page, SAMPLE)
+        self.assertEqual(self.lines()[2], "LINE WEIGHT")
+
+    def lines(self):
+        return [line for line in self.page.inner_text("#receipt").splitlines() if line.strip()]
 
     def test_refuses_bad_data(self):
         cases = (
