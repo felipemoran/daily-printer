@@ -1,12 +1,14 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample template photo-compare photo-strip test server simulate device-fake web-dev web-build design-sync setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample template photo-compare photo-strip test server simulate demo device-fake web-dev web-build design-sync setup setup-web setup-playwright
 
 # Default: show help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@printf "  %-20s %s\n" "demo-<name>" "Send one sample to the running demo; <name> is one of:"
+	@echo "$(DEMO_NAMES)" | fold -s -w 72 | sed 's/ *$$//; s/^/                         /'
 
 # ── Daily workflow ────────────────────────────────────────────────────────────
 
@@ -39,8 +41,29 @@ server: ## Run the print server: make server CONFIG=~/print-server/config.toml
 	@test -n "$(CONFIG)" || { echo "Set CONFIG to the server config, e.g. make server CONFIG=~/print-server/config.toml (format: samples/print-server.example.toml)"; exit 2; }
 	uv run src/scripts/print_server.py --config $(CONFIG)
 
-simulate: ## Run the server and two fake printers locally, print two jobs (needs make web-build)
+simulate: ## Run the server and two fake printers locally, print one job per sample (needs make web-build)
 	uv run src/scripts/simulate.py
+
+# ── Demo ──────────────────────────────────────────────────────────────────────
+
+DEMO_SERVER ?= http://127.0.0.1:8787
+# Must equal ADMIN_TOKEN in src/scripts/simulate.py; tests/test_make_demo.py checks it.
+DEMO_TOKEN := moranlindo
+DEMO_TEMPLATES := $(sort $(basename $(notdir $(wildcard samples/templates/*.json))))
+DEMO_NAMES := $(DEMO_TEMPLATES) text image receipt
+DEMO_FILE_text := samples/templates/build.json
+DEMO_FILE_image := samples/test-pattern.png
+DEMO_FILE_receipt := samples/receipt-sample.json
+
+demo: ## Run make simulate, building web/dist first when it is missing
+	@test -f web/dist/index.html || $(MAKE) web-build
+	uv run src/scripts/simulate.py
+
+demo-%:
+	@case " $(DEMO_NAMES) " in *" $* "*) ;; *) echo "Unknown demo '$*'. Valid names: $(DEMO_NAMES)" >&2; exit 2;; esac
+	@curl -s -o /dev/null --max-time 5 "$(DEMO_SERVER)/" || { echo "The simulation is not running at $(DEMO_SERVER). Start it with make demo, then run make demo-$* in another terminal." >&2; exit 1; }
+	@PRINT_ADMIN_TOKEN=$(DEMO_TOKEN) uv run src/scripts/printctl.py --server "$(DEMO_SERVER)" \
+		send $(if $(DEMO_FILE_$*),$*,template) $(or $(DEMO_FILE_$*),samples/templates/$*.json) --printer home --title $*
 
 device-fake: ## Fake printer device: make device-fake TOKEN_FILE=path [SERVER=ws://...] [OUT=dir]
 	@test -n "$(TOKEN_FILE)" || { echo "Set TOKEN_FILE to a file holding the printer token, e.g. make device-fake TOKEN_FILE=~/.print-token"; exit 2; }
