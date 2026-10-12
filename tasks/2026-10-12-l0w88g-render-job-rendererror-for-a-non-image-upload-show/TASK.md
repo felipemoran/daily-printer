@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-l0w88g-render-job-rendererror-for-a-non-image-upload-show
 title: 'render_job: RenderError for a non-image upload shows ''<_io.BytesIO object at 0x...>'' to the sender'
-status: draft
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies: []

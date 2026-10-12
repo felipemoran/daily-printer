@@ -32,6 +32,7 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T07:46:26+00:00: Wave 3 closed: device fix ostuxq, CLI wxqkqu, web form qvolrx, simulation usqmqu, deploy kzzrqm. All reviewed (deploy two rounds + final nits), gate PASS: 353 tests twice, real server, simulate --once, deploy file checks.
 - 2026-10-12T08:27:16+00:00: Waves 4+5 closed: template merge oupows, template kind novtrv, admin UI sqlnun, docs mvzswn. Gate PASS: 475 tests x2, web build, real server + /admin CSP, simulate --once. Remaining: final design-system tip (render_text, check_envelope, cm message) -> re-parent merge + kind 'text' + form heading (zssawc).
 - 2026-10-12T08:35:34+00:00: Final whole-branch review: no blocker, no security finding. Fixing in a cleanup pass: simulate reuses printctl.Client; dead code/duplicates; render non-image message (l0w88g); stats limited to configured printers; deploy refuses 32-bit ARM + macOS log rotation; contract wording (ping/pong, clear, CSRF). Operator ACKs: device errors counting as attempts; Pi 2/32-bit support. Commit subjects shortened to <=50, build: -> chore(deps):.
+- 2026-10-12T08:52:32+00:00: Final cleanup pass closed: omyyqz..wpllrv (render message, simulate reuses printctl.Client, dead code, DOTS_PER_MM, FakeSink, stats filter, 32-bit ARM guard + macOS newsyslog, contract wording). Final reviewer approved.
 
 ## Decisions
 
