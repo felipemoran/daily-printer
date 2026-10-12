@@ -19,6 +19,7 @@ TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(e
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
 NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
+GROW = "() => document.querySelector('#receipt').append(Object.assign(document.createElement('div'), { style: 'height: 48px' }))"
 BOX = "() => window.React.createElement('div', %s)"
 KEEPS_GROWING = """() => {
   const [height, setHeight] = window.React.useState(10);
@@ -26,16 +27,6 @@ KEEPS_GROWING = """() => {
     const timer = setTimeout(() => setHeight(height + 1));
     return () => clearTimeout(timer);
   }, [height]);
-  return window.React.createElement('div', { style: { height } });
-}"""
-# The element screenshot resizes the viewport: this layout changes while it is captured.
-GROWS_ON_RESIZE = """() => {
-  const [height, setHeight] = window.React.useState(10);
-  window.React.useEffect(() => {
-    const grow = () => setHeight(300);
-    addEventListener('resize', grow);
-    return () => removeEventListener('resize', grow);
-  }, []);
   return window.React.createElement('div', { style: { height } });
 }"""
 
@@ -176,14 +167,35 @@ class RenderTest(unittest.TestCase):
             self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
         render_template(self.page, TICKET)
 
+    def test_system_fallback_face_is_the_same_at_capture(self):
+        # Cyrillic is missing from the bundled fonts; the system face drawing it decides the wrapping.
+        for attempt in range(3):
+            page = open_render_page(self.browser)
+            try:
+                with self.subTest(attempt), self.failing_transition(
+                        BOX % "{ style: { width: 384, fontWeight: 700 } }, '\u0428\u0428\u0428\u0428\u0428 '.repeat(12)", page):
+                    image = render_template(page, TICKET)
+                    self.assertEqual(image.height, page.evaluate("Math.ceil(document.querySelector('#receipt').getBoundingClientRect().height)"))
+            finally:
+                page.close()
+
     def test_fractional_length_renders(self):
         for height in (10.3, 10.7):
             with self.subTest(height), self.failing_transition(BOX % f"{{ style: {{ height: {height} }} }}"):
                 render_template(self.page, TICKET)
 
     def test_layout_that_changes_during_the_screenshot_fails(self):
-        with self.failing_transition(GROWS_ON_RESIZE):
-            self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
+        locator = self.page.locator
+
+        def grows_after_capture(selector):
+            def screenshot(**kwargs):
+                image = locator(selector).screenshot(**kwargs)
+                self.page.evaluate(GROW)
+                return image
+            return mock.Mock(screenshot=screenshot)
+
+        with mock.patch.object(self.page, "locator", side_effect=grows_after_capture):
+            self.assert_template_error(TICKET, r"^render was still changing layout \(measured (\d+) dots, then (?!\1)\d+\)$")
         render_template(self.page, TICKET)
 
     def test_too_tall_fails_before_the_screenshot(self):

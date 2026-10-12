@@ -22,6 +22,7 @@ SCREENSHOT_TIMEOUT_MS = 10_000
 MAX_PAYLOAD_BYTES = 64 * 1024
 
 _CAPTURE = capture_options(DEFAULT_PROFILE)
+VIEWPORT_MARGIN = 64
 
 # Resolves to null or the sender-readable message, so a page error never looks like a Playwright fault.
 _RENDER_JS = """
@@ -167,6 +168,13 @@ def _length(page, landscape: bool) -> int:
     return receipt["width"] if landscape else receipt["height"]
 
 
+def _cover_receipt(page, landscape: bool, length: int) -> None:
+    across = PRINT_WIDTH_DOTS + VIEWPORT_MARGIN
+    page.set_viewport_size({"width": length + VIEWPORT_MARGIN, "height": across} if landscape
+                           else {"width": PRINT_WIDTH_DOTS, "height": length + VIEWPORT_MARGIN})
+    page.evaluate("() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)))")
+
+
 def _check_unchanged(length: int, now: int, verb: str) -> None:
     if now != length:
         raise TemplateError(f"render was still changing layout (measured {length} dots, {verb} {now})")
@@ -184,7 +192,10 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     if not receipt["children"]:
         raise TemplateError(f'template "{payload["template"]}" rendered nothing')
     landscape = receipt["orientation"] == "landscape"
-    length = receipt["width"] if landscape else receipt["height"]
+    # A screenshot past the viewport resizes it, and Chrome can then draw glyphs the bundled fonts
+    # lack from another system face (Times-Bold, then Menlo-Bold). Resize first, then measure.
+    _cover_receipt(page, landscape, min(receipt["width"] if landscape else receipt["height"], max_height_dots))
+    length = _length(page, landscape)
     if length > max_height_dots:
         raise TemplateError(f"render is {length} dots long; the limit is {max_height_dots}")
     misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
