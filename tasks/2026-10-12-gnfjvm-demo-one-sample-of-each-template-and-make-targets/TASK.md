@@ -27,3 +27,5 @@ Operator request 2026-10-12: make simulate pre-populates the queue with at least
 ## Execution log
 
 ## Decisions
+
+- 2026-10-12T15:02:03+00:00: Operator decision 2026-10-12: make simulate always uses the admin token moranlindo, stored in the repo (simulate.py), not a random one per run. Remove the 24-character token minimum in server_config everywhere, so the real server may use it too; the operator accepts that anyone past Cloudflare Access could guess a short admin token. The string must never appear in the front end (src/static): the back end alone checks it.
