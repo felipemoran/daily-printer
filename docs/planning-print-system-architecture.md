@@ -187,7 +187,7 @@ A job without a folder has a 404 for its image and a 409 for a reprint. Jobs cre
 SQLite settings, set on each start:
 
 - WAL journal mode. A reader, for example a `sqlite3` shell, does not block the server's writes.
-- A busy timeout of 10 s, for a write by another program. The wait blocks the server's event loop, so it stays far below the 60 s device receive timeout.
+- A busy timeout of 2 s, for a write by another program. Each queue call can wait this long, and the wait blocks the server's event loop. Most calls take the write lock, reads too, because they expire jobs first. One admin poll makes several calls, and each printer's delivery loop makes more. So one stall is about the number of calls times 2 s. It must stay far below the 60 s device receive timeout.
 - Foreign keys on: an event for a missing job is refused.
 - `PRAGMA user_version` holds the schema version. A new database gets the current version. A database at an older version gets each step in `_MIGRATIONS` (`src/job_queue.py`) from its version up, in one transaction. Version 0 is the schema from before versioning; its step drops the unused `png` column. The server refuses to start on a database with a newer version.
 

@@ -5,6 +5,7 @@ import sqlite3
 import statistics
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -292,6 +293,22 @@ class TransactionTest(QueueTestCase):
             self.add(now=0)
         self.assertFalse(self.queue._db.in_transaction)
         self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
+
+    def test_a_held_write_lock_fails_one_call_after_one_busy_timeout(self):
+        self.assertEqual(self.queue._db.execute("PRAGMA busy_timeout").fetchone()[0], 2000)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(job_queue, "BUSY_TIMEOUT_SECONDS", 0.2):
+            queue = JobQueue(Path(tmp) / "jobs.db")
+            self.addCleanup(queue.close)
+            writer = sqlite3.connect(Path(tmp) / "jobs.db", isolation_level=None)
+            self.addCleanup(writer.close)
+            writer.execute("BEGIN IMMEDIATE")
+            started = time.monotonic()
+            with self.assertRaisesRegex(sqlite3.OperationalError, "database is locked"):
+                queue.jobs(now=0)
+            waited = time.monotonic() - started
+            self.assertTrue(0.15 <= waited < 1.0, waited)
+            writer.execute("ROLLBACK")
+            self.assertEqual(queue.jobs(now=0), [])
 
     def test_a_reader_holding_a_transaction_does_not_block_a_write(self):
         with tempfile.TemporaryDirectory() as tmp:

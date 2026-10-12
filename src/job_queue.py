@@ -22,8 +22,9 @@ FRAME_SIZE = 4096
 DAY_SECONDS = 86400
 HOUR_SECONDS = 3600
 ID_TRIES = 5
-# The wait for another writer blocks the server's event loop: keep it far below the 60 s device receive timeout.
-BUSY_TIMEOUT_SECONDS = 10.0
+# One queue call waits up to this long for another program's write lock, with the event loop blocked. An admin poll
+# makes several calls, so one stall is several timeouts: keep that sum far below the 60 s device receive timeout.
+BUSY_TIMEOUT_SECONDS = 2.0
 
 
 class JobNotFinal(ValueError):
