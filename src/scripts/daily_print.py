@@ -23,8 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,31 +35,9 @@ from print_profile import DEFAULT_PROFILE, LEGACY_PROFILE, capture_options, load
 from printer import open_printer  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
 from raster_split import split_raster_vertical  # noqa: E402
+from web_build import build_web  # noqa: E402
 
 DEFAULT_MAX_HEIGHT_PX = 4000
-
-
-def _run_web_build(web_dir: Path) -> None:
-    if not (web_dir / "node_modules").is_dir():
-        raise RuntimeError(
-            f"Missing {web_dir / 'node_modules'}. Run: cd web && npm install"
-        )
-    if not shutil.which("npm"):
-        raise RuntimeError(
-            "npm not found on PATH; install Node.js or run `cd web && npm run build` manually."
-        )
-    proc = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=web_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        out = (proc.stdout or "") + (proc.stderr or "")
-        raise RuntimeError(
-            f"`npm run build` failed (exit {proc.returncode}).\n{out.strip() or '(no output)'}"
-        )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -130,7 +106,7 @@ def main() -> None:
     if not args.no_build:
         print("Building web UI…", flush=True)
         try:
-            _run_web_build(web_dir)
+            build_web(web_dir)
         except RuntimeError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             sys.exit(1)

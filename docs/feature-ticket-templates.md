@@ -11,6 +11,7 @@ A sender posts data; a template on the Thermal design system (`docs/feature-desi
 - `template`: a file name in `web/src/templates/`, without `.tsx`.
 - `schemaVersion`: must equal the template's. Raise it when a change to `data` breaks old senders.
 - `data`: what the template's `parse` accepts. Unknown fields are refused, so a misspelt optional field fails instead of disappearing.
+- The whole payload is at most 64 KiB, and every list in `data` has a maximum length. The page cannot stop a render that has started, so these limits keep every render short.
 
 A payload error raises `TemplateError` (`src/ticket_templates.py`) with a message for the sender, such as `data.fields[1].value: expected string`.
 
@@ -19,13 +20,16 @@ Every template has a sample at `samples/templates/<name>.json`. `tests/test_tick
 ## Add a template
 
 1. Write `web/src/templates/<name>.tsx`: a default export from `defineTemplate` with `schemaVersion`, `parse` (built from `validate.ts`) and `Component`. `web/src/templates/ticket.tsx` is the example.
+   A render fails when the template throws, also inside an effect.
 2. Render only the content. `render.html` puts it in `<T.Paper print>`, which is the 384-dot `#receipt`.
 3. Write the sample `samples/templates/<name>.json`.
 4. Run `make test`.
 
 Helper modules in `web/src/templates/` are `.ts`. Every `.tsx` file there is a template.
 
-A wide layout sets `orientation: 'landscape'`: its `#receipt` is 384 dots tall and as wide as it needs, and the pipeline turns it 90° onto the paper. No template uses it yet.
+A wide layout sets `orientation: 'landscape'`: its `#receipt` is 384 dots tall and as wide as it needs, with the feed at its right end. The pipeline turns it 90° clockwise onto the paper. No template uses it yet.
+
+QR codes: `qrMatrix(text)` in `web/src/templates/qr.ts` gives the matrix for `T.QRSlot`. It is the only module that imports the encoder (`qrcode-generator`). The `ticket` template draws 3 dots per module; the right module size is not measured on paper yet (`TestQR` in the design system).
 
 ## Print
 
@@ -53,7 +57,3 @@ A render longer than 4000 dots is refused.
 | Template | Strip |
 |---|---|
 | `ticket` | 1c ticket update |
-
-## Not done
-
-- QR codes: no QR library is approved yet. The `ticket` template leaves out Set 1's QR slot and the lines beside it.

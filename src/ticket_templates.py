@@ -16,8 +16,10 @@ from raster_capture import _ALIASED_TEXT_CSS
 DIST = (Path(__file__).resolve().parents[1] / "web" / "dist").resolve()
 ORIGIN = "http://render.invalid"
 LOAD_TIMEOUT_MS = 15_000
-RENDER_TIMEOUT_MS = 4_000
+RENDER_TIMEOUT_MS = 3_000
 SCREENSHOT_TIMEOUT_MS = 10_000
+# The in-page timeout cannot interrupt a busy render; small payloads keep every render short.
+MAX_PAYLOAD_BYTES = 64 * 1024
 
 _CAPTURE = capture_options(DEFAULT_PROFILE)
 
@@ -41,7 +43,12 @@ async ([payload, timeout]) => {
 _RECEIPT_JS = """
 () => {
   const receipt = document.querySelector('#receipt');
-  return { orientation: receipt.dataset.orientation, width: receipt.offsetWidth, height: receipt.offsetHeight };
+  return {
+    orientation: receipt.dataset.orientation,
+    width: receipt.offsetWidth,
+    height: receipt.offsetHeight,
+    children: receipt.childElementCount,
+  };
 }
 """
 
@@ -88,6 +95,12 @@ def open_render_page(browser):
 def _check_envelope(payload) -> None:
     if not isinstance(payload, dict):
         raise TemplateError("payload: expected object")
+    try:
+        size = len(json.dumps(payload, allow_nan=False).encode())
+    except (TypeError, ValueError) as error:
+        raise TemplateError(f"payload: not JSON ({error})") from error
+    if size > MAX_PAYLOAD_BYTES:
+        raise TemplateError(f"payload: {size} bytes; the limit is {MAX_PAYLOAD_BYTES}")
     if not isinstance(payload.get("template"), str):
         raise TemplateError("template: expected string")
     version = payload.get("schemaVersion")
@@ -106,6 +119,8 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     if _CAPTURE["prepare_js"]:
         page.evaluate(_CAPTURE["prepare_js"])
     receipt = page.evaluate(_RECEIPT_JS)
+    if not receipt["children"]:
+        raise TemplateError(f'template "{payload["template"]}" rendered nothing')
     landscape = receipt["orientation"] == "landscape"
     length = receipt["width"] if landscape else receipt["height"]
     if length > max_height_dots:
@@ -113,5 +128,7 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     image = Image.open(io.BytesIO(page.locator("#receipt").screenshot(timeout=SCREENSHOT_TIMEOUT_MS)))
     if landscape:
         image = image.transpose(Image.Transpose.ROTATE_270)
+    if image.width != PRINT_WIDTH_DOTS:
+        raise RuntimeError(f"#receipt captured {image.width} dots across the paper, not {PRINT_WIDTH_DOTS}")
     bitmap = to_bitmap(to_gray(image), DEFAULT_PROFILE)
     return bitmap if bitmap.mode == "1" else bitmap.convert("1")

@@ -18,10 +18,10 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from playwright.sync_api import sync_playwright  # noqa: E402
+from playwright.sync_api import Error as PlaywrightError, sync_playwright  # noqa: E402
 
 from printer import open_printer  # noqa: E402
-from receipt_print import _run_web_build  # noqa: E402
+from web_build import build_web  # noqa: E402
 from ticket_templates import TemplateError, open_render_page, render_template  # noqa: E402
 
 
@@ -42,7 +42,7 @@ def main() -> None:
         sys.exit(f"ERROR: cannot read {args.payload_json}: {error}")
     if not args.no_build:
         try:
-            _run_web_build(_PROJECT_ROOT / "web")
+            build_web(_PROJECT_ROOT / "web")
         except RuntimeError as error:
             sys.exit(f"ERROR: {error}")
 
@@ -55,6 +55,9 @@ def main() -> None:
                 browser.close()
     except (TemplateError, RuntimeError) as error:
         sys.exit(f"ERROR: {error}")
+    except PlaywrightError as error:
+        hint = " Run: uv run playwright install chromium" if "Executable doesn't exist" in error.message else ""
+        sys.exit(f"ERROR: browser failed: {error.message.splitlines()[0]}{hint}")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"template-{stamp}").resolve()

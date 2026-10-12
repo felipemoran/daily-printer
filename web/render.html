@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=384, initial-scale=1.0" />
     <title>Thermal templates</title>
     <style>
-      #receipt[data-orientation='landscape'] { width: max-content; height: 384px; }
+      /* Turned 90 degrees clockwise onto the paper: the feed goes at the trailing (right) end. */
+      #receipt[data-orientation='landscape'] { width: max-content; height: 384px; padding-bottom: 0; padding-right: var(--space-feed, 56px); }
     </style>
   </head>
   <body>

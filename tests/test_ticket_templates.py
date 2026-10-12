@@ -17,6 +17,8 @@ from ticket_templates import TemplateError, open_render_page, render_template, t
 SAMPLES = sorted((ROOT / "samples" / "templates").glob("*.json"))
 TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
+EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
+NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
 
 
 def setUpModule():
@@ -42,6 +44,10 @@ class EnvelopeTest(unittest.TestCase):
         ):
             with self.subTest(field), self.assertRaisesRegex(TemplateError, f"^{field}: expected"):
                 render_template(None, payload)
+
+    def test_payload_size_is_capped(self):
+        with self.assertRaisesRegex(TemplateError, "^payload: .* bytes; the limit is 65536$"):
+            render_template(None, ticket(title="x" * 70_000))
 
 
 @unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
@@ -104,10 +110,42 @@ class RenderTest(unittest.TestCase):
         self.assert_template_error(ticket(fields=[{"label": "a", "value": "b"}, {"label": "c", "value": 3}]),
                                    r"^data\.fields\[1\]\.value: expected string$")
         self.assert_template_error(ticket(titel="typo"), r"^data\.titel: unknown field$")
+        self.assert_template_error(ticket(fields=[{"label": "a", "value": "b"}] * 11),
+                                   r"^data\.fields: expected at most 10 items$")
 
     def test_component_that_throws_is_caught_by_the_error_boundary(self):
         with self.failing_transition():
             self.assert_template_error(TICKET, '^template "ticket" failed to render: boom$')
+
+    def test_effect_that_throws_fails_the_render(self):
+        with self.failing_transition(EFFECT_THROWS):
+            self.assert_template_error(TICKET, '^template "ticket" failed to render: effect boom$')
+        render_template(self.page, TICKET)
+
+    def test_render_that_never_settles_times_out(self):
+        with self.failing_transition(NEVER_SETTLES):
+            self.assert_template_error(TICKET, "^render did not finish within 3000 ms$")
+        render_template(self.page, TICKET)
+
+    def test_qr_is_drawn_square_on_whole_modules(self):
+        def qr():
+            image = render_template(self.page, TICKET)
+            box = self.page.evaluate("""() => {
+              const canvas = document.querySelector('#receipt canvas');
+              const r = canvas.getBoundingClientRect(), origin = document.querySelector('#receipt').getBoundingClientRect();
+              return { x: r.left - origin.left, y: r.top - origin.top, width: r.width, height: r.height,
+                       pixels: canvas.width, rows: canvas.height };
+            }""")
+            region = image.crop((box["x"], box["y"], box["x"] + box["width"], box["y"] + box["height"]))
+            return box, region
+
+        box, region = qr()
+        # The sample URL encodes as QR version 3: 29 modules, 4 quiet modules a side, 3 dots each.
+        self.assertEqual((box["width"], box["height"], box["pixels"], box["rows"]), (111, 111, 111, 111))
+        self.assertEqual((box["x"], box["y"]), (int(box["x"]), int(box["y"])))
+        self.assertIsNotNone(region.convert("L").point(lambda value: 255 - value).getbbox(), "blank QR")
+        self.assertEqual(qr()[1].tobytes(), region.tobytes())
+        self.assertEqual(region.size, (111, 111))
 
     def test_too_tall_fails_before_the_screenshot(self):
         with mock.patch.object(self.page, "locator", side_effect=AssertionError("screenshot taken")):
@@ -116,25 +154,33 @@ class RenderTest(unittest.TestCase):
     def test_landscape_render_is_rotated_onto_the_paper(self):
         page = open_render_page(self.browser)
         try:
+            render_template(page, TICKET)
+            self.assertEqual(page.evaluate("document.querySelector('#receipt').dataset.orientation"), "portrait")
             # No landscape template yet: mark the ticket landscape after it renders.
             page.evaluate("""() => {
               const render = window.renderTemplate;
               window.renderTemplate = async (payload) => {
                 await render(payload);
-                const receipt = document.querySelector('#receipt');
-                receipt.dataset.orientation = 'landscape';
-                receipt.style.width = '600px';
+                document.querySelector('#receipt').dataset.orientation = 'landscape';
               };
             }""")
             image = render_template(page, TICKET)
+            height = page.evaluate("document.querySelector('#receipt').offsetHeight")
         finally:
             page.close()
-        self.assertEqual((image.mode, image.size), ("1", (384, 600)))
+        self.assertEqual(height, 384)
+        self.assertEqual((image.mode, image.width), ("1", 384))
+        self.assertGreater(image.height, 384)
+        # Clockwise: the HeaderBar (top of the layout) lands on the right edge, the feed at the end.
+        self.assertEqual({image.getpixel((381, y)) for y in range(100)}, {0}, "header bar not on the right edge")
+        self.assertNotEqual({image.getpixel((2, y)) for y in range(100)}, {0})
+        self.assertIsNone(image.crop((0, image.height - 56, 384, image.height)).convert("L")
+                          .point(lambda value: 255 - value).getbbox(), "feed not at the end")
 
     @contextlib.contextmanager
-    def failing_transition(self):
+    def failing_transition(self, component="() => { throw new Error('boom'); }"):
         transition = self.page.evaluate_handle("() => window.Thermal.Transition")
-        self.page.evaluate("() => { window.Thermal.Transition = () => { throw new Error('boom'); }; }")
+        self.page.evaluate(f"() => {{ window.Thermal.Transition = {component}; }}")
         try:
             yield
         finally:

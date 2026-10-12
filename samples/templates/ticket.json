@@ -17,6 +17,10 @@
     "comment": {
       "text": "Raised retry cap to 8 and added jitter. Backlog drained in 11 min. Monitoring overnight.",
       "author": "M. Okafor"
+    },
+    "qr": {
+      "text": "https://linear.app/acme/issue/OPS-2481",
+      "lines": ["Scan to open ticket", "3 watchers notified", "Next: auto-close in 48h"]
     }
   }
 }

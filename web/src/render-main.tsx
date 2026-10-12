@@ -1,7 +1,7 @@
 // render.html: window.renderTemplate(payload) mounts one template into #receipt for
 // src/ticket_templates.py. Envelope: docs/feature-ticket-templates.md.
 /* eslint-disable react-refresh/only-export-components -- entry module: nothing imports it */
-import { Component, useLayoutEffect, type ReactNode } from 'react'
+import { Component, useEffect, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import './fonts.css'
 import T from './thermal'
@@ -21,8 +21,9 @@ class Boundary extends Component<{ onError: (error: unknown) => void; children: 
   render() { return this.state.failed ? null : this.props.children }
 }
 
+// A passive effect after the template's: it runs once the template's own effects (QR canvas) did.
 function Committed({ onCommit }: { onCommit: () => void }) {
-  useLayoutEffect(onCommit, [onCommit])
+  useEffect(onCommit, [onCommit])
   return null
 }
 
@@ -49,10 +50,11 @@ window.renderTemplate = async (payload) => {
   const { name, template, data } = envelope(payload)
   root = createRoot(container)
   const mounted = root
+  let failure: Error | null = null
   await new Promise<void>((resolve, reject) => {
     mounted.render(
       <T.Paper print data-orientation={template.orientation ?? 'portrait'}>
-        <Boundary onError={(error) => reject(new Error(`template "${name}" failed to render: ${message(error)}`))}>
+        <Boundary onError={(error) => { reject(failure = new Error(`template "${name}" failed to render: ${message(error)}`)) }}>
           <template.Component data={data} />
           <Committed onCommit={resolve} />
         </Boundary>
@@ -62,4 +64,7 @@ window.renderTemplate = async (payload) => {
   // Layout first: font loads start only once laid-out text needs a face.
   void container.offsetHeight
   await document.fonts.ready
+  // An effect that throws reaches the boundary after Committed resolved; give React a frame to report it.
+  await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)))
+  if (failure) throw failure
 }

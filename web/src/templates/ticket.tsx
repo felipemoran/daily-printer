@@ -1,9 +1,13 @@
 // Strip 1c of designs/receipt-set-1, on design-system/components/TicketTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, object, optional, string } from './validate'
+import { qrMatrix } from './qr'
+import { array, limitedString, object, optional, string } from './validate'
 
 const gap = { height: 'var(--space-7)' }
+
+// At 3 dots per module, 120 ASCII characters (QR version 7 at level M) leave room for the lines beside it.
+const qrText = limitedString(120)
 
 const parse = object({
   kind: optional(string),
@@ -11,8 +15,9 @@ const parse = object({
   id: string,
   title: string,
   status: object({ from: string, to: string }),
-  fields: optional(array(object({ label: string, value: string }))),
+  fields: optional(array(object({ label: string, value: string }), 10)),
   comment: optional(object({ text: string, author: optional(string) })),
+  qr: optional(object({ text: qrText, lines: optional(array(string, 3)) })),
 })
 
 export default defineTemplate({
@@ -22,7 +27,7 @@ export default defineTemplate({
     <>
       <T.HeaderBar left={data.kind ?? 'TICKET UPDATE'} right={data.time} />
       <div className="display-xl" style={{ marginTop: 'var(--space-5)', letterSpacing: -1 }}>{data.id}</div>
-      <div className="lead" style={{ marginTop: 'var(--space-3)' }}>{data.title}</div>
+      <div className="lead" style={{ marginTop: 'var(--space-3)', textWrap: 'pretty' }}>{data.title}</div>
       <div style={gap} />
       <T.Transition from={data.status.from} to={data.status.to} />
       {data.fields?.length ? (
@@ -35,6 +40,12 @@ export default defineTemplate({
         <>
           <T.Rule weight="rule" style={{ margin: 'var(--space-7) 0 8px' }} />
           <T.Quote by={data.comment.author}>{data.comment.text}</T.Quote>
+        </>
+      ) : null}
+      {data.qr ? (
+        <>
+          <T.Rule weight="rule" style={{ margin: 'var(--space-7) 0 var(--space-5)' }} />
+          <T.QRSlot matrix={qrMatrix(data.qr.text)} module={3} lines={data.qr.lines} />
         </>
       ) : null}
     </>
