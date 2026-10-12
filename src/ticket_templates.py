@@ -22,8 +22,8 @@ RENDER_TIMEOUT_MS = 3_000
 SCREENSHOT_TIMEOUT_MS = 10_000
 # The in-page timeout cannot interrupt a busy render; small payloads keep every render short.
 MAX_PAYLOAD_BYTES = 64 * 1024
-# Playwright serialises an evaluate argument recursively: about 500 levels raise RecursionError, 1000 a
-# PlaywrightError. Real payloads nest 6 levels deep.
+# page.evaluate hangs past 30 s on an argument about 145 levels deep; deeper ones raise RecursionError
+# or PlaywrightError. Real payloads nest 6 levels deep.
 MAX_DEPTH = 32
 
 _CAPTURE = capture_options(DEFAULT_PROFILE)
@@ -153,31 +153,29 @@ def open_render_page(browser):
     return page
 
 
-def _depth(value) -> int:
-    deepest, stack = 0, [(value, 1)]
+def _deeper_than(value, limit: int) -> bool:
+    stack = [(value, 1)]
     while stack:
         value, depth = stack.pop()
         if isinstance(value, (dict, list, tuple)):
-            deepest = max(deepest, depth)
+            if depth > limit:
+                return True
             stack.extend((child, depth + 1) for child in (value.values() if isinstance(value, dict) else value))
-    return deepest
+    return False
 
 
 def check_envelope(payload) -> None:
     """Raises TemplateError for an envelope render.html would refuse, without a browser."""
     if not isinstance(payload, dict):
         raise TemplateError("payload: expected object")
-    too_deep = f"payload: nested more than {MAX_DEPTH} levels deep"
+    if _deeper_than(payload, MAX_DEPTH):
+        raise TemplateError(f"payload: nested more than {MAX_DEPTH} levels deep")
     try:
         size = len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode())
-    except RecursionError as error:
-        raise TemplateError(too_deep) from error
     except (TypeError, ValueError) as error:
         raise TemplateError(f"payload: not JSON ({error})") from error
     if size > MAX_PAYLOAD_BYTES:
         raise TemplateError(f"payload: {size} bytes; the limit is {MAX_PAYLOAD_BYTES}")
-    if _depth(payload) > MAX_DEPTH:
-        raise TemplateError(too_deep)
     name = payload.get("template")
     if not isinstance(name, str):
         raise TemplateError("template: expected string")

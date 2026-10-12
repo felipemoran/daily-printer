@@ -44,11 +44,11 @@ def ticket(**data):
 SHORT_TICKET = ticket(fields=None, comment=None, qr=None)
 
 
-def nested(levels):
+def nested(levels, wrap=lambda value: [value]):
     """``ticket()`` with ``data.deep`` grown until the payload nests ``levels`` deep."""
-    value = []
+    value = wrap(None)
     for _ in range(levels - 3):
-        value = [value]
+        value = wrap(value)
     return ticket(deep=value)
 
 
@@ -89,14 +89,17 @@ class EnvelopeTest(unittest.TestCase):
             check_envelope(ticket(title="\u00e7\u00e3o" * 14_000))
 
     def test_deep_payload_is_a_sender_fault(self):
-        # 50,000 levels: json.dumps raises RecursionError. 500: Playwright would.
-        for levels in (50_000, 500, MAX_DEPTH + 1):
-            payload = nested(levels)
-            for call in (check_envelope, lambda payload: render_template(None, payload),
-                         lambda payload: render_text(None, payload)):
-                with self.subTest(levels=levels), self.assertRaisesRegex(TemplateError, f"^payload: nested more than {MAX_DEPTH} levels deep$"):
-                    call(payload)
-        check_envelope(nested(MAX_DEPTH))
+        calls = {"check_envelope": check_envelope, "render_template": lambda payload: render_template(None, payload),
+                 "render_text": lambda payload: render_text(None, payload)}
+        # 50,000 levels: json.dumps raises RecursionError. 150: page.evaluate hangs.
+        for shape, wrap in (("list", lambda value: [value]), ("dict", lambda value: {"key": value})):
+            for levels in (50_000, 150, MAX_DEPTH + 1):
+                payload = nested(levels, wrap)
+                for name, call in calls.items():
+                    with self.subTest(shape=shape, levels=levels, call=name), \
+                            self.assertRaisesRegex(TemplateError, f"^payload: nested more than {MAX_DEPTH} levels deep$"):
+                        call(payload)
+            check_envelope(nested(MAX_DEPTH, wrap))
 
     def test_unknown_template_fails_without_a_page(self):
         with self.assertRaisesRegex(TemplateError, '^unknown template "nope"; known: .*ticket'):

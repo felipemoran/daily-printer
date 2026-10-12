@@ -32,7 +32,7 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 - `template`: a template name from the table.
 - `schemaVersion`: must equal the template's. Raise it when a change to `data` breaks old senders.
 - `data`: what the template's `parse` accepts. Unknown fields are refused, so a misspelt optional field fails instead of disappearing.
-- The whole payload is at most 64 KiB (65536 bytes of UTF-8 JSON). Every list in `data` has a maximum length.
+- The whole payload is at most 64 KiB (65536 bytes of UTF-8 JSON) and at most 32 levels deep. Every list in `data` has a maximum length.
 
 ## Python API
 
@@ -41,7 +41,7 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 | Call | Does |
 |---|---|
 | `template_names()` | The template names in the last build. |
-| `check_envelope(payload)` | Checks the envelope, the size limit and the nesting depth (32 levels) without a browser. It does not check `schemaVersion` against the template. |
+| `check_envelope(payload)` | Checks the envelope, the size limit and the depth limit without a browser. It does not check `schemaVersion` against the template. |
 | `open_render_page(browser)` | Opens a Playwright page on `render.html`. Open it once and reuse it: a failed render leaves it usable. The page loads files from `web/dist` only, never from the network. |
 | `render_template(page, payload, *, max_height_dots=4000)` | The print as a mode `"1"` PIL image, 384 dots wide. `max_height_dots` sets the length limit (see *Render guards*). |
 | `render_text(page, payload)` | The print as native ESC/POS text bytes (see *Native text output*). |
