@@ -84,12 +84,24 @@ class ReviewQueueTest(unittest.TestCase):
         self.assertEqual(numbers, ["#2", "#4", "#1", "#3"])
 
     def test_widest_values_fit_unclipped(self):
-        widest = pr(999_999_999_999, 9999, title="x" * 80, area="a" * 60, added=9_999_999, removed=9_999_999)
-        lines = self.render_lines(queue([widest, pr(2, 1000, added=1_234_567, removed=7_654_321)] + [pr(3)] * 23))
+        widest = pr(999_999_999_999, 9999, title="x" * 64, area="a" * 10, added=999_999, removed=999_999)
+        lines = self.render_lines(queue([widest, pr(2, 1000, added=123_456, removed=654_321)] + [pr(3)] * 18))
         self.assertIn("#999999999999", lines)
         self.assertIn("STALE 1000D", lines)
-        self.assertIn("25 WAITING ON YOU · OLDEST 9999D", lines)
+        self.assertIn("aaaaaaaaaa · +999999 −999999", lines)
+        self.assertIn("20 WAITING ON YOU · OLDEST 9999D", lines)
         self.assertEqual(self.page.evaluate(OVERFLOWING_JS), [])
+
+    def test_tallest_queue_fits_the_render_cap(self):
+        # Words that cannot share a line: 64 characters wrap to 3 lines.
+        title = " ".join(("a" * 20, "b" * 20, "c" * 22))
+        tallest = pr(999_999_999_999, 9999, title=title, area="a" * 10, added=999_999, removed=999_999)
+        image = render_template(self.page, queue([tallest] * 20))
+        heights = self.page.evaluate("""() => ['.body-strong', '.meta'].map((selector) =>
+          [...document.querySelectorAll(`#receipt ${selector}`)].map((element) => element.offsetHeight))""")
+        self.assertEqual(set(heights[0][1:]), {72}, "titles: 3 lines")
+        self.assertEqual(set(heights[1]), {24}, "meta: 1 line")
+        self.assertLess(image.height, 4000)
 
     def test_empty_queue_says_so(self):
         lines = self.render_lines(queue([]))
@@ -101,12 +113,15 @@ class ReviewQueueTest(unittest.TestCase):
         for prs, pattern in (
             ([pr(age_days=1.5)], r"^data\.prs\[0\]\.ageDays: expected a whole number from 0 to 9999$"),
             ([pr(age_days=10_000)], r"^data\.prs\[0\]\.ageDays: expected a whole number from 0 to 9999$"),
-            ([pr(added=-1)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 9007199254740991$"),
-            ([pr(added=1e21)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 9007199254740991$"),
+            ([pr(added=-1)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 999999$"),
+            ([pr(added=1e21)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 999999$"),
+            ([pr(removed=1_000_000)], r"^data\.prs\[0\]\.removed: expected a whole number from 0 to 999999$"),
+            ([pr(title="x" * 65)], r"^data\.prs\[0\]\.title: expected at most 64 characters$"),
+            ([pr(area="x" * 11)], r"^data\.prs\[0\]\.area: expected at most 10 characters$"),
             ([pr(number=10**12)], r"^data\.prs\[0\]\.number: expected a whole number from 0 to 999999999999$"),
             ([pr(removed="4")], r"^data\.prs\[0\]\.removed: expected number$"),
             ([pr(number=None)], r"^data\.prs\[0\]\.number: expected number$"),
-            ([pr()] * 26, r"^data\.prs: expected at most 25 items$"),
+            ([pr()] * 21, r"^data\.prs: expected at most 20 items$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, queue(prs))

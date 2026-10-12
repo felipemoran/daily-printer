@@ -1,9 +1,10 @@
 // Strip 1i of designs/receipt-set-1, on design-system/components/PullRequestTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, number, object, string, TemplateDataError, type Parser } from './validate'
+import { array, limitedString, number, object, TemplateDataError, type Parser } from './validate'
 
-// The maxima keep the number row on one line: "#999999999999" beside "STALE 9999D".
+// The maxima bound a row to 3 title lines and one line each for number and meta,
+// so 20 rows stay under the 4000-dot render cap.
 const whole = (max: number): Parser<number> => (value, path) => {
   const result = number(value, path)
   if (!Number.isSafeInteger(result) || result < 0 || result > max) {
@@ -15,12 +16,12 @@ const whole = (max: number): Parser<number> => (value, path) => {
 const parse = object({
   prs: array(object({
     number: whole(999_999_999_999),
-    title: string,
-    area: string,
-    added: whole(Number.MAX_SAFE_INTEGER),
-    removed: whole(Number.MAX_SAFE_INTEGER),
+    title: limitedString(64),
+    area: limitedString(10),
+    added: whole(999_999),
+    removed: whole(999_999),
     ageDays: whole(9999),
-  }), 25),
+  }), 20),
 })
 
 const STALE_AFTER_DAYS = 2
