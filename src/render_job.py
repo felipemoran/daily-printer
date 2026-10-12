@@ -141,7 +141,9 @@ def _image_bitmap(data: bytes | None) -> Image.Image:
         raise RenderError("an image job needs a non-empty image")
     try:
         picture = Image.open(io.BytesIO(data))
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+    except UnidentifiedImageError:
+        raise RenderError("the upload is not an image this server can read; send a JPEG or PNG") from None
+    except (OSError, Image.DecompressionBombError) as error:
         raise RenderError(f"the upload is not a readable image: {error}") from error
     width, height = picture.size
     limit = min(MAX_SOURCE_PIXELS, Image.MAX_IMAGE_PIXELS)

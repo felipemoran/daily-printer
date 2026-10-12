@@ -298,8 +298,12 @@ class RenderErrorTest(unittest.TestCase):
     def test_empty_image_is_a_render_error(self):
         self.assertRenderError("image", image=b"")
 
-    def test_non_image_upload_is_a_render_error_not_a_pil_error(self):
-        self.assertRenderError("image", image=b"%PDF-1.7\n" + b"x" * 2000)
+    def test_non_image_upload_is_a_plain_render_error_not_a_pil_error(self):
+        with self.assertRaises(RenderError) as caught:
+            render("image", image=b"%PDF-1.7\n" + b"x" * 2000)
+        self.assertEqual(
+            str(caught.exception), "the upload is not an image this server can read; send a JPEG or PNG"
+        )
 
     def test_truncated_image_is_a_render_error(self):
         whole = _photo((640, 480), "RGB", "PNG")

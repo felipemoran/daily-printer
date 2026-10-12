@@ -354,7 +354,7 @@ class IntakeTest(ServerTestCase):
         job = self.image_job(image=base64.b64encode(b"GIF89a but not really").decode())
         status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
         self.assertEqual(status, 422)
-        self.assertIn("not a readable image", body["error"])
+        self.assertIn("not an image this server can read", body["error"])
         self.assertEqual(self.queue.jobs(), [])
 
     async def test_image_too_tall_is_422(self):
