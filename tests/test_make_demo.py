@@ -97,6 +97,14 @@ class MakeDemoTest(unittest.TestCase):
         self.assertFalse((ROOT / marker).exists())
         self.assertEqual(self.requests, [])
 
+    def test_a_percent_sign_is_not_a_wildcard_in_the_name_check(self):
+        for name in ("%", "a%"):
+            with self.subTest(name=name):
+                result = make(f"demo-{name}", self.server)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"Unknown demo '{name}'. Valid names: agenda ", result.stderr)
+        self.assertEqual(self.requests, [])
+
     def test_a_missing_curl_is_named(self):
         result = make("demo-ticket", self.server, env={"PATH": ""})
         self.assertNotEqual(result.returncode, 0)

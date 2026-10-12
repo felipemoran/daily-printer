@@ -62,7 +62,7 @@ demo: ## Run make simulate, building web/dist first when it is missing
 	uv run src/scripts/simulate.py
 
 demo-%: ## Send one sample to the running demo; <name> is one of:
-	$(if $(and $(filter 1,$(words $*)),$(filter $*,$(DEMO_NAMES))),,$(error Unknown demo '$*'. Valid names: $(DEMO_NAMES)))
+	$(if $(and $(filter 1,$(words $*)),$(if $(filter-out $(DEMO_NAMES),$*),,known)),,$(error Unknown demo '$*'. Valid names: $(DEMO_NAMES)))
 	@command -v curl > /dev/null || { echo "curl is missing; make demo-$* needs it to find the simulation. Install curl." >&2; exit 2; }
 	@curl -s -o /dev/null --max-time 5 "$(DEMO_SERVER)/" || { echo "The simulation is not running at $(DEMO_SERVER). Start it with make demo, then run make demo-$* in another terminal." >&2; exit 1; }
 	@PRINT_ADMIN_TOKEN=$(DEMO_TOKEN) uv run src/scripts/printctl.py --server "$(DEMO_SERVER)" \
