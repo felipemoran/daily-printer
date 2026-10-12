@@ -18,6 +18,7 @@ sys.path.insert(0, str(_TESTS.parent / "src"))
 sys.path.insert(0, str(_TESTS))
 
 import http_api  # noqa: E402
+import job_artifacts  # noqa: E402
 import render_job  # noqa: E402
 from http_api import create_app  # noqa: E402
 from job_artifacts import artifacts_root, dist_sha256  # noqa: E402
@@ -173,6 +174,17 @@ class IntakeTest(ArtifactTestCase):
         })
         self.assertRegex(meta["web_dist_sha256"], "^[0-9a-f]{64}$")
 
+    async def test_web_dist_sha256_follows_a_rebuild_while_the_server_runs(self):
+        dist = self.tmp / "dist"
+        dist.mkdir()
+        (dist / "render.html").write_text("first build")
+        with mock.patch.object(job_artifacts, "DIST_DIR", dist):
+            first = json.loads(self.file((await self.send("image"))["id"], "meta.json"))["web_dist_sha256"]
+            (dist / "render.html").write_text("second build")
+            second = json.loads(self.file((await self.send("image"))["id"], "meta.json"))["web_dist_sha256"]
+        self.assertRegex(first, "^[0-9a-f]{64}$")
+        self.assertNotEqual(first, second)
+
     async def test_page_mhtml_is_an_mhtml_archive_with_the_fonts_the_page_used(self):
         fonts = {path.read_bytes() for path in (DIST_DIR / "fonts").rglob("*.woff2")}
         archives = {}
@@ -258,6 +270,16 @@ class ReprintTest(ArtifactTestCase):
                                  {**meta, "created_at": copy["created_at"], "reprint_of": job["id"]})
                 self.assertEqual(self.queue.take("home").data, (source / "job.escpos").read_bytes())
                 self.queue.cancel(copy["id"])
+
+    async def test_a_reprint_holds_its_own_copies_of_the_files(self):
+        job = await self.finished("text")
+        status, copy = await self.call("POST", f"/api/jobs/{job['id']}/reprint", self.admin)
+        self.assertEqual(status, 201, copy)
+        for file in (self.root / copy["id"]).iterdir():
+            with self.subTest(file.name):
+                self.assertEqual(file.stat().st_nlink, 1)
+        (self.root / copy["id"] / "print.png").write_bytes(b"edited")
+        self.assertEqual(self.file(job["id"], "print.png"), self.rendered["text"].png)
 
     async def test_a_job_without_its_folder_cannot_be_reprinted(self):
         job = await self.finished("image")

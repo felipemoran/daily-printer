@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import functools
 import hashlib
 import io
 import json
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -25,9 +23,8 @@ def artifacts_root(database: Path) -> Path:
     return database.parent / "artifacts"
 
 
-@functools.cache
 def dist_sha256() -> str | None:
-    """A digest of every file in web/dist, read once per process. None when web/dist is missing."""
+    """A digest of every file in web/dist. None when web/dist is missing."""
     if not DIST_DIR.is_dir():
         return None
     digest = hashlib.sha256()
@@ -103,14 +100,14 @@ class ArtifactStore:
         return staged
 
     def stage_reprint(self, job_id: str, *, created_at: float) -> Path:
-        """A copy of the job's folder, its files hard-linked, with ``reprint_of`` in a new meta.json."""
+        """A copy of the job's folder, with ``reprint_of`` in a new meta.json."""
         source = self.folder(job_id)
         meta = json.loads((source / META).read_text(encoding="utf-8"))
         staged = self._new_staging()
         try:
             for file in source.iterdir():
                 if file.name != META:
-                    os.link(file, staged / file.name)
+                    shutil.copyfile(file, staged / file.name)
             (staged / META).write_bytes(_json({**meta, "created_at": created_at, "reprint_of": job_id}))
         except BaseException:
             self.discard(staged)
