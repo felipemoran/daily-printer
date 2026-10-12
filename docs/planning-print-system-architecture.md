@@ -13,7 +13,7 @@ Decided 2026-10-12. Nothing in this document is built yet.
 ## Shape
 
 ```
-senders: CLI, cron, web form, Telegram bot
+web form senders
         |  HTTPS
         v
 sender hostname (Cloudflare Access login)
@@ -22,7 +22,7 @@ sender hostname (Cloudflare Access login)
 Cloudflare Tunnel (no open router ports)
         |
         v
-server: Intel Mac at home
+server: Intel Mac at home    <- CLI, cron and Telegram bot, on the same Mac
   intake -> queue -> render (Chromium kept running) -> dither -> ESC/POS bytes
         ^
         |  Cloudflare Tunnel, device hostname
