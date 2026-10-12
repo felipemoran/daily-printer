@@ -42,11 +42,12 @@ async ([payload, timeout]) => {
 
 _RECEIPT_JS = """
 () => {
-  const receipt = document.querySelector('#receipt');
+  const receipt = document.querySelector('#receipt'), box = receipt.getBoundingClientRect();
+  // Rounded up like the screenshot clip; offsetHeight rounds to nearest.
   return {
     orientation: receipt.dataset.orientation,
-    width: receipt.offsetWidth,
-    height: receipt.offsetHeight,
+    width: Math.ceil(box.width),
+    height: Math.ceil(box.height),
     children: receipt.childElementCount,
   };
 }

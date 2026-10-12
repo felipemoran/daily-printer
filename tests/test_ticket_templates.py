@@ -176,6 +176,11 @@ class RenderTest(unittest.TestCase):
             self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
         render_template(self.page, TICKET)
 
+    def test_fractional_length_renders(self):
+        for height in (10.3, 10.7):
+            with self.subTest(height), self.failing_transition(BOX % f"{{ style: {{ height: {height} }} }}"):
+                render_template(self.page, TICKET)
+
     def test_layout_that_changes_during_the_screenshot_fails(self):
         with self.failing_transition(GROWS_ON_RESIZE):
             self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
