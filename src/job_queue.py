@@ -13,10 +13,11 @@ from datetime import datetime, tzinfo
 from enum import StrEnum
 from pathlib import Path
 
+from printer import DOTS_PER_MM
+
 MAX_ATTEMPTS = 3
 DEFAULT_EXPIRY_SECONDS = 3600
 FRAME_SIZE = 4096
-DOTS_PER_MM = 8
 PNG_RETENTION_SECONDS = 30 * 86400
 DAY_SECONDS = 86400
 HOUR_SECONDS = 3600

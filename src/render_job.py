@@ -17,12 +17,12 @@ from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
 from photo_dither import dither, prepare
 from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, to_bitmap
-from printer import PRINT_WIDTH_DOTS
+from printer import DOTS_PER_MM, PRINT_WIDTH_DOTS
 from raster_capture import capture_receipt
 from ticket_templates import TemplateError, open_render_page, render_template
 
 KINDS = ("receipt", "image", "template")
-MAX_HEIGHT_DOTS = 4000  # 50 cm at 8 dots/mm
+MAX_HEIGHT_DOTS = 500 * DOTS_PER_MM
 MAX_SOURCE_PIXELS = 25_000_000
 DIST_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
 
@@ -167,5 +167,6 @@ def _image_bitmap(data: bytes | None) -> Image.Image:
 def _check_height(what: str, height: int) -> None:
     if height > MAX_HEIGHT_DOTS:
         raise RenderError(
-            f"the {what} would print {height / 80:.1f} cm long; the limit is {MAX_HEIGHT_DOTS / 80:.0f} cm"
+            f"the {what} would print {height / DOTS_PER_MM / 10:.1f} cm long; "
+            f"the limit is {MAX_HEIGHT_DOTS / DOTS_PER_MM / 10:.0f} cm"
         )
