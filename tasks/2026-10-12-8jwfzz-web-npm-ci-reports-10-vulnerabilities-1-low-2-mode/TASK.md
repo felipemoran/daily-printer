@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-8jwfzz-web-npm-ci-reports-10-vulnerabilities-1-low-2-mode
 title: 'web/: npm ci reports 10 vulnerabilities (1 low, 2 moderate, 7 high)'
-status: draft
+status: pending
 priority: 2
 created_date: 2026-10-12
 dependencies: []
