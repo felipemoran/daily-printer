@@ -106,6 +106,14 @@ class Stats:
     hourly: dict[str, list[int]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class SourceActivity:
+    ingress: str
+    source: str
+    jobs_today: int
+    last_job: Job
+
+
 _COLUMNS = (
     f"id, printer, kind, title, source, ingress, status, attempts, created_at, expires_at,"
     f" render_ms, width, height, height * 1.0 / {DOTS_PER_MM}, size_bytes, frames, sent_at, printed_at"
@@ -135,6 +143,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 CREATE INDEX IF NOT EXISTS jobs_printer_status ON jobs (printer, status);
 CREATE INDEX IF NOT EXISTS jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued';
+CREATE INDEX IF NOT EXISTS jobs_source ON jobs (ingress, source, created_at);
 CREATE TABLE IF NOT EXISTS job_events (
     id INTEGER PRIMARY KEY,
     job_id TEXT NOT NULL REFERENCES jobs (id),
@@ -391,6 +400,22 @@ class JobQueue:
             paper_today_mm=sum(height for *_, height in today) / DOTS_PER_MM,
             hourly=hourly,
         )
+
+    def activity(self, ingresses: tuple[str, ...], *, now: float | None = None,
+                 tz: tzinfo | None = None) -> list[SourceActivity]:
+        """Per (ingress, source) among ``ingresses``: jobs created today and the newest job, newest first."""
+        if not ingresses:
+            return []
+        now = time.time() if now is None else now
+        rows = self._db.execute(
+            f"SELECT * FROM (SELECT {_COLUMNS},"
+            f" ROW_NUMBER() OVER (PARTITION BY ingress, source ORDER BY created_at DESC, rowid DESC) AS rank,"
+            f" SUM(created_at >= ? AND created_at <= ?) OVER (PARTITION BY ingress, source) AS today"
+            f" FROM jobs WHERE ingress IN ({', '.join('?' * len(ingresses))}) AND created_at <= ?)"
+            f" WHERE rank = 1 ORDER BY created_at DESC",
+            (_local_midnight(now, tz), now, *ingresses, now),
+        ).fetchall()
+        return [SourceActivity(row[5], row[4], row[-1], _job(row[:-2])) for row in rows]
 
     @contextmanager
     def _transaction(self) -> Iterator[None]:

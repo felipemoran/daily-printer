@@ -145,8 +145,11 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 | `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
 | `GET /api/printers` | admin | Printer state (see below) |
 | `GET /api/stats` | admin | Aggregates (see below) |
+| `GET /api/clients` | admin | `{"clients": [{id, kind, jobs_today, last_job}]}`. Each configured client (`kind` `client`), then each web sender seen (`kind` `web`, `id` the email). `last_job` is `{id, title, kind, printer, created_at}` or null. |
+| `GET /api/server` | admin | `{version, started_at, uptime_seconds, renders_in_progress}`. A render waiting for a free slot counts as in progress. |
 | `GET /api/me` | web | The sender's email and the public printers |
 | `GET /` | web | The sender web form |
+| `GET /admin` | anyone | The admin web page. It holds no data; its API calls need admin rights. |
 
 Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit.
 

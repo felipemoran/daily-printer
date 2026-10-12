@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import time
+import tomllib
 from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
@@ -19,7 +20,9 @@ from aiohttp import web
 
 from access_auth import HEADER, AccessDenied, AccessVerifier
 from device_hub import DeviceHub, bearer_token
-from job_queue import DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, Status
+from job_queue import (
+    DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
+)
 from render_job import KINDS, RenderError, escpos_from_png, render
 from server_config import ServerConfig
 
@@ -30,6 +33,27 @@ RATE_WINDOW_SECONDS = 600
 RENDER_CONCURRENCY = 2
 MAX_TITLE_LENGTH = 200
 MAX_LIST_LIMIT = 1000
+
+
+class _RenderSlots:
+    """The render semaphore, counting the renders that hold or wait for a slot."""
+
+    def __init__(self, size: int) -> None:
+        self._semaphore = asyncio.Semaphore(size)
+        self.in_progress = 0
+
+    async def __aenter__(self) -> None:
+        self.in_progress += 1
+        try:
+            await self._semaphore.acquire()
+        except BaseException:
+            self.in_progress -= 1
+            raise
+
+    async def __aexit__(self, *_) -> None:
+        self._semaphore.release()
+        self.in_progress -= 1
+
 
 HUB = web.AppKey("hub", DeviceHub)
 
@@ -100,7 +124,7 @@ class _Api:
         self.queue = queue
         self.hub = hub
         self.verifier = verifier
-        self.render_slots = asyncio.Semaphore(RENDER_CONCURRENCY)
+        self.render_slots = _RenderSlots(RENDER_CONCURRENCY)
         self.web_jobs: dict[str, deque[float]] = {}
 
     async def caller(self, request: web.Request) -> Caller:
@@ -357,6 +381,73 @@ class _Api:
                             headers={"Content-Security-Policy": _SEND_PAGE_CSP})
 
 
+# --- Admin web interface: the static page and its two read-only endpoints ---
+
+_ROOT = Path(__file__).resolve().parent.parent
+_ADMIN_DIR = Path(__file__).resolve().parent / "static" / "admin"
+_ADMIN_ASSETS = {
+    "admin.css": ((_ADMIN_DIR / "admin.css").read_bytes(), "text/css"),
+    "admin.js": ((_ADMIN_DIR / "admin.js").read_bytes(), "text/javascript"),
+}
+_ADMIN_PAGE = (_ADMIN_DIR / "index.html").read_bytes()
+_ADMIN_PAGE_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+SERVER_VERSION = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+
+
+def _client_json(client_id: str, kind: str, seen: SourceActivity | None) -> dict:
+    last = seen.last_job if seen else None
+    return {
+        "id": client_id, "kind": kind, "jobs_today": seen.jobs_today if seen else 0,
+        "last_job": None if last is None else {
+            "id": last.id, "title": last.title, "kind": last.kind, "printer": last.printer,
+            "created_at": last.created_at,
+        },
+    }
+
+
+class _AdminViews:
+    def __init__(self, api: _Api) -> None:
+        self.api = api
+        self.started = time.monotonic()
+        self.started_at = time.time()
+
+    async def page(self, request: web.Request) -> web.Response:
+        return web.Response(body=_ADMIN_PAGE, content_type="text/html", charset="utf-8", headers={
+            "Content-Security-Policy": _ADMIN_PAGE_CSP, "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-cache",
+        })
+
+    async def asset(self, request: web.Request) -> web.Response:
+        asset = _ADMIN_ASSETS.get(request.match_info["name"])
+        if asset is None:
+            raise ApiError(404, "Not Found")
+        body, content_type = asset
+        return web.Response(body=body, content_type=content_type, charset="utf-8", headers={
+            "X-Content-Type-Options": "nosniff", "Cache-Control": "no-cache",
+        })
+
+    async def clients(self, request: web.Request) -> web.Response:
+        """Each configured client, then each web sender seen, newest first."""
+        await self.api.admin(request)
+        activity = self.api.queue.activity(("api", "web"))
+        by_client = {seen.source: seen for seen in activity if seen.ingress == "api"}
+        clients = [_client_json(client_id, "client", by_client.get(client_id)) for client_id in self.api.config.clients]
+        senders = [_client_json(seen.source, "web", seen) for seen in activity if seen.ingress == "web"]
+        return web.json_response({"clients": clients + senders})
+
+    async def server(self, request: web.Request) -> web.Response:
+        await self.api.admin(request)
+        return web.json_response({
+            "version": SERVER_VERSION,
+            "started_at": self.started_at,
+            "uptime_seconds": round(time.monotonic() - self.started, 1),
+            "renders_in_progress": self.api.render_slots.in_progress,
+        })
+
+
 def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifier | None = None) -> web.Application:
     """The whole server: HTTP routes plus ``GET /device``. Without ``[access]`` every web sender is refused."""
     if config.access is None:
@@ -381,6 +472,11 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/stats", api.stats)
     app.router.add_get("/api/me", api.me)
     app.router.add_get("/", api.index)
+    admin = _AdminViews(api)
+    app.router.add_get("/admin", admin.page)
+    app.router.add_get("/admin/{name}", admin.asset)
+    app.router.add_get("/api/clients", admin.clients)
+    app.router.add_get("/api/server", admin.server)
 
     async def start(_: web.Application) -> None:
         hub.start()

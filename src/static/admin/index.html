@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Thermal</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="/admin/admin.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="top-left">
+    <span class="brand">Thermal</span>
+    <nav class="tabs" id="tabs" aria-label="Sections" hidden>
+      <a href="#/" data-view="rail">Rail</a>
+      <a href="#/printers" data-view="printers">Printers</a>
+      <a href="#/clients" data-view="clients">Clients</a>
+    </nav>
+  </div>
+  <div class="top-right">
+    <span class="health" id="health"></span>
+    <time class="clock" id="clock"></time>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <p class="loading" id="loading">Loading…</p>
+  <section class="gate" id="gate" hidden>
+    <h1 id="gate-title">Sign in</h1>
+    <p id="gate-text"></p>
+    <form id="token-form" class="token-form" novalidate hidden>
+      <label for="token">Admin token</label>
+      <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      <button type="submit" class="button primary">Sign in</button>
+      <p class="hint">It stays in this browser tab and is gone when you close it.</p>
+    </form>
+  </section>
+
+  <section class="view" id="view-rail" hidden>
+    <div class="rail-head">
+      <div class="headline">
+        <h1 id="rail-title"></h1>
+        <p id="rail-summary" class="muted"></p>
+      </div>
+      <div class="rail-tools">
+        <div class="segmented" id="filters" role="group" aria-label="Show jobs of"></div>
+        <button type="button" class="button quiet" id="stats-toggle" aria-expanded="false" aria-controls="stats">Show stats</button>
+      </div>
+    </div>
+    <dl class="stats" id="stats" hidden></dl>
+    <div class="rail" id="rail" aria-label="Jobs: the queue first, then what printed, newest first">
+      <ol class="track" id="track"></ol>
+    </div>
+    <p class="empty" id="rail-empty" hidden></p>
+    <footer class="rail-foot">
+      <ul class="fleet-strip" id="fleet-strip"></ul>
+      <a href="#/printers" class="quiet-link">Printers and clients</a>
+    </footer>
+  </section>
+
+  <section class="view" id="view-job" hidden>
+    <div class="job-layout">
+      <div class="desk-nav">
+        <a href="#/" class="quiet-link">Back to the rail</a>
+        <div class="pager">
+          <a id="job-older" class="button quiet" aria-label="Older job"></a>
+          <a id="job-newer" class="button quiet" aria-label="Newer job"></a>
+        </div>
+      </div>
+      <div class="desk">
+        <div class="paper big" id="job-paper"><img id="job-image" alt=""></div>
+        <p class="muted small" id="job-caption"></p>
+      </div>
+      <aside class="job-side" aria-labelledby="job-title">
+        <div class="job-summary">
+          <div>
+            <p class="muted small" id="job-kicker"></p>
+            <h1 id="job-title"></h1>
+            <p class="status-line" id="job-status"></p>
+          </div>
+          <div class="actions" id="job-actions">
+            <button type="button" class="button" id="act-reprint">Reprint</button>
+            <button type="button" class="button quiet" id="act-print-on">Print on…</button>
+            <button type="button" class="button quiet" id="act-download">Download image</button>
+            <button type="button" class="button danger" id="act-cancel">Cancel job</button>
+          </div>
+        </div>
+        <div class="job-log">
+          <div>
+            <h2 class="section-label">Delivery</h2>
+            <ol class="timeline" id="job-events"></ol>
+          </div>
+          <details class="raw">
+            <summary>Raw job data</summary>
+            <dl class="pairs" id="job-raw"></dl>
+          </details>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="view" id="view-printers" hidden>
+    <div class="fleet">
+      <section class="topology" aria-label="Server and connections">
+        <div class="server-card" id="server-card"></div>
+        <ul class="routes" id="routes"></ul>
+        <button type="button" class="button quiet" id="details-toggle" aria-expanded="false">Show all details</button>
+      </section>
+      <section aria-labelledby="printers-h">
+        <h2 class="section-label" id="printers-h">Printers</h2>
+        <div class="printer-grid" id="printer-grid"></div>
+      </section>
+      <section id="clients" aria-labelledby="clients-h" tabindex="-1">
+        <h2 class="section-label" id="clients-h">Clients</h2>
+        <ul class="client-list" id="client-list"></ul>
+      </section>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" id="tabbar" aria-label="Sections" hidden>
+  <a href="#/" data-view="rail">Rail</a>
+  <a href="#/printers" data-view="printers">Printers</a>
+  <a href="#/clients" data-view="clients">Clients</a>
+</nav>
+
+<p class="notice" id="notice" role="status" aria-live="polite"></p>
+
+<dialog class="dialog" id="dialog" aria-labelledby="dialog-title">
+  <h2 id="dialog-title"></h2>
+  <p id="dialog-text"></p>
+  <fieldset class="choices" id="dialog-choices" hidden>
+    <legend class="visually-hidden">Printer</legend>
+  </fieldset>
+  <div class="dialog-buttons">
+    <button type="button" class="button quiet" id="dialog-back">Go back</button>
+    <button type="button" class="button primary" id="dialog-ok"></button>
+  </div>
+</dialog>
+</body>
+</html>

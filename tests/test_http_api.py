@@ -8,7 +8,9 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
@@ -189,6 +191,8 @@ ADMIN_ROUTES = [
     ("POST", "/api/printers/home/move"),
     ("GET", "/api/printers"),
     ("GET", "/api/stats"),
+    ("GET", "/api/clients"),
+    ("GET", "/api/server"),
 ]
 WEB_ROUTES = [("GET", "/api/me"), ("GET", "/")]
 ALL_ROUTES = [("POST", "/api/jobs")] + ADMIN_ROUTES + WEB_ROUTES
@@ -597,6 +601,82 @@ class AdminTest(ServerTestCase):
         self.assertEqual(body["hourly"]["office"], [0] * 24)
         self.assertEqual(sum(body["hourly"]["home"]), 1)
         self.assertEqual(body["paper_today_mm"], RENDERED.height / 8)
+
+
+class AdminViewsTest(ServerTestCase):
+    def setUp(self):
+        self.admin = self.bearer(ADMIN_TOKEN)
+
+    def add(self, source: str, ingress: str, title: str, created_at: float):
+        return self.queue.add(
+            "home", RENDERED.escpos, kind="image", title=title, source=source, ingress=ingress, png=RENDERED.png,
+            width=RENDERED.width, height=RENDERED.height, render_ms=RENDERED.render_ms, now=created_at,
+        )
+
+    async def test_clients_lists_configured_clients_and_web_senders_with_todays_jobs_and_last_job(self):
+        midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        today = max(midnight + 60, time.time() - 600)
+        self.add("morning-brief", "api", "Yesterday's brief", midnight - 3600)
+        self.add("morning-brief", "api", "Brief", today)
+        newest = self.add("morning-brief", "api", "Second brief", today + 5)
+        sender = self.add(SENDER_EMAIL, "web", "Hi from Lisbon", today + 10)
+        self.add("admin", "cli", "Admin test print", today + 20)
+        self.add(ADMIN_EMAIL, "admin-web", "Reprint", today + 30)
+        self.add("removed-client", "api", "From a client no longer in the config", today + 40)
+
+        status, body = await self.call("GET", "/api/clients", self.admin)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["clients"], [
+            {"id": "morning-brief", "kind": "client", "jobs_today": 2, "last_job": {
+                "id": newest.id, "title": "Second brief", "kind": "image", "printer": "home",
+                "created_at": newest.created_at}},
+            {"id": SENDER_EMAIL, "kind": "web", "jobs_today": 1, "last_job": {
+                "id": sender.id, "title": "Hi from Lisbon", "kind": "image", "printer": "home",
+                "created_at": sender.created_at}},
+        ])
+
+    async def test_clients_shows_a_configured_client_without_jobs(self):
+        status, body = await self.call("GET", "/api/clients", self.admin)
+        self.assertEqual((status, body), (200, {"clients": [
+            {"id": "morning-brief", "kind": "client", "jobs_today": 0, "last_job": None}]}))
+
+    async def test_server_reports_version_uptime_and_the_renders_in_progress(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_render(kind, **content):
+            started.set()
+            release.wait(5)
+            return RENDERED
+
+        status, body = await self.call("GET", "/api/server", self.admin)
+        self.assertEqual(status, 200)
+        self.assertEqual(set(body), {"version", "started_at", "uptime_seconds", "renders_in_progress"})
+        project = tomllib.loads((_TESTS.parent / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        self.assertEqual(body["version"], project["version"])
+        self.assertGreaterEqual(body["uptime_seconds"], 0)
+        self.assertLessEqual(body["started_at"], time.time())
+        self.assertEqual(body["renders_in_progress"], 0)
+
+        with mock.patch.object(http_api, "render", side_effect=slow_render):
+            posting = asyncio.ensure_future(
+                self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=self.image_job()))
+            await asyncio.to_thread(started.wait, 5)
+            _, during = await self.call("GET", "/api/server", self.admin)
+            release.set()
+            status, _ = await posting
+        self.assertEqual((during["renders_in_progress"], status), (1, 201))
+        _, after = await self.call("GET", "/api/server", self.admin)
+        self.assertEqual(after["renders_in_progress"], 0)
+
+    async def test_a_failed_render_frees_its_count(self):
+        with mock.patch.object(http_api, "render", side_effect=RuntimeError("boom")):
+            status, _ = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=self.image_job())
+        self.assertEqual(status, 500)
+        _, body = await self.call("GET", "/api/server", self.admin)
+        self.assertEqual(body["renders_in_progress"], 0)
+        self.assertIn("rendering a image job for morning-brief failed", self.logs.text())
 
 
 if __name__ == "__main__":

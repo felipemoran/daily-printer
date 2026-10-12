@@ -17,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import job_queue  # noqa: E402
 from job_queue import (  # noqa: E402
-    DAY_SECONDS, FRAME_SIZE, ID_TRIES, MAX_ATTEMPTS, PNG_RETENTION_SECONDS, Event, JobNotFinal, JobQueue, Status,
+    DAY_SECONDS, FRAME_SIZE, ID_TRIES, MAX_ATTEMPTS, PNG_RETENTION_SECONDS, Event, JobNotFinal, JobQueue,
+    SourceActivity, Status,
 )
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
 
@@ -521,6 +522,45 @@ class StatsTest(QueueTestCase):
         self.queue.take("home", now=local_midnight - 5)
         self.queue.confirm(early.id, now=local_midnight - 1)
         self.assertEqual(self.queue.stats(now=now).printed_today, 1)
+
+
+class ActivityTest(QueueTestCase):
+    MIDNIGHT = StatsTest.MIDNIGHT
+
+    def job(self, source: str, ingress: str, at: float, *, data: bytes = DATA, png: bytes = PNG):
+        return self.queue.add("home", data, kind="receipt", title=f"{source} at {at}", source=source,
+                              ingress=ingress, png=png, width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=850,
+                              now=at)
+
+    def test_activity_counts_jobs_since_local_midnight_and_returns_each_sources_newest_job(self):
+        self.job("morning-brief", "api", self.MIDNIGHT - 100)
+        self.job("morning-brief", "api", self.MIDNIGHT + 10)
+        newest = self.job("morning-brief", "api", self.MIDNIGHT + 20)
+        sender = self.job("friend@example.com", "web", self.MIDNIGHT - 50)
+        self.job("admin", "cli", self.MIDNIGHT + 30)
+        self.job("morning-brief", "api", self.MIDNIGHT + 5000)
+        now = self.MIDNIGHT + 3600
+
+        self.assertEqual(self.queue.activity(("api", "web"), now=now, tz=SAO_PAULO), [
+            SourceActivity("api", "morning-brief", 2, newest),
+            SourceActivity("web", "friend@example.com", 0, sender),
+        ])
+        # Midnight UTC is three hours before midnight in Sao Paulo, so yesterday's jobs there are today here.
+        in_utc = self.queue.activity(("api", "web"), now=now, tz=timezone.utc)
+        self.assertEqual([(seen.source, seen.jobs_today) for seen in in_utc],
+                         [("morning-brief", 3), ("friend@example.com", 1)])
+        self.assertEqual(self.queue.activity(("web",), now=now, tz=SAO_PAULO),
+                         [SourceActivity("web", "friend@example.com", 0, sender)])
+        self.assertEqual(self.queue.activity((), now=now), [])
+
+    def test_a_source_stays_listed_behind_more_than_5000_newer_jobs(self):
+        old = self.job("old.friend@example.com", "web", 1000, data=b"\x1b@", png=b"png")
+        for at in range(1001, 6003):
+            self.job("morning-brief", "api", at, data=b"\x1b@", png=b"png")
+        activity = self.queue.activity(("api", "web"), now=7000, tz=timezone.utc)
+        self.assertEqual([(seen.source, seen.jobs_today, seen.last_job.id) for seen in activity],
+                         [("morning-brief", 5002, activity[0].last_job.id), ("old.friend@example.com", 1, old.id)])
+        self.assertEqual(activity[0].last_job.created_at, 6002)
 
 
 if __name__ == "__main__":
