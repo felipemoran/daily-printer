@@ -602,6 +602,14 @@ class AdminTest(ServerTestCase):
         self.assertEqual(sum(body["hourly"]["home"]), 1)
         self.assertEqual(body["paper_today_mm"], RENDERED.height / 8)
 
+    async def test_stats_hourly_lists_only_configured_printers(self):
+        job = self.add_job("garage")
+        self.queue.take("garage")
+        self.queue.confirm(job.id)
+        status, body = await self.call("GET", "/api/stats", self.admin)
+        self.assertEqual(status, 200)
+        self.assertEqual(set(body["hourly"]), {"home", "office"})
+
 
 class AdminViewsTest(ServerTestCase):
     def setUp(self):

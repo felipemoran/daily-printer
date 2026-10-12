@@ -366,8 +366,7 @@ class _Api:
     async def stats(self, request: web.Request) -> web.Response:
         await self.admin(request)
         stats = self.queue.stats()
-        hourly = {printer_id: [0] * 24 for printer_id in self.config.printers}
-        hourly.update(stats.hourly)
+        hourly = {printer_id: stats.hourly.get(printer_id, [0] * 24) for printer_id in self.config.printers}
         return web.json_response({**dataclasses.asdict(stats), "hourly": hourly})
 
     async def me(self, request: web.Request) -> web.Response:
