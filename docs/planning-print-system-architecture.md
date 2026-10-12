@@ -23,7 +23,7 @@ Cloudflare Tunnel (no open router ports)
         |
         v
 server: Intel Mac at home    <- CLI, cron and Telegram bot, on the same Mac
-  intake -> queue -> render (Chromium kept running) -> dither -> ESC/POS bytes
+  intake -> queue -> render (one Chromium per job for now) -> dither -> ESC/POS bytes
         ^
         |  Cloudflare Tunnel, device hostname
         |  WebSocket, opened by the device
@@ -105,6 +105,7 @@ admin_token = "..."
 team_domain = "<team>.cloudflareaccess.com"
 audience = "<application audience tag>"
 web_rate_limit = 10      # jobs per sender email per 10 minutes
+admin_emails = ["you@example.com"]  # may use the admin web interface
 
 [printers.home]
 name = "Home"
@@ -123,11 +124,12 @@ Tokens are plain text. The config file must have mode 0600.
 | Caller | Credential | Recorded `source` | `ingress` |
 |---|---|---|---|
 | Admin (CLI) | `Authorization: Bearer <admin_token>` | `admin` | `cli` |
+| Admin (web) | Access token whose email is in `admin_emails` | email | `admin-web` |
 | Client | `Authorization: Bearer <client token>` | client name | `api` |
 | Web sender | `Cf-Access-Jwt-Assertion` header, verified against the team's public keys and the audience | email | `web` |
 | Device | `Authorization: Bearer <printer token>` on the WebSocket | printer id | - |
 
-The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token. A web sender may print only on `public` printers.
+The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token or an Access email in `admin_emails`. A web sender may print only on `public` printers.
 
 ### HTTP API (JSON)
 
@@ -138,7 +140,7 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 | `GET /api/jobs/{id}` | admin | Job with its events |
 | `GET /api/jobs/{id}/image` | admin | The rendered 1-bit PNG |
 | `POST /api/jobs/{id}/cancel` | admin | Cancel |
-| `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job from the stored PNG. |
+| `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job from the stored PNG, recorded with the admin as `source`. 409 when the original is still queued or sending. |
 | `POST /api/printers/{id}/clear` | admin | Cancel every queued job of the printer |
 | `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
 | `GET /api/printers` | admin | Printer state (see below) |
@@ -146,7 +148,7 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 | `GET /api/me` | web | The sender's email and the public printers |
 | `GET /` | web | The sender web form |
 
-Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 413 body over 10 MB, 422 render failed, 429 rate limit.
+Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit.
 
 ### Job record
 
