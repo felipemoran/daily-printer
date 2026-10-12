@@ -29,7 +29,7 @@ git clone https://github.com/felipemoran/daily-printer.git ~/daily-printer
 
 It installs uv, builds the receipt renderer, writes the config, installs the server service, creates the tunnel and its DNS records, installs `cloudflared` as a service, and walks you through the Access application in the Cloudflare dashboard. At the end it can show each printer's token. It asks for your password (sudo) to install the services.
 
-You need: Node.js (`npm`) for the receipt renderer, and a Cloudflare account with a domain (zone).
+You need: Node.js (`npm`) for the receipt renderer, and a Cloudflare account with a domain (zone). The server needs a 64-bit system: Playwright has no 32-bit ARM build, so `wizard.sh server` stops on an ARM machine whose `getconf LONG_BIT` is 32.
 
 On each printer machine, with the printer plugged in over USB:
 
@@ -38,7 +38,7 @@ git clone https://github.com/felipemoran/daily-printer.git ~/daily-printer
 ~/daily-printer/deploy/wizard.sh device
 ```
 
-A Raspberry Pi needs the 64-bit Raspberry Pi OS: Playwright has no 32-bit ARM build, so the wizard stops on an ARM machine whose `getconf LONG_BIT` is 32. It asks for the device hostname and the printer's token. On macOS it also asks for your password (sudo), to set up log rotation. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
+A device runs on a Raspberry Pi 2 or later, with 32-bit or 64-bit Raspberry Pi OS. It installs only the device's own Python dependencies, from the inline metadata in `src/scripts/print_device.py` (`uv sync --script`), and the service starts it with `uv run --script`. Playwright and the other server dependencies stay off the device. On 32-bit ARM, PyPI has no wheel for Pillow, so the wizard installs `build-essential python3-dev libjpeg-dev zlib1g-dev` and uv builds Pillow from source. The wizard asks for the device hostname and the printer's token. On macOS it also asks for your password (sudo), to set up log rotation. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
 
 ## Files
 
@@ -74,7 +74,8 @@ After a `git pull` on the server, restart the server. When `web/` changed, run `
 ## Limits
 
 - On macOS, newsyslog rotates each log at 10 MB and keeps 5 files. A running service keeps writing to the rotated file (`server.log.0`) until it restarts, because launchd opens the log only when it starts the service.
-- The wizard refuses a 32-bit ARM userland, also on a 64-bit kernel: Playwright has no build for it.
+- `wizard.sh server` refuses a 32-bit ARM userland, also on a 64-bit kernel: Playwright has no build for it. `wizard.sh device` runs there.
+- A device needs an ARMv7 or newer CPU (Raspberry Pi 2 and later) to get a Python from uv. python-build-standalone publishes no ARMv6 build, so a Pi 1, Pi Zero or Pi Zero W needs a system Python 3.12 or newer. No 32-bit Pi has run a device yet: this support comes from the published builds and wheels.
 - The macOS device service runs only while its user is logged in.
 - The wizard refuses a repo path or home folder with spaces: the service files cannot quote them.
 - An Access application whose wildcard hostname also covers the device hostname stops every device. Protect the sender hostname only.
@@ -85,6 +86,7 @@ After a `git pull` on the server, restart the server. When `web/` changed, run `
 
 Checked on 2026-10-12.
 
+- 32-bit ARM devices: uv's [platform support](https://docs.astral.sh/uv/reference/policies/platforms/) (Linux armv7 is Tier 2, with official `armv7-unknown-linux-gnueabihf` binaries), python-build-standalone's [running guide](https://gregoryszorc.com/docs/python-build-standalone/main/running.html) (`armv7-unknown-linux-gnueabihf`: Raspberry Pi 2 and later) and its [releases](https://github.com/astral-sh/python-build-standalone/releases) (CPython 3.12 to 3.14 for armv7). PyPI publishes `manylinux` armv7l wheels for aiohttp, multidict, yarl and frozenlist, and pure-Python wheels for the other device packages, except Pillow and PyYAML: they publish no armv7l wheel. PyYAML then builds from source, and its `setup.py` falls back to pure Python when the libyaml extension does not compile.
 - Cloudflare Tunnel, local management: [create a tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/create-local-tunnel/) (`login`, `create`, `route dns`), [configuration file](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/configuration-file/) (`tunnel`, `credentials-file`, `ingress`, `hostname`, `path` as a regular expression, the catch-all last rule, `tunnel ingress validate`), [terms](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/local-tunnel-terms/) (`cert.pem`, default directories), [useful commands](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/tunnel-useful-commands/), [downloads](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
 - `cloudflared` as a service: [macOS](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/as-a-service/macos/) (`sudo cloudflared service install` reads `/etc/cloudflared`, label `com.cloudflare.cloudflared`), [Linux](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/as-a-service/linux/) (pass `--config` because `sudo` sets `$HOME` to `/root`), [Windows](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/local-management/as-a-service/windows/) (`--config` before the subcommand).
 - Cloudflare Access: [self-hosted application](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-public-app/), [one-time PIN](https://developers.cloudflare.com/cloudflare-one/identity/one-time-pin/), [policies](https://developers.cloudflare.com/cloudflare-one/policies/access/) (Emails, Emails ending in, Include is OR), [validate the JWT](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/) (AUD tag location, `Cf-Access-Jwt-Assertion`), [team domain](https://developers.cloudflare.com/cloudflare-one/faq/getting-started-faq/).

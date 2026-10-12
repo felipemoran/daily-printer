@@ -86,8 +86,10 @@ The admin page at `<server URL>/admin`, e.g. `http://127.0.0.1:8787/admin`, show
 ## Run a real device
 
 ```sh
-uv run src/scripts/print_device.py --server wss://<device hostname>/device --token-file ~/print-device/token
+uv run --script src/scripts/print_device.py --server wss://<device hostname>/device --token-file ~/print-device/token
 ```
+
+`--script` makes uv install only the dependencies listed in the metadata block at the top of the script, not the project's. A device never renders, so it needs no Playwright, and it runs on 32-bit Raspberry Pi OS. `tests/test_device_dependencies.py` fails when the device imports a package that the block does not list.
 
 | Flag | Effect |
 |---|---|
