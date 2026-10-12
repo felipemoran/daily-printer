@@ -41,6 +41,8 @@ receipt printer
 | Tailscale | Only for your own admin access. Devices do not need it: the work computer is on the work tailnet. |
 | What a device receives | ESC/POS bytes. The server holds each printer's settings. |
 | Who opens the connection | The device opens a WebSocket to the server and keeps it open. |
+| Operating system | The server and devices run on macOS or Linux. Services: launchd on macOS, systemd on Linux. |
+| Simulation | The full system runs on one machine: server plus devices with fake printers (`src/fake_printer.py`). |
 
 ## Device protocol
 
@@ -72,6 +74,109 @@ These rules go into device firmware, so they are expensive to change later.
 - WhatsApp: not planned. It needs a public webhook and a Meta business account setup.
 - Public intake needs at least a size limit and a rate limit.
 - Several users, each with a printer, sending to each other: possible later. A friend's printer is one more device with a token. Drop this if it starts to cost complexity.
+
+## Interfaces
+
+The contract between server, device client, CLI and web form. Change it here first.
+
+### Modules
+
+| Module | Role |
+|---|---|
+| `src/job_queue.py` | SQLite store: jobs, job events, printer state, stats queries |
+| `src/render_job.py` | Job content to a 1-bit bitmap, PNG and ESC/POS bytes |
+| `src/server_config.py` | Reads the server TOML config |
+| `src/access_auth.py` | Verifies a Cloudflare Access token and returns the email |
+| `src/device_hub.py` | Device WebSocket sessions and job delivery |
+| `src/http_api.py` | HTTP routes: intake, admin API, sender web form |
+| `src/print_device.py` | Device client: WebSocket loop and printer sinks (USB, fake) |
+| `src/scripts/print_server.py`, `src/scripts/print_device.py`, `src/scripts/printctl.py` | Entry points |
+
+### Server config (TOML)
+
+```toml
+[server]
+host = "127.0.0.1"
+port = 8787
+database = "data/print-server.db"
+admin_token = "..."
+
+[access]                 # optional; without it, web senders are refused
+team_domain = "<team>.cloudflareaccess.com"
+audience = "<application audience tag>"
+web_rate_limit = 10      # jobs per sender email per 10 minutes
+
+[printers.home]
+name = "Home"
+place = "Home office"
+token = "..."
+public = true            # offered in the sender web form
+
+[clients.morning-brief]  # a named job producer: cron, script, webhook
+token = "..."
+```
+
+Tokens are plain text. The config file must have mode 0600.
+
+### Identity
+
+| Caller | Credential | Recorded `source` | `ingress` |
+|---|---|---|---|
+| Admin (CLI) | `Authorization: Bearer <admin_token>` | `admin` | `cli` |
+| Client | `Authorization: Bearer <client token>` | client name | `api` |
+| Web sender | `Cf-Access-Jwt-Assertion` header, verified against the team's public keys and the audience | email | `web` |
+| Device | `Authorization: Bearer <printer token>` on the WebSocket | printer id | - |
+
+The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token. A web sender may print only on `public` printers.
+
+### HTTP API (JSON)
+
+| Method and path | Who | Does |
+|---|---|---|
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt` or `image`), `title`, `expires_in` (seconds, default 3600), and `payload` (receipt JSON) or `image` (base64). Renders, then queues. 201 with the job. |
+| `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
+| `GET /api/jobs/{id}` | admin | Job with its events |
+| `GET /api/jobs/{id}/image` | admin | The rendered 1-bit PNG |
+| `POST /api/jobs/{id}/cancel` | admin | Cancel |
+| `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job from the stored PNG. |
+| `POST /api/printers/{id}/clear` | admin | Cancel every queued job of the printer |
+| `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
+| `GET /api/printers` | admin | Printer state (see below) |
+| `GET /api/stats` | admin | Aggregates (see below) |
+| `GET /api/me` | web | The sender's email and the public printers |
+| `GET /` | web | The sender web form |
+
+Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 413 body over 10 MB, 422 render failed, 429 rate limit.
+
+### Job record
+
+`id`, `printer`, `kind`, `title`, `source`, `ingress`, `status`, `attempts`, `created_at`, `expires_at`, `render_ms`, `width` and `height` (dots), `paper_mm` (height / 8; the printer has 8 dots per mm), `size_bytes` (ESC/POS), `frames`, `sent_at`, `printed_at`.
+
+The rendered PNG stays for 30 days, for preview, download and reprint. The ESC/POS bytes are dropped when the job reaches a final state.
+
+Events (`job_id`, `at`, `event`, `detail`): `received`, `rendered`, `sending`, `sent`, `printed`, `released`, `failed`, `expired`, `cancelled`, `moved`, `reprinted`.
+
+### Printer state
+
+From the config: `id`, `name`, `place`, `public`. Kept by the server: `online`, `connected_since`, `last_seen`, `address`, `route` (`tunnel` when the request carries a `Cf-Ray` header, otherwise `direct`), `latency_ms`, `client_version`, `current_job`, `queued`, `printed_today`.
+
+### Stats
+
+`printed_today`, `queued`, `failed_24h`, `median_job_seconds` (`created_at` to `printed_at`, last 24 h), `paper_today_mm`, and `hourly`: per printer, 24 hourly counts of printed jobs.
+
+### Device WebSocket: `GET /device`
+
+1. The device connects with `Authorization: Bearer <printer token>` and `X-Device-Version: <version>`. The server closes an older connection of the same printer with code 4000.
+2. Server to device, one job at a time:
+   - text `{"type": "job", "id": "...", "size": <bytes>, "frames": <count>}`;
+   - binary frames of at most 4096 bytes;
+   - text `{"type": "end", "id": "..."}`.
+3. The device writes each frame to the printer as it arrives. After `end`, it replies `{"type": "printed", "id": "..."}`, or `{"type": "error", "id": "...", "message": "..."}` when the printer write fails.
+4. With no reply within 120 s, the server releases the job and closes the connection.
+5. Every 20 s the server sends `{"type": "ping", "t": <number>}`. The device answers `{"type": "pong", "t": <same number>}`. The server records `latency_ms` and `last_seen`.
+6. On a lost connection, the device reconnects after 1 s, doubling up to 60 s, with random jitter.
+
+Confirmation and retries are per job, not per frame. A printer cannot resume an image in the middle.
 
 ## Rejected
 
