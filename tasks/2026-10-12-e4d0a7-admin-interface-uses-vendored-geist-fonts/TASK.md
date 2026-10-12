@@ -1,6 +1,6 @@
 ---
 id: 2026-10-12-e4d0a7-admin-interface-uses-vendored-geist-fonts
-title: Admin interface uses vendored Geist fonts
+title: 'Admin interface: Geist fonts, per-ticket scroll, Connections tab'
 status: in-progress
 priority: 2
 created_date: 2026-10-12
@@ -33,5 +33,6 @@ The admin mockup specifies Geist and Geist Mono; the admin interface (src/static
 - 2026-10-12T15:16:30+00:00: Printers and Clients tabs merged into one Connections tab (operator-approved): one link in the top nav and the phone tab bar, route #/connections with #/printers and #/clients kept as aliases, title 'Connections - Thermal', headings Printers then Clients kept, the rail footer link points to #/connections. scrollToClients and the title switch are gone; the view is view-connections. Tests cover the single tab in both navs, the three routes, the title, the heading order and the footer link. Full suite after all three commits: 585 tests OK.
 - 2026-10-12T15:34:18+00:00: Correction: the earlier note said polling keeps each sheet's scroll because keyed() reuses nodes. That was false when a poll reorders the rail: Chromium resets scrollTop on a node that insertBefore moves. renderRail now saves each sheet's scrollTop before keyed() and restores it after; a Chromium test that reorders the rail (queue.take on Office) fails without it. Also from review: overscroll containment now applies only to sheets that overflow (a ResizeObserver sets .tall), because contain on every sheet stopped page swipes on short phone tickets; a test covers it.
 - 2026-10-12T15:34:18+00:00: Not done here: the description's last line (make simulate prints the /admin URL) belongs to task gnfjvm, which another builder is doing.
+- 2026-10-12T15:44:43+00:00: The /admin URL in make simulate moved to task gnfjvm, "Demo: one sample of each template, and make targets". The scroll fix and the Connections tab joined this task on operator request (2026-10-12).
 
 ## Decisions
