@@ -1037,7 +1037,7 @@ $("act-download").addEventListener("click", async () => {
   const job = state.job;
   const url = await imageUrl(job.id);
   if (!url) {
-    notice("The image is gone: images are kept for 30 days.", true);
+    notice("The image is gone: the server has no artifact folder for this job.", true);
     return;
   }
   const link = el("a");

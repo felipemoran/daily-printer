@@ -20,7 +20,7 @@ from aiohttp import web
 
 from access_auth import HEADER, AccessDenied, AccessVerifier
 from device_hub import DeviceHub, bearer_token
-from job_artifacts import ESCPOS, ArtifactStore, artifacts_root, job_files
+from job_artifacts import ESCPOS, PRINT_PNG, ArtifactStore, artifacts_root, job_files
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
@@ -271,7 +271,7 @@ class _Api:
         try:
             job = self.queue.add(
                 printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,
-                png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
+                width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
                 artifacts=staged, expires_in=expires_in, now=now,
             )
         finally:
@@ -305,9 +305,10 @@ class _Api:
 
     async def job_image(self, request: web.Request) -> web.Response:
         await self.admin(request)
-        png = self.queue.png(request.match_info["id"])
+        job = self.job(request)
+        png = self.artifacts.read(job.id, PRINT_PNG)
         if png is None:
-            raise ApiError(404, "unknown job, or its image was deleted after 30 days")
+            raise ApiError(404, f"job {job.id} has no artifact folder with its image")
         return web.Response(body=png, content_type="image/png")
 
     async def cancel(self, request: web.Request) -> web.Response:

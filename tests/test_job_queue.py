@@ -1,4 +1,3 @@
-import io
 import math
 import random
 import shutil
@@ -18,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import job_queue  # noqa: E402
 from job_queue import (  # noqa: E402
-    DAY_SECONDS, FRAME_SIZE, ID_TRIES, MAX_ATTEMPTS, PNG_RETENTION_SECONDS, Event, JobNotFinal, JobQueue,
+    DAY_SECONDS, FRAME_SIZE, ID_TRIES, MAX_ATTEMPTS, Event, JobNotFinal, JobQueue,
     SourceActivity, Status,
 )
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
@@ -47,9 +46,6 @@ def _escpos(image: Image.Image) -> bytes:
 
 
 RASTER = _receipt_raster()
-_buffer = io.BytesIO()
-RASTER.save(_buffer, "PNG")
-PNG = _buffer.getvalue()
 DATA = _escpos(RASTER)
 
 
@@ -58,9 +54,9 @@ class QueueTestCase(unittest.TestCase):
         self.queue = JobQueue(":memory:")
         self.addCleanup(self.queue.close)
 
-    def add(self, printer="home", data=DATA, *, now=0, expires_in=3600, png=PNG, height=RASTER.height):
+    def add(self, printer="home", data=DATA, *, now=0, expires_in=3600, height=RASTER.height):
         return self.queue.add(printer, data, kind="receipt", title="Morning brief", source="morning-brief",
-                              ingress="api", png=png, width=PRINT_WIDTH_DOTS, height=height, render_ms=850,
+                              ingress="api", width=PRINT_WIDTH_DOTS, height=height, render_ms=850,
                               expires_in=expires_in, now=now)
 
     def status(self, job_id: str) -> Status:
@@ -138,7 +134,7 @@ class LifecycleTest(QueueTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "jobs.db"
             queue = JobQueue(path)
-            job = queue.add("home", DATA, kind="image", title="Photo", source="admin", ingress="cli", png=PNG,
+            job = queue.add("home", DATA, kind="image", title="Photo", source="admin", ingress="cli",
                             width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1200, now=0)
             queue.take("home", now=0)
             queue.close()
@@ -147,7 +143,6 @@ class LifecycleTest(QueueTestCase):
             queue.release_all(now=1)
             delivered = queue.take("home", now=1)
             self.assertEqual((delivered.id, delivered.data), (job.id, DATA))
-            self.assertEqual(queue.png(job.id), PNG)
             queue.close()
 
 
@@ -183,18 +178,19 @@ class JobRecordTest(QueueTestCase):
         self.assertEqual([e.event for e in stored.events], [Event.RECEIVED, Event.RENDERED])
         self.assertIsNone(self.queue.job("nope", now=0))
 
-    def test_png_reads_back_equal_to_what_was_stored(self):
-        job = self.add(now=0)
-        self.assertEqual(self.queue.png(job.id), PNG)
-        self.assertIsNone(self.queue.png("nope"))
-
-    def test_prune_drops_only_pngs_past_retention(self):
-        old = self.add(now=0)
-        recent = self.add(now=PNG_RETENTION_SECONDS)
-        self.assertEqual(self.queue.prune(now=PNG_RETENTION_SECONDS + 1), 1)
-        self.assertIsNone(self.queue.png(old.id))
-        self.assertEqual(self.queue.png(recent.id), PNG)
-        self.assertEqual(self.queue.prune(now=PNG_RETENTION_SECONDS + 1), 0)
+    def test_a_database_from_before_the_artifact_folders_still_opens_and_takes_jobs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "jobs.db"
+            old = sqlite3.connect(path)
+            old.executescript(job_queue._SCHEMA.replace("    data BLOB\n", "    data BLOB,\n    png BLOB\n"))
+            old.close()
+            queue = JobQueue(path)
+            self.addCleanup(queue.close)
+            job = queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
+                            width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
+            self.assertEqual(queue.take("home", now=1).data, DATA)
+            queue.confirm(job.id, now=2)
+            self.assertEqual(queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", now=3).kind, "receipt")
 
 
 class JobIdTest(QueueTestCase):
@@ -202,13 +198,13 @@ class JobIdTest(QueueTestCase):
         super().setUp()
         self.original = self.add(now=0)
         self.queue.cancel(self.original.id, now=0)
-        self.before = (self.queue.job(self.original.id, now=0), self.queue.png(self.original.id))
+        self.before = self.queue.job(self.original.id, now=0)
 
     def colliding(self, *ids: str):
         return mock.patch.object(job_queue, "_new_id", side_effect=[self.original.id, *ids])
 
     def assertOriginalUntouched(self) -> None:
-        self.assertEqual((self.queue.job(self.original.id, now=0), self.queue.png(self.original.id)), self.before)
+        self.assertEqual(self.queue.job(self.original.id, now=0), self.before)
 
     def test_add_retries_a_colliding_id_and_leaves_the_existing_job_alone(self):
         with self.colliding("0000beef"):
@@ -221,9 +217,8 @@ class JobIdTest(QueueTestCase):
         with self.colliding("0000cafe"):
             copy = self.queue.reprint(self.original.id, "work", DATA, source="admin", ingress="cli", now=1)
         self.assertEqual(copy.id, "0000cafe")
-        self.assertEqual(self.queue.png(copy.id), PNG)
         events = self.queue.job(self.original.id, now=1).events
-        self.assertEqual(events[:-1], self.before[0].events)
+        self.assertEqual(events[:-1], self.before.events)
         self.assertEqual((events[-1].event, events[-1].detail), (Event.REPRINTED, "0000cafe"))
 
     def test_gives_up_after_the_last_try_without_writing_anything(self):
@@ -241,7 +236,7 @@ class JobIdTest(QueueTestCase):
     def test_another_constraint_error_is_not_retried(self):
         with mock.patch.object(job_queue, "_new_id", return_value="0000f00d") as new_id:
             with self.assertRaisesRegex(sqlite3.IntegrityError, "NOT NULL"):
-                self.queue.add("home", DATA, kind=None, title="t", source="admin", ingress="cli", png=PNG,
+                self.queue.add("home", DATA, kind=None, title="t", source="admin", ingress="cli",
                                width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=1)
         self.assertEqual(new_id.call_count, 1)
         self.assertEqual(len(self.queue.jobs(now=1)), 1)
@@ -306,7 +301,7 @@ class ReprintTest(QueueTestCase):
     def reprint(self, job_id, printer="work", data=DATA, *, now):
         return self.queue.reprint(job_id, printer, data, source="admin", ingress="cli", now=now)
 
-    def test_reprint_queues_a_copy_with_the_same_png_and_new_data(self):
+    def test_reprint_queues_a_copy_that_sends_the_given_data(self):
         original = self.add("home", now=0)
         self.queue.take("home", now=1)
         self.queue.confirm(original.id, now=2)
@@ -314,8 +309,6 @@ class ReprintTest(QueueTestCase):
 
         copy = self.reprint(original.id, "work", new_data, now=100)
         self.assertNotEqual(copy.id, original.id)
-        self.assertEqual(self.queue.png(copy.id), self.queue.png(original.id))
-        self.assertEqual(self.queue.png(copy.id), PNG)
         self.assertEqual((copy.printer, copy.status, copy.created_at, copy.expires_at), ("work", Status.QUEUED, 100, 3700))
         self.assertEqual((copy.source, copy.ingress), ("admin", "cli"))
         for name in ("kind", "title", "width", "height", "render_ms", "paper_mm"):
@@ -330,7 +323,7 @@ class ReprintTest(QueueTestCase):
 
     def test_reprint_of_a_text_job_is_a_text_job(self):
         text = b"\x1b@ BUILD FAILED\n\n\n\n"
-        original = self.queue.add("home", text, kind="text", title="NIGHTLY", source="ci", ingress="api", png=PNG,
+        original = self.queue.add("home", text, kind="text", title="NIGHTLY", source="ci", ingress="api",
                                   width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=900, expires_in=3600, now=0)
         self.queue.take("home", now=1)
         self.queue.confirm(original.id, now=2)
@@ -375,7 +368,7 @@ class ArtifactFolderTest(QueueTestCase):
         return folder
 
     def test_add_and_reprint_rename_the_staged_folder_to_the_job_id(self):
-        job = self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli", png=PNG,
+        job = self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
                              width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, artifacts=self.staged(), now=0)
         self.queue.cancel(job.id, now=1)
         copy = self.queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", artifacts=self.staged(), now=2)
@@ -387,7 +380,7 @@ class ArtifactFolderTest(QueueTestCase):
         (self.root / "0000beef").mkdir()
         (self.root / "0000beef" / "orphan").write_bytes(b"")
         with mock.patch.object(job_queue, "_new_id", return_value="0000beef"), self.assertRaises(OSError):
-            self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli", png=PNG,
+            self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
                            width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, artifacts=staged, now=0)
         self.assertEqual(self.queue.jobs(now=0), [])
         self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM job_events").fetchone()[0], 0)
@@ -568,9 +561,9 @@ class StatsTest(QueueTestCase):
 class ActivityTest(QueueTestCase):
     MIDNIGHT = StatsTest.MIDNIGHT
 
-    def job(self, source: str, ingress: str, at: float, *, data: bytes = DATA, png: bytes = PNG):
+    def job(self, source: str, ingress: str, at: float, *, data: bytes = DATA):
         return self.queue.add("home", data, kind="receipt", title=f"{source} at {at}", source=source,
-                              ingress=ingress, png=png, width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=850,
+                              ingress=ingress, width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=850,
                               now=at)
 
     def test_activity_counts_jobs_since_local_midnight_and_returns_each_sources_newest_job(self):
@@ -595,9 +588,9 @@ class ActivityTest(QueueTestCase):
         self.assertEqual(self.queue.activity((), now=now), [])
 
     def test_a_source_stays_listed_behind_more_than_5000_newer_jobs(self):
-        old = self.job("old.friend@example.com", "web", 1000, data=b"\x1b@", png=b"png")
+        old = self.job("old.friend@example.com", "web", 1000, data=b"\x1b@")
         for at in range(1001, 6003):
-            self.job("morning-brief", "api", at, data=b"\x1b@", png=b"png")
+            self.job("morning-brief", "api", at, data=b"\x1b@")
         activity = self.queue.activity(("api", "web"), now=7000, tz=timezone.utc)
         self.assertEqual([(seen.source, seen.jobs_today, seen.last_job.id) for seen in activity],
                          [("morning-brief", 5002, activity[0].last_job.id), ("old.friend@example.com", 1, old.id)])

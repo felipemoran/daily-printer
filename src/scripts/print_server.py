@@ -25,8 +25,6 @@ from job_queue import JobQueue  # noqa: E402
 from render_job import DIST_DIR  # noqa: E402
 from server_config import ConfigError, ServerConfig, load_config  # noqa: E402
 
-PRUNE_INTERVAL_SECONDS = 86400
-
 log = logging.getLogger("print_server")
 
 
@@ -37,16 +35,6 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--config", required=True, type=Path, metavar="PATH", help="the server TOML config")
     return parser.parse_args()
-
-
-async def _prune_daily(queue: JobQueue) -> None:
-    while True:
-        try:
-            dropped = queue.prune()
-            log.info("pruned %d job images older than 30 days", dropped)
-        except Exception:
-            log.exception("pruning job images failed")
-        await asyncio.sleep(PRUNE_INTERVAL_SECONDS)
 
 
 async def _serve(config: ServerConfig, queue: JobQueue) -> int:
@@ -68,10 +56,8 @@ async def _serve(config: ServerConfig, queue: JobQueue) -> int:
         loop.add_signal_handler(signum, stop.set)
     printers = ", ".join(config.printers) or "none"
     log.info("listening on http://%s:%d (printers: %s)", config.host, config.port, printers)
-    pruning = asyncio.create_task(_prune_daily(queue))
     await stop.wait()
     log.info("stopping")
-    pruning.cancel()
     await runner.cleanup()
     return 0
 

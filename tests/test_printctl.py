@@ -27,6 +27,7 @@ sys.path.insert(0, str(_TESTS))
 import http_api  # noqa: E402
 import printctl  # noqa: E402
 from http_api import create_app  # noqa: E402
+from job_artifacts import artifacts_root  # noqa: E402
 from job_queue import JobQueue, Status  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_http_api import (  # noqa: E402
@@ -201,6 +202,9 @@ class PrintctlTestCase(unittest.TestCase):
     def add_job(self, printer: str = "home", *, title: str = "Holiday photo"):
         return self.server.call(add_frozen_job, self.server.queue, self.server.config.database, printer, title=title)
 
+    def print_png(self, job_id: str) -> bytes:
+        return (artifacts_root(self.server.config.database) / job_id / "print.png").read_bytes()
+
     def print_job(self, job_id: str, printer: str = "home") -> None:
         queue = self.server.queue
         taken = self.server.call(queue.take, printer)
@@ -222,7 +226,7 @@ class SendTest(PrintctlTestCase):
         self.assertEqual((job.printer, job.kind, job.title, job.source, job.ingress),
                          ("office", "image", "Beach", "admin", "cli"))
         self.assertEqual(round(job.expires_at - job.created_at), 7200)
-        self.assertEqual(self.server.call(self.server.queue.png, job_id), RENDERED.png)
+        self.assertEqual(self.print_png(job_id), RENDERED.png)
         self.assertIn(f"{job.paper_mm / 10:.1f} cm", out)
 
     def test_send_receipt_posts_the_payload_unchanged(self):
@@ -368,7 +372,7 @@ class JobCommandsTest(PrintctlTestCase):
         out = self.ok("reprint", job.id, "--printer", "office")
         copy = self.job(re.search(r"Queued (\w+) for office", out)[1])
         self.assertEqual((copy.printer, copy.status, copy.source), ("office", Status.QUEUED, "admin"))
-        self.assertEqual(self.server.call(self.server.queue.png, copy.id), RENDERED.png)
+        self.assertEqual(self.print_png(copy.id), RENDERED.png)
         same = self.job(re.search(r"Queued (\w+) for home", self.ok("reprint", job.id))[1])
         self.assertEqual(same.printer, "home")
 

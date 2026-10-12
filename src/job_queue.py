@@ -18,7 +18,6 @@ from printer import DOTS_PER_MM
 MAX_ATTEMPTS = 3
 DEFAULT_EXPIRY_SECONDS = 3600
 FRAME_SIZE = 4096
-PNG_RETENTION_SECONDS = 30 * 86400
 DAY_SECONDS = 86400
 HOUR_SECONDS = 3600
 ID_TRIES = 5
@@ -139,8 +138,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     frames INTEGER NOT NULL,
     sent_at REAL,
     printed_at REAL,
-    data BLOB,
-    png BLOB
+    data BLOB
 );
 CREATE INDEX IF NOT EXISTS jobs_printer_status ON jobs (printer, status);
 CREATE INDEX IF NOT EXISTS jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued';
@@ -194,13 +192,13 @@ class JobQueue:
         self._db.close()
 
     def add(self, printer: str, data: bytes, *, kind: str, title: str, source: str, ingress: str,
-            png: bytes, width: int, height: int, render_ms: int, artifacts: Path | None = None,
+            width: int, height: int, render_ms: int, artifacts: Path | None = None,
             expires_in: float = DEFAULT_EXPIRY_SECONDS, now: float | None = None) -> Job:
         """``artifacts``, a staged folder, becomes ``<its parent>/<job id>`` before the insert commits."""
         now = time.time() if now is None else now
         with self._transaction():
-            job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, png=png,
-                               width=width, height=height, render_ms=render_ms, expires_at=now + expires_in, now=now)
+            job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, width=width,
+                               height=height, render_ms=render_ms, expires_at=now + expires_in, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}")
             self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots in {render_ms} ms")
             _place(artifacts, job.id)
@@ -290,17 +288,17 @@ class JobQueue:
         with self._transaction():
             now = self._expire(now)
             row = self._db.execute(
-                "SELECT status, kind, title, png, width, height, render_ms, expires_at - created_at"
+                "SELECT status, kind, title, width, height, render_ms, expires_at - created_at"
                 " FROM jobs WHERE id = ?",
                 (job_id,),
             ).fetchone()
             if row is None:
                 return None
-            status, kind, title, png, width, height, render_ms, lifetime = row
+            status, kind, title, width, height, render_ms, lifetime = row
             if status in (Status.QUEUED, Status.SENDING):
                 raise JobNotFinal(f"job {job_id} is still {status}")
-            job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, png=png,
-                               width=width, height=height, render_ms=render_ms, expires_at=now + lifetime, now=now)
+            job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, width=width,
+                               height=height, render_ms=render_ms, expires_at=now + lifetime, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}, reprint of {job_id}")
             self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots, the bytes of {job_id}")
             self._event(job_id, now, Event.REPRINTED, job.id)
@@ -339,17 +337,6 @@ class JobQueue:
                 f"SELECT {_COLUMNS} FROM jobs {where} ORDER BY created_at DESC, rowid DESC LIMIT ?", (*args, limit)
             ).fetchall()
         return [_job(row) for row in rows]
-
-    def png(self, job_id: str) -> bytes | None:
-        row = self._db.execute("SELECT png FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        return row[0] if row else None
-
-    def prune(self, *, now: float | None = None) -> int:
-        """Drop the PNGs older than the retention period. Returns how many were dropped."""
-        now = time.time() if now is None else now
-        return self._db.execute(
-            "UPDATE jobs SET png = NULL WHERE png IS NOT NULL AND created_at < ?", (now - PNG_RETENTION_SECONDS,)
-        ).rowcount
 
     def update_printer_state(self, printer_id: str, **fields: float | str | None) -> None:
         """Set the given fields of a printer's state, adding the printer when it is new."""
@@ -439,16 +426,16 @@ class JobQueue:
             raise
         self._db.execute("COMMIT")
 
-    def _insert(self, printer: str, data: bytes, *, kind: str, title: str, source: str, ingress: str, png: bytes,
+    def _insert(self, printer: str, data: bytes, *, kind: str, title: str, source: str, ingress: str,
                 width: int, height: int, render_ms: int, expires_at: float, now: float) -> Job:
         for _ in range(ID_TRIES):
             try:
                 row = self._db.execute(
                     f"INSERT INTO jobs (id, printer, kind, title, source, ingress, status, created_at, expires_at,"
-                    f" render_ms, width, height, size_bytes, frames, data, png)"
-                    f" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING {_COLUMNS}",
+                    f" render_ms, width, height, size_bytes, frames, data)"
+                    f" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING {_COLUMNS}",
                     (_new_id(), printer, kind, title, source, ingress, Status.QUEUED, now, expires_at,
-                     render_ms, width, height, len(data), -(-len(data) // FRAME_SIZE), data, png),
+                     render_ms, width, height, len(data), -(-len(data) // FRAME_SIZE), data),
                 ).fetchone()
             except sqlite3.IntegrityError as error:
                 if error.sqlite_errorname != "SQLITE_CONSTRAINT_PRIMARYKEY":

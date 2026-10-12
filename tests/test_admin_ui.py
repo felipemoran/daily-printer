@@ -14,6 +14,7 @@ _TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(_TESTS.parent / "src"))
 sys.path.insert(0, str(_TESTS))
 
+from job_artifacts import artifacts_root  # noqa: E402
 from render_job import render  # noqa: E402
 from test_device_hub import HubTestCase  # noqa: E402
 from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job  # noqa: E402
@@ -564,7 +565,7 @@ class AdminActionsTest(AdminBrowserCase):
         await expect(page.locator("#notice")).to_have_text("Reprint queued on Office")
         copy = self.queue.jobs("office", "queued")[0]
         self.assertEqual((copy.title, copy.source, copy.ingress), ("Holiday photo", ADMIN_EMAIL, "admin-web"))
-        self.assertEqual(self.queue.png(copy.id), RENDERED.png)
+        self.assertEqual((artifacts_root(self.config.database) / copy.id / "print.png").read_bytes(), RENDERED.png)
 
         await page.locator("#act-reprint").click()
         await expect(page.locator("#notice")).to_have_text("Reprint queued on Home")

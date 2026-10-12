@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import io
 import json
 import re
 import shutil
@@ -23,6 +22,7 @@ sys.path.insert(0, str(_TESTS))
 
 from access_auth import AccessVerifier  # noqa: E402
 from http_api import HUB, create_app  # noqa: E402
+from job_artifacts import artifacts_root  # noqa: E402
 from job_queue import JobQueue  # noqa: E402
 from print_device import DeviceClient, FakeSink  # noqa: E402
 from test_access_auth import AUDIENCE, TEAM  # noqa: E402
@@ -120,9 +120,9 @@ class EndToEndTest(ServerTestCase):
         return self.queue.job(job_id).status
 
     def assertPrintedExactly(self, job_id: str, sink: RecordingSink) -> None:
-        """The device got the queued ESC/POS bytes, and its paper equals the stored PNG pixel for pixel."""
+        """The device got the queued ESC/POS bytes, and its paper equals print.png pixel for pixel."""
         self.assertEqual((sink.out_dir / f"{job_id}.bin").read_bytes(), self.queued[job_id])
-        stored = Image.open(io.BytesIO(self.queue.png(job_id))).convert("L")
+        stored = Image.open(artifacts_root(self.config.database) / job_id / "print.png").convert("L")
         paper = Image.open(sink.out_dir / f"{job_id}.png").convert("L")
         self.assertEqual(paper.size, stored.size)
         self.assertIsNone(ImageChops.difference(paper, stored).getbbox())

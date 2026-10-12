@@ -102,7 +102,7 @@ def add_frozen_job(queue: JobQueue, database: Path, printer: str = "home", rende
     staged = ArtifactStore(artifacts_root(database)).stage(
         job_files(kind, rendered, payload=payload, image=image, created_at=now))
     return queue.add(printer, rendered.escpos, kind=kind, title=title, source=source, ingress=ingress,
-                     png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
+                     width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
                      artifacts=staged, expires_in=expires_in, now=now)
 
 
@@ -306,8 +306,8 @@ class IntakeTest(ServerTestCase):
                 self.assertEqual((body["printer"], body["source"], body["ingress"]), (printer, source, ingress))
                 self.assertEqual((body["status"], body["kind"], body["width"]), ("queued", "image", 384))
                 self.assertEqual(body["paper_mm"], body["height"] / 8)
-                png = self.queue.png(body["id"])
-                self.assertEqual(png, RENDERED.png)
+                self.assertEqual(
+                    (artifacts_root(self.config.database) / body["id"] / "print.png").read_bytes(), RENDERED.png)
                 self.assertEqual(body["size_bytes"], len(RENDERED.escpos))
                 self.assertAlmostEqual(body["expires_at"] - body["created_at"], 3600)
                 self.assertEventsMatchStatus(body["id"])
@@ -547,14 +547,18 @@ class AdminTest(ServerTestCase):
         status, _ = await self.call("GET", "/api/jobs/00000000", self.admin)
         self.assertEqual(status, 404)
 
-    async def test_job_image_is_the_stored_png_until_pruned(self):
+    async def test_job_image_is_the_print_png_of_its_artifact_folder(self):
         job = self.add_job()
+        folder = artifacts_root(self.config.database) / job.id
+        (folder / "print.png").write_bytes(b"the frozen file")
         response = await self.client.get(f"/api/jobs/{job.id}/image", headers=self.admin)
         self.assertEqual((response.status, response.content_type), (200, "image/png"))
-        self.assertEqual(await response.read(), RENDERED.png)
-        self.queue.prune(now=time.time() + 31 * 86400)
-        status, _ = await self.call("GET", f"/api/jobs/{job.id}/image", self.admin)
-        self.assertEqual(status, 404)
+        self.assertEqual(await response.read(), b"the frozen file")
+        shutil.rmtree(folder)
+        status, body = await self.call("GET", f"/api/jobs/{job.id}/image", self.admin)
+        self.assertEqual((status, body), (404, {"error": f"job {job.id} has no artifact folder with its image"}))
+        status, body = await self.call("GET", "/api/jobs/00000000/image", self.admin)
+        self.assertEqual((status, body), (404, {"error": "unknown job"}))
 
     async def test_cancel_a_queued_job_then_409_once_final(self):
         job = self.add_job()
@@ -653,7 +657,7 @@ class AdminViewsTest(ServerTestCase):
 
     def add(self, source: str, ingress: str, title: str, created_at: float):
         return self.queue.add(
-            "home", RENDERED.escpos, kind="image", title=title, source=source, ingress=ingress, png=RENDERED.png,
+            "home", RENDERED.escpos, kind="image", title=title, source=source, ingress=ingress,
             width=RENDERED.width, height=RENDERED.height, render_ms=RENDERED.render_ms, now=created_at,
         )
 
