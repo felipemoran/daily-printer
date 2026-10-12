@@ -1,0 +1,27 @@
+<!-- @dsCard group="Templates" height=1180 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TicketTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h(T.HeaderBar, { left: 'TICKET UPDATE', right: '14:08' }),
+      h('div', { className: 'display-xl', style: { marginTop: 20, letterSpacing: -1 } }, 'OPS-2481'),
+      h('div', { style: { fontSize: 21, fontWeight: 700, lineHeight: '26px', marginTop: 12 } }, 'Payment webhook retries exceed limit on EU cluster'),
+      h('div', { style: { height: 28 } }),
+      h(T.Transition, { from: 'IN REVIEW', to: 'RESOLVED' }),
+      h('div', { style: { height: 28 } }),
+      h(T.Leaders, { rows: [['Assignee','M. Okafor'],['Priority','HIGH'],['Reporter','S. Lindqvist'],['Time spent','3h 20m'],['Opened','2d ago']] }),
+      h(T.Rule, { weight: 'rule', style: { margin: '28px 0 8px' } }),
+      h(T.Quote, { by: 'M. Okafor' }, 'Raised retry cap to 8 and added jitter. Backlog drained in 11 min. Monitoring overnight.'),
+      h(T.Rule, { weight: 'rule', style: { margin: '28px 0 20px' } }),
+      h(T.QRSlot, { lines: ['Scan to open ticket', '3 watchers notified', 'Next: auto-close in 48h'] }))
+  );
+</script>
+</body>
+</html>

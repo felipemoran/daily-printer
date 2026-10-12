@@ -1,0 +1,17 @@
+<!-- @dsCard group="Rows" height=120 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Checkbox — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h('div', { style: { display: 'flex', gap: 24, alignItems: 'center' } }, h(T.Checkbox), h(T.Checkbox, { checked: true })))
+  );
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!-- @dsCard group="Signals" height=320 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Callout — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.Callout, { label: 'THE ONE THING' }, 'Ship the billing migration PR before lunch.'),
+      h('div', { style: { height: 20 } }),
+      h(T.Callout, { label: h('span', null, 'ACK', h('br'), 'REQUIRED BY'), value: '14:07' }))
+  );
+</script>
+</body>
+</html>

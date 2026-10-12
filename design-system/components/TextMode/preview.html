@@ -1,0 +1,17 @@
+<!-- @dsCard group="Pen & paper" height=330 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TextMode — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.TextMode, { lines: ['================================','     NIGHTLY BUILD  #1184','================================',' lint             0:41  [ OK ]',' integration      5:03  [FAIL]', { text: 'BUILD FAILED', double: true, reverse: true },' api    ████████████░░░░  4:12',' web    ███████░░░░░░░░░  2:20'] }))
+  );
+</script>
+</body>
+</html>

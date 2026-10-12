@@ -1,0 +1,17 @@
+<!-- @dsCard group="Signals" height=270 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Severity — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.Severity, { level: '1', lines: ['INCIDENT', '#INC-0937', 'OPENED 13:52'] }))
+  );
+</script>
+</body>
+</html>

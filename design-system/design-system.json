@@ -1,0 +1,33 @@
+{
+  "v": 3,
+  "assetGroups": {},
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-10-11T16:37:02Z",
+    "v": 1
+  },
+  "docs": {
+    "sections": []
+  },
+  "groups": [],
+  "lastChange": {
+    "by": "Felipe",
+    "at": "2026-10-11T17:24:27Z",
+    "via": "Cowork",
+    "note": "Calibration review: whole-pixel geometry, real grey tones, print mode, test strips, To verify list"
+  },
+  "layout": "files",
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18.3.1"
+    },
+    {
+      "name": "react-dom",
+      "version": "18.3.1"
+    }
+  ],
+  "namespace": "Thermal",
+  "sections": {},
+  "title": "Thermal"
+}

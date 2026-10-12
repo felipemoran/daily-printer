@@ -1,0 +1,25 @@
+<!-- @dsCard group="Templates" height=960 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TasksTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h(T.Masthead, { title: 'TASKS', aside: ['THU', h('span', { style: { fontSize: 22 } }, '01 OCT'), '2026'] }),
+      h(T.TaskRow, { title: 'Review Q4 roadmap draft', meta: 'planning · due 12:00', tag: 'P1' }),
+      h(T.TaskRow, { title: 'Reply to Dana re: vendor contract', meta: 'email · 10 min' }),
+      h(T.TaskRow, { title: 'Fix flaky checkout test', meta: 'eng · BIL-121', tag: 'P1' }),
+      h(T.TaskRow, { title: 'Book flights for offsite', meta: 'personal' }),
+      h(T.TaskRow, { title: 'Merge pricing copy PR', meta: 'web · #476', done: true }),
+      h('div', { style: { height: 28 } }),
+      h(T.StatTiles, { columns: 2, valueFirst: true, items: [{ label: 'OPEN', value: '4' }, { label: 'DONE YESTERDAY', value: '2' }] }),
+      h('div', { className: 'rp-foot' }, 'printed 07:30 · tear & stick'))
+  );
+</script>
+</body>
+</html>

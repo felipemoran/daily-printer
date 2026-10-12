@@ -1,0 +1,35 @@
+<!-- @dsCard group="Templates" height=1500 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>RecipeTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h(T.HeaderBar, { left: 'RECIPE', right: '4 SERVES' }),
+      h('div', { className: 'display-lg', style: { marginTop: 20 } }, 'MUSHROOM RISOTTO'),
+      h('div', { style: { fontWeight: 700, marginTop: 12 } }, 'active 35 min · total 45 min'),
+      h(T.Rule, { weight: 'bar', style: { margin: '20px 0 4px' } }),
+      h(T.SectionLabel, { style: { marginTop: 20 } }, 'MISE EN PLACE'),
+      h(T.TaskRow, { title: '300 g arborio rice' }),
+      h(T.TaskRow, { title: '400 g mixed mushrooms', meta: 'sliced' }),
+      h(T.TaskRow, { title: '1.2 L hot stock' }),
+      h(T.TaskRow, { title: '120 ml dry white wine' }),
+      h(T.TaskRow, { title: '60 g parmesan', meta: 'finely grated' }),
+      h(T.SectionLabel, null, 'METHOD'),
+      h(T.Step, { n: 1, timer: '8 min' }, 'Brown the mushrooms hard in butter. Set aside.'),
+      h(T.Step, { n: 2, timer: '2 min' }, 'Toast the rice in the same pan until translucent at the edges.'),
+      h(T.Step, { n: 3, timer: '18 min' }, 'Wine, then stock a ladle at a time, stirring.'),
+      h(T.Step, { n: 4 }, 'Off heat: butter, parmesan, mushrooms. Rest 2 min.'),
+      h(T.SectionLabel, null, 'TWEAKS'),
+      h(T.NoteLines, { count: 2 }),
+      h(T.TearLine),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' } }, h('div', null, h('div', { style: { fontWeight: 700 } }, 'Mushroom risotto'), h('div', { style: { fontSize: 16 } }, 'made on ______  ◯ ◯ ◯ ◯ ◯')), h('div', { className: 'display-sm', style: { fontSize: 37 } }, '11.10')))
+  );
+</script>
+</body>
+</html>

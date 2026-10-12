@@ -1,0 +1,23 @@
+<!-- @dsCard group="Templates" height=1140 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ReportTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h(T.Masthead, { title: 'WEEK 40', sub: '28 SEP – 04 OCT · SUPPORT', rule: false }),
+      h('div', { style: { height: 24 } }),
+      h(T.StatTiles, { columns: 2, items: [{ label: 'TICKETS IN', value: '1,284', note: '▲ 12% vs wk 39' }, { label: 'RESOLVED', value: '1,197', note: '▲ 8%' }, { label: 'FIRST REPLY', value: '42m', note: '▼ 9m faster' }, { label: 'CSAT', value: '94%', note: 'BEST SINCE MAY', inverted: true }] }),
+      h(T.SectionLabel, { style: { marginTop: 32 } }, 'BY CHANNEL'),
+      h(T.BarList, { rows: [{ label: 'EMAIL', value: '512', a: 1, b: .84 }, { label: 'CHAT', value: '398', a: .78, b: .62 }, { label: 'PHONE', value: '214', a: .42, b: .5 }, { label: 'SOCIAL', value: '160', a: .31, b: .28 }], legend: ['WK 40', 'WK 39'] }),
+      h(T.SectionLabel, { style: { marginTop: 32 } }, 'DAILY VOLUME'),
+      h(T.Columns, { data: [['MON',232],['TUE',261],['WED',204],['THU',198],['FRI',176],['SAT',112],['SUN',101]].map(function (d) { return { label: d[0], value: d[1] }; }) }))
+  );
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!-- @dsCard group="Templates" height=1000 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>PullRequestTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h('div', { className: 'display-lg', style: { fontSize: 66 } }, 'REVIEW', h('br'), 'QUEUE'),
+      h('div', { style: { fontWeight: 700, marginTop: 12 } }, '4 WAITING ON YOU · OLDEST 4D'),
+      h(T.Rule, { weight: 'bar', style: { margin: '20px 0 0' } }),
+      [['#482','Retry webhooks with exponential backoff','api',312,48,'4D',true],['#479','Remove legacy invoice renderer','billing',22,940,'3D',true],['#488','Add CSV export to reports','web',401,120,'1D',false],['#492','Queue worker memory leak','worker',37,9,'1H',false]].map(function (p) {
+        return h('div', { key: p[0], style: { padding: '16px 0', borderBottom: '2px dashed #000', display: 'flex', flexDirection: 'column', gap: 8 } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, h('span', { style: { fontWeight: 700, fontSize: 20 } }, p[0]), p[6] ? h(T.Tag, null, 'STALE ' + p[5]) : h(T.Tag, { variant: 'outline' }, p[5])),
+          h('div', { style: { fontWeight: 700, lineHeight: '24px' } }, p[1]),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 16 } }, h('span', null, p[2] + ' · +' + p[3] + ' −' + p[4]), h(T.DiffGlyph, { added: p[3], removed: p[4] })));
+      }))
+  );
+</script>
+</body>
+</html>

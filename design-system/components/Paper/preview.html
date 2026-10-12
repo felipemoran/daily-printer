@@ -1,0 +1,19 @@
+<!-- @dsCard group="Layout" height=260 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Paper — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: true },
+      h(T.Masthead, { title: 'PAPER', aside: ['58MM', '384', 'DOTS'] }),
+      h('div', null, '1 CSS px = 1 printer dot. Whole pixels only.'),
+      h('div', { className: 'rp-foot' }, 'printed 07:30 · tear & stick'))
+  );
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!-- @dsCard group="Tests" height=1150 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TestQR — test strip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>.t-l { font-size: 16px; line-height: 24px; font-weight: 700; } .t-row { display: flex; align-items: center; gap: 12px; min-height: 24px; }</style>
+</head>
+<body>
+<div id="root" style="padding:24px 32px"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  var M = ["11111110100111010011101111111", "10000010100011000110001000001", "10111010011000011011101011101", "10111010110010111111001011101", "10111010000110110001001011101", "10000010001111001111101000001", "11111110101010101010101111111", "00000000110110000111100000000", "10110111000001010111001001011", "01101100100111100011101110001", "01010011111011000100010100110", "00111000100100000011011010001", "01000110001100111100000001100", "11111000000110110111001000111", "01100010101111000001101000111", "01101001110110101011111110010", "11001010010110110011100011010", "01001001000000111100000101110", "10100110101001110010101110100", "00011101111111101110001110100", "01110110100001111100111111100", "00000000100000001110100011111", "11111110111000100011101011010", "10000010110001100010100011001", "10111010010010000100111110100", "10111010110101011111010111001", "10111010110111000000100100101", "10000010010101011010110101010", "11111110100110001011111000010"];
+  function mm(d) { return (d * 0.125).toFixed(1) + ' mm'; }
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { print: true },
+      h(T.HeaderBar, { left: 'TEST · QR', right: '1/1' }),
+      [1, 2, 3, 4, 5].map(function (m) {
+        return h('div', { key: m, style: { marginTop: 24 } },
+          h('div', { className: 't-l' }, m + ' DOT/MODULE · ' + mm(M.length * m) + ' wide'),
+          h('div', { style: { marginTop: 8 } }, h(T.QRSlot, { matrix: M, module: m, lines: m <= 3 ? ['scan: Y / N', 'distance: ____ cm'] : null })),
+          m < 5 ? h(T.Rule, { weight: 'hair', style: { margin: '24px 0 0' } }) : null);
+      })
+    )
+  );
+</script>
+</body>
+</html>

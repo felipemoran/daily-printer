@@ -1,0 +1,18 @@
+<!-- @dsCard group="Data" height=110 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DiffGlyph — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 16 } }, h('span', null, 'api · +312 −48'), h(T.DiffGlyph, { added: 312, removed: 48 })),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 16, marginTop: 12 } }, h('span', null, 'billing · +22 −940'), h(T.DiffGlyph, { added: 22, removed: 940 })))
+  );
+</script>
+</body>
+</html>

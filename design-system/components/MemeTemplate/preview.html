@@ -1,0 +1,20 @@
+<!-- @dsCard group="Templates" height=720 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MemeTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h('div', { className: 'display-md', style: { textAlign: 'center', marginBottom: 16 } }, 'WHEN THE BUILD'),
+      h(T.Image, { width: 384, height: 288, src: (function () { var c = document.createElement('canvas'); c.width = 384; c.height = 288; var g = c.getContext('2d'); var gr = g.createRadialGradient(192, 150, 20, 192, 150, 230); gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#222'); g.fillStyle = gr; g.fillRect(0, 0, 384, 288); g.fillStyle = '#111'; g.font = '900 150px Archivo, sans-serif'; g.textAlign = 'center'; g.fillText('✓', 192, 205); return c.toDataURL(); })() }),
+      h('div', { className: 'display-md', style: { textAlign: 'center', marginTop: 16 } }, 'PASSES FIRST TRY'),
+      h('div', { className: 'rp-foot' }, 'via #random · 11 OCT'))
+  );
+</script>
+</body>
+</html>
