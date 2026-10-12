@@ -84,6 +84,10 @@ class UptimeTest(unittest.TestCase):
             (uptime(uptimePct=100.5), r"^data\.uptimePct: expected a number from 0 to 100$"),
             (uptime(uptimePct="99.42%"), r"^data\.uptimePct: expected number$"),
             (uptime(service="W" * 61), r"^data\.service: expected at most 60 characters$"),
+            (uptime(service=""), r"^data\.service: expected non-blank text$"),
+            (uptime(days=[{"label": "   ", "hours": OK_DAY}]), r"^data\.days\[0\]\.label: expected non-blank text$"),
+            (uptime(incidents=[{"when": "", "text": "x"}]), r"^data\.incidents\[0\]\.when: expected non-blank text$"),
+            (uptime(incidents=[{"when": "MON", "text": " "}]), r"^data\.incidents\[0\]\.text: expected non-blank text$"),
         )
         for payload, pattern in cases:
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
@@ -107,6 +111,12 @@ class UptimeTest(unittest.TestCase):
         self.assertEqual(image.width, 384)
         self.assertEqual(self.page.evaluate(OVERFLOW), [])
         self.assertIn("100.00%", self.page.inner_text("#receipt"))
+
+    def test_uptime_is_truncated_not_rounded(self):
+        for pct, text in ((99.999, "99.99%"), (100, "100.00%"), (1.13, "1.13%"), (0, "0.00%")):
+            with self.subTest(pct):
+                render_template(self.page, uptime(uptimePct=pct))
+                self.assertEqual(self.page.inner_text("#receipt .display-xl"), text)
 
     def test_no_incidents_prints_a_zero_count(self):
         render_template(self.page, uptime(incidents=None))
