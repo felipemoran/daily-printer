@@ -99,8 +99,6 @@ class Children:
                 )
 
     def stop(self) -> None:
-        for signum in _STOP_SIGNALS:
-            signal.signal(signum, signal.SIG_IGN)
         running = [process for process in self.processes.values() if process.poll() is None]
         # Each leader is still unreaped here, so its group id cannot belong to another process.
         for process in running:
@@ -310,6 +308,7 @@ def main(argv: list[str] | None = None) -> int:
     workdir = Path(tempfile.mkdtemp(prefix="print-sim-"))
     children = Children(workdir)
     printed = False
+    previous = {signum: signal.getsignal(signum) for signum in _STOP_SIGNALS}
     for signum in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, _interrupt)
     try:
@@ -329,7 +328,13 @@ def main(argv: list[str] | None = None) -> int:
         print("\nStopping ...", flush=True)
         return 0 if printed else 130
     finally:
-        children.stop()
+        for signum in _STOP_SIGNALS:
+            signal.signal(signum, signal.SIG_IGN)
+        try:
+            children.stop()
+        finally:
+            for signum, handler in previous.items():
+                signal.signal(signum, handler)
 
 
 if __name__ == "__main__":
