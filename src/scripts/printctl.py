@@ -42,12 +42,13 @@ START_HINT = "Start it with: uv run src/scripts/print_server.py --config <config
 
 
 class Failure(Exception):
-    """A failure to report as one line on stderr, with an exit status."""
+    """A failure to report on stderr, with an exit status. ``hint`` is printctl advice that follows the message."""
 
-    def __init__(self, message: str, status: int = 1) -> None:
+    def __init__(self, message: str, status: int = 1, *, hint: str = "") -> None:
         super().__init__(message)
         self.message = message
         self.status = status
+        self.hint = hint
 
 
 # --- formatting -----------------------------------------------------------------------------------------------------
@@ -146,15 +147,16 @@ class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
         fp.close()
         path = req.selector
         if path and newurl.endswith(path):
-            raise Failure(f"The server answered HTTP {code} and redirected to {newurl[:-len(path)]}; "
-                          f"pass that URL with --server.")
-        raise Failure(f"The server answered HTTP {code} and redirected to {newurl}; check --server.")
+            raise Failure(f"The server answered HTTP {code} and redirected to {newurl[:-len(path)]}",
+                          hint="; pass that URL with --server.")
+        raise Failure(f"The server answered HTTP {code} and redirected to {newurl}", hint="; check --server.")
 
 
 class Client:
-    def __init__(self, server: str, token: str) -> None:
+    def __init__(self, server: str, token: str, *, timeout: float | None = None) -> None:
         self.server = server.rstrip("/")
         self._token = token
+        self.timeout = TIMEOUT_SECONDS if timeout is None else timeout
         self._opener = urllib.request.build_opener(_RefuseRedirects)
 
     def __repr__(self) -> str:
@@ -167,21 +169,21 @@ class Client:
             headers["Content-Type"] = "application/json"
         try:
             request = urllib.request.Request(self.server + path, data=data, headers=headers, method=method)
-            with self._opener.open(request, timeout=TIMEOUT_SECONDS) as response:
+            with self._opener.open(request, timeout=self.timeout) as response:
                 content_type = response.headers.get_content_type()
                 payload = response.read()
         except urllib.error.HTTPError as error:
-            raise Failure(self._http_error(error)) from None
+            raise self._http_error(error) from None
         except ValueError:
             raise Failure(f"{self.server} is not a valid server URL; use the form http://host:port") from None
         except TimeoutError:
-            message = f"The server at {self.server} sent no answer within {TIMEOUT_SECONDS} s."
-            if method == "POST":
-                message += " The request may have taken effect anyway; check `printctl jobs` before you retry."
-            raise Failure(message) from None
+            hint = " The request may have taken effect anyway; check `printctl jobs` before you retry."
+            raise Failure(f"The server at {self.server} sent no answer within {self.timeout} s.",
+                          hint=hint if method == "POST" else "") from None
         except (OSError, http.client.HTTPException) as error:
             reason = getattr(error, "reason", error)
-            raise Failure(f"The print server is not reachable at {self.server} ({reason}).\n{START_HINT}") from None
+            raise Failure(f"The print server is not reachable at {self.server} ({reason}).",
+                          hint=f"\n{START_HINT}") from None
         if content_type != expect:
             raise Failure(f"The server at {self.server} sent {content_type}, not {expect}; is it the print server?")
         if expect != "application/json":
@@ -191,7 +193,7 @@ class Client:
         except ValueError:
             raise Failure(f"The server at {self.server} sent invalid JSON; is it the print server?") from None
 
-    def _http_error(self, error: urllib.error.HTTPError) -> str:
+    def _http_error(self, error: urllib.error.HTTPError) -> Failure:
         try:
             message = json.loads(error.read())["error"]
         except (ValueError, KeyError, TypeError, OSError):
@@ -199,13 +201,14 @@ class Client:
         if message is None and 300 <= error.code < 400:
             location = error.headers.get("Location")
             target = f" to {location}" if location else ""
-            return f"The server answered HTTP {error.code} and redirected{target}; check --server."
+            return Failure(f"The server answered HTTP {error.code} and redirected{target}", hint="; check --server.")
         if message is None:
-            return (f"The server at {self.server} answered HTTP {error.code} ({error.reason}) without a print server "
-                    f"error. The print server may be down behind a proxy or tunnel.\n{START_HINT}")
+            return Failure(f"The server at {self.server} answered HTTP {error.code} ({error.reason}) without a print "
+                           f"server error. The print server may be down behind a proxy or tunnel.",
+                           hint=f"\n{START_HINT}")
         if error.code == 401:
-            return f"{message} (HTTP 401). Check the admin token in {TOKEN_ENV} or --token-file."
-        return f"{message} (HTTP {error.code})"
+            return Failure(f"{message} (HTTP 401).", hint=f" Check the admin token in {TOKEN_ENV} or --token-file.")
+        return Failure(f"{message} (HTTP {error.code})")
 
 
 def _quote(value: str) -> str:
@@ -468,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
         client = Client(server_url(args.server), admin_token(args.token_file))
         COMMANDS[args.command](args, client, out, Style.for_stream(out))
     except Failure as failure:
-        print(f"printctl: {failure.message}", file=sys.stderr)
+        print(f"printctl: {failure.message}{failure.hint}", file=sys.stderr)
         return failure.status
     except KeyboardInterrupt:
         return 130

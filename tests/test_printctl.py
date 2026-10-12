@@ -509,6 +509,12 @@ class FailureTest(PrintctlTestCase):
                     self.assertIn(f"{silent.url} sent no answer within 0.3 s", err)
                     self.assertEqual("check `printctl jobs` before you retry" in err, warns)
 
+    def test_a_client_timeout_overrides_the_default(self):
+        with OneShotServer(None) as silent:
+            client = printctl.Client(silent.url, ADMIN_TOKEN, timeout=0.3)
+            with self.assertRaisesRegex(printctl.Failure, r"no answer within 0\.3 s"):
+                client.request("GET", "/api/stats")
+
     def test_a_token_that_cannot_be_a_header_is_refused_without_printing_it(self):
         token_file = self.tmp / "admin-token"
         for name, token in {"line break": ADMIN_TOKEN[:10] + "\n" + ADMIN_TOKEN[10:],

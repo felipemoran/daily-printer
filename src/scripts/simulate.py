@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import base64
 import io
-import http.client
 import json
 import os
 import secrets
@@ -24,16 +23,16 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_PROJECT_ROOT / "src" / "scripts"))
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 from PIL import Image  # noqa: E402
 
+from printctl import Client, Failure  # noqa: E402
 from render_job import DIST_DIR  # noqa: E402
 
 SCRIPTS = _PROJECT_ROOT / "src" / "scripts"
@@ -45,6 +44,7 @@ CLIENT = "sim-client"
 IMAGE_SIZE = (640, 480)
 READY_TIMEOUT = 60
 PRINT_TIMEOUT = 180
+POLL_TIMEOUT = 10
 STOP_TIMEOUT = 10
 POLL_SECONDS = 0.2
 _STOP_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
@@ -147,36 +147,11 @@ def _write_config(workdir: Path, port: int) -> tuple[Path, str, str]:
     return config, admin_token, client_token
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """urlopen would resend the Authorization header to the redirect target; a 3xx becomes an HTTPError instead."""
-
-    def redirect_request(self, *args, **kwargs):
-        return None
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect)
-
-
-def _call(url: str, token: str, method: str = "GET", body: dict | None = None, timeout: float = 10) -> dict:
-    request = urllib.request.Request(
-        url, method=method, data=None if body is None else json.dumps(body).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-    )
+def _call(client: Client, method: str, path: str, body: dict | None = None) -> dict:
     try:
-        with _OPENER.open(request, timeout=timeout) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as error:
-        try:
-            message = json.loads(error.read()).get("error", error.reason)
-        except (ValueError, AttributeError):
-            message = error.reason
-        raise SimulationError(f"{method} {url} failed with {error.code}: {message}") from None
-    except ValueError:
-        raise SimulationError(f"{method} {url} answered with a body that is not JSON") from None
-    except urllib.error.URLError as error:
-        raise SimulationError(f"cannot reach {url}: {error.reason}") from None
-    except (http.client.HTTPException, OSError) as error:
-        raise SimulationError(f"{method} {url} failed: {error!r}") from None
+        return client.request(method, path, body)
+    except Failure as failure:
+        raise SimulationError(f"{method} {path} failed: {failure.message}") from None
 
 
 def _until(children: Children, what: str, timeout: float, condition) -> None:
@@ -217,14 +192,17 @@ def _check_port_free(port: int) -> None:
             raise SimulationError(f"port {port} on 127.0.0.1 is in use; pass --port with a free port") from None
 
 
-def _all_online(base: str, admin_token: str) -> bool:
-    return all(printer["online"] for printer in _call(f"{base}/api/printers", admin_token)["printers"])
+def _all_online(admin: Client) -> bool:
+    return all(printer["online"] for printer in _call(admin, "GET", "/api/printers")["printers"])
 
 
 def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]:
     base = f"http://127.0.0.1:{port}"
     _check_port_free(port)
     config, admin_token, client_token = _write_config(workdir, port)
+    admin = Client(base, admin_token, timeout=POLL_TIMEOUT)
+    # A receipt render starts a Chromium, so the POST can take a while.
+    sender = Client(base, client_token, timeout=PRINT_TIMEOUT)
     print(f"Starting the print server on {base} ...", flush=True)
     children.start("server", "print_server.py", "--config", str(config))
     # Only our server writes this line, so no request goes out before it owns the port.
@@ -237,7 +215,7 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
             f"device-{printer_id}", "print_device.py", "--server", f"ws://127.0.0.1:{port}/device",
             "--token-file", str(workdir / f"{printer_id}.token"), "--fake", str(workdir / printer_id),
         )
-    _until(children, "both devices to come online", READY_TIMEOUT, lambda: _all_online(base, admin_token))
+    _until(children, "both devices to come online", READY_TIMEOUT, lambda: _all_online(admin))
 
     print("Sending a receipt to home and an image to work ...", flush=True)
     requests = [
@@ -246,14 +224,13 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
         {"printer": "work", "kind": "image", "title": "Test pattern",
          "image": base64.b64encode(_test_image()).decode()},
     ]
-    # A receipt render starts a Chromium, so the POST can take several seconds.
-    ids = [_call(f"{base}/api/jobs", client_token, "POST", body, timeout=PRINT_TIMEOUT)["id"] for body in requests]
+    ids = [_call(sender, "POST", "/api/jobs", body)["id"] for body in requests]
 
     jobs: dict[str, dict] = {}
 
     def all_printed() -> bool:
         for job_id in ids:
-            job = jobs[job_id] = _call(f"{base}/api/jobs/{job_id}", admin_token)
+            job = jobs[job_id] = _call(admin, "GET", f"/api/jobs/{job_id}")
             if job["status"] in ("failed", "expired", "cancelled"):
                 events = ", ".join(f"{e['event']} {e['detail'] or ''}".strip() for e in job["events"])
                 raise SimulationError(f"job {job_id} for {job['printer']} ended {job['status']}: {events}")

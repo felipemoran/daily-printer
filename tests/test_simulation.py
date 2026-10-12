@@ -242,10 +242,26 @@ class SimulateMainTest(unittest.TestCase):
                 self.end_headers()
 
         origin = self.serve(Redirect)
-        with self.assertRaisesRegex(simulate.SimulationError, "failed with 302"):
-            simulate._call(f"{origin}/api/printers", "a-secret-admin-token-0000000000")
+        with self.assertRaisesRegex(simulate.SimulationError, "HTTP 302 and redirected"):
+            simulate._call(simulate.Client(origin, "a-secret-admin-token-0000000000"), "GET", "/api/printers")
         self.assertEqual(seen, [])
 
+
+    def test_an_api_error_keeps_the_status_and_server_text_without_printctl_hints(self):
+        class Refuse(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "no valid credential"}')
+
+            def log_message(self, *args):
+                pass
+
+        client = simulate.Client(self.serve(Refuse), "a-secret-admin-token-0000000000")
+        with self.assertRaises(simulate.SimulationError) as caught:
+            simulate._call(client, "GET", "/api/printers")
+        self.assertEqual(str(caught.exception), "GET /api/printers failed: no valid credential (HTTP 401).")
 
     def test_a_non_json_answer_is_a_clear_error_not_a_traceback(self):
         class Html(http.server.BaseHTTPRequestHandler):
@@ -257,9 +273,9 @@ class SimulateMainTest(unittest.TestCase):
             def log_message(self, *args):
                 pass
 
-        url = f"{self.serve(Html)}/api/printers"
-        with self.assertRaisesRegex(simulate.SimulationError, "not JSON"):
-            simulate._call(url, "a-secret-admin-token-0000000000")
+        client = simulate.Client(self.serve(Html), "a-secret-admin-token-0000000000")
+        with self.assertRaisesRegex(simulate.SimulationError, "is it the print server"):
+            simulate._call(client, "GET", "/api/printers")
 
 
     def test_stop_signals_every_child_when_one_group_refuses_the_signal(self):
