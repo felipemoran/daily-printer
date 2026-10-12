@@ -38,7 +38,7 @@ git clone https://github.com/felipemoran/daily-printer.git ~/daily-printer
 ~/daily-printer/deploy/wizard.sh device
 ```
 
-A device runs on a Raspberry Pi 2 or later, with 32-bit or 64-bit Raspberry Pi OS. It installs only the device's own Python dependencies, from the inline metadata in `src/scripts/print_device.py` (`uv sync --script`), and the service starts it with `uv run --script`. Playwright and the other server dependencies stay off the device. On 32-bit ARM, PyPI has no wheel for Pillow, so the wizard installs `build-essential python3-dev libjpeg-dev zlib1g-dev` and uv builds Pillow from source. The wizard asks for the device hostname and the printer's token. On macOS it also asks for your password (sudo), to set up log rotation. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
+A device should run on a Raspberry Pi 2 or later, with 32-bit or 64-bit Raspberry Pi OS. No Pi has run it yet (see Limits). It installs only the device's own Python dependencies, from the inline metadata in `src/scripts/print_device.py` at the versions in `src/scripts/print_device.py.lock` (`uv sync --script`), and the service starts it with `uv run --script`. Playwright and the other server dependencies stay off the device. On 32-bit ARM, PyPI has no wheel for Pillow, so the wizard installs `build-essential python3-dev libjpeg-dev zlib1g-dev` and uv builds Pillow from source. The wizard asks for the device hostname and the printer's token. On macOS it also asks for your password (sudo), to set up log rotation. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
 
 ## Files
 
@@ -75,7 +75,8 @@ After a `git pull` on the server, restart the server. When `web/` changed, run `
 
 - On macOS, newsyslog rotates each log at 10 MB and keeps 5 files. A running service keeps writing to the rotated file (`server.log.0`) until it restarts, because launchd opens the log only when it starts the service.
 - `wizard.sh server` refuses a 32-bit ARM userland, also on a 64-bit kernel: Playwright has no build for it. `wizard.sh device` runs there.
-- A device needs an ARMv7 or newer CPU (Raspberry Pi 2 and later) to get a Python from uv. python-build-standalone publishes no ARMv6 build, so a Pi 1, Pi Zero or Pi Zero W needs a system Python 3.12 or newer. No 32-bit Pi has run a device yet: this support comes from the published builds and wheels.
+- ARMv6 boards (Pi 1, Pi Zero, Pi Zero W) are not supported. The repo's `.python-version` makes uv use Python 3.12 for the device too, Raspberry Pi OS ships 3.11 or 3.13, and python-build-standalone publishes no ARMv6 build.
+- No Pi has run a device yet. The 32-bit ARM support comes from the published uv and Python builds and the PyPI wheels, listed under Sources.
 - The macOS device service runs only while its user is logged in.
 - The wizard refuses a repo path or home folder with spaces: the service files cannot quote them.
 - An Access application whose wildcard hostname also covers the device hostname stops every device. Protect the sender hostname only.

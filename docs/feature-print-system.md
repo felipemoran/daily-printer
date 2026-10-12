@@ -89,7 +89,9 @@ The admin page at `<server URL>/admin`, e.g. `http://127.0.0.1:8787/admin`, show
 uv run --script src/scripts/print_device.py --server wss://<device hostname>/device --token-file ~/print-device/token
 ```
 
-`--script` makes uv install only the dependencies listed in the metadata block at the top of the script, not the project's. A device never renders, so it needs no Playwright, and it runs on 32-bit Raspberry Pi OS. `tests/test_device_dependencies.py` fails when the device imports a package that the block does not list.
+The metadata block at the top of the script lists the device's dependencies. uv installs only those, at the versions in `src/scripts/print_device.py.lock`, and not the project's. `--script` makes uv read the file as a script. A device never renders, so it needs no Playwright. It should run on 32-bit Raspberry Pi OS, but no Pi has run it yet: see Limits in `docs/setup-deploy.md`. `tests/test_device_dependencies.py` fails when the device imports a package that the block does not list, or when the lock no longer matches the block.
+
+A device service installed before the block existed runs `uv run` without `--script`. After a `git pull`, it still moves to the script environment at its next restart, because uv reads the block of any script it runs. That one start installs the packages, so it needs the network.
 
 | Flag | Effect |
 |---|---|

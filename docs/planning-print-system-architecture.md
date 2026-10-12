@@ -41,7 +41,7 @@ receipt printer
 | Tailscale | Only for your own admin access. Devices do not need it: the work computer is on the work tailnet. |
 | What a device receives | ESC/POS bytes. The server holds each printer's settings. |
 | Who opens the connection | The device opens a WebSocket to the server and keeps it open. |
-| Operating system | The server and devices run on macOS or Linux. Services: launchd on macOS, systemd on Linux. The server needs a 64-bit system, because Playwright has no 32-bit ARM build. A device also runs on 32-bit ARM. |
+| Operating system | The server and devices run on macOS or Linux. Services: launchd on macOS, systemd on Linux. The server needs a 64-bit system, because Playwright has no 32-bit ARM build. A device should also run on 32-bit ARM; no Pi has run it yet. |
 | Simulation | The full system runs on one machine: server plus devices with fake printers (`src/fake_printer.py`). |
 
 ## Device protocol
@@ -62,7 +62,7 @@ These rules go into device firmware, so they are expensive to change later.
 
 ## Devices
 
-- Macs and the Pi run one Python client that reuses `src/printer.py`, under launchd or systemd. It runs with `uv run --script`, with only its own dependencies, so a Pi 2 or 32-bit Raspberry Pi OS works.
+- Macs and the Pi run one Python client that reuses `src/printer.py`, under launchd or systemd. It runs with `uv run --script`, with only its own dependencies, so it should run on a Pi 2 or 32-bit Raspberry Pi OS. No Pi has run it yet.
 - An ESP32 must be an S2 or S3. The original ESP32 has no USB host port. Bluetooth is not an option: it garbles images on this printer (`docs/setup-bluetooth-investigation.md`).
 - Last resort for the office: extend the home Wi-Fi with a directional antenna.
 
