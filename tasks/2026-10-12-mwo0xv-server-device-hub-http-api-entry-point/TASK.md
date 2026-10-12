@@ -18,8 +18,6 @@ phase: null
 
 ## Description
 
-
-
 ## Acceptance check
 
 <!-- AC:BEGIN -->
@@ -28,11 +26,8 @@ phase: null
 
 ## Planning
 
-
-
 ## Execution log
 
-
+- 2026-10-12T06:29:12+00:00: From store review: at startup the hub must clear connected_since/address in printer state (they survive restarts). Render calls must be bounded: no sender input may hang a worker or escape as a non-RenderError (class found in render review).
 
 ## Decisions
-
