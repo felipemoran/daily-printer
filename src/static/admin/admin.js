@@ -101,9 +101,9 @@ async function refresh() {
   if (state.gate) return;
   const mine = ++sequence;
   const jobsPath = "/api/jobs?limit=" + JOB_LIMIT + (state.filter === "all" ? "" : "&printer=" + encodeURIComponent(state.filter));
-  const fleet = state.view === "connections";
+  const onConnections = state.view === "connections";
   const requests = [api("/api/printers"), api(jobsPath), api("/api/stats")];
-  if (fleet) requests.push(api("/api/clients"), api("/api/server"));
+  if (onConnections) requests.push(api("/api/clients"), api("/api/server"));
   if (state.view === "job") {
     requests.push(api("/api/jobs/" + encodeURIComponent(state.jobId)).catch((error) => {
       if (error instanceof Problem && error.status === 404) return null;
@@ -125,7 +125,7 @@ async function refresh() {
   state.printers = printers.printers;
   state.jobs = jobs.jobs;
   state.stats = stats;
-  if (fleet) {
+  if (onConnections) {
     state.clients = results[3].clients;
     state.server = results[4];
   }
@@ -405,7 +405,7 @@ function render() {
   renderHealth();
   if (state.view === "rail") renderRail();
   if (state.view === "job") renderJob();
-  if (state.view === "connections") renderFleet();
+  if (state.view === "connections") renderConnections();
   const keep = new Set(state.jobs.map((job) => job.id));
   if (state.jobId) keep.add(state.jobId);
   if (state.job) keep.add(state.job.id);
@@ -787,7 +787,7 @@ function pager(job) {
   place("job-newer", index > 0 ? list[index - 1] : null, "newer");
 }
 
-function renderFleet() {
+function renderConnections() {
   document.title = "Connections - Thermal";
   const server = state.server;
   if (!server) return;
@@ -1087,7 +1087,7 @@ $("stats-toggle").addEventListener("click", () => {
 $("details-toggle").addEventListener("click", () => {
   state.allDetails = !state.allDetails;
   for (const details of $("printer-grid").querySelectorAll("details")) details.open = state.allDetails;
-  if (state.loaded) renderFleet();
+  if (state.loaded) renderConnections();
 });
 
 // ---------- Routing ----------

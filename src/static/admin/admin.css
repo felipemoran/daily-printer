@@ -359,7 +359,7 @@ main:focus { outline: none; }
 }
 
 /* Printers and clients */
-.fleet {
+.connections {
   width: 100%; max-width: 1280px; margin: 0 auto;
   padding: 20px var(--gutter) 48px; display: flex; flex-direction: column; gap: 32px;
 }
