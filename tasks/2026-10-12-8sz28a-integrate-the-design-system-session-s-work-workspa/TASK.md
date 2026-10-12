@@ -28,6 +28,7 @@ Operator request: merge the parallel design-system stream into this branch so th
 ## Execution log
 
 - 2026-10-12T06:35:21+00:00: Proposed to design-system session: kind 'template', payload {template, schemaVersion, data}; their module (suggested src/ticket_templates.py) validates (single site) and renders to a 1-bit 384-wide PIL image via a page I own per worker thread; TemplateError -> 422; fail fast (error boundary, explicit timeouts, DOM height check before screenshot); I keep ESC/POS, queue, devices. Merge via two-parent merge after the server wave. Awaiting their reply.
+- 2026-10-12T07:32:54+00:00: Design-system interim integration point: otvylkrs (empty merge, reviewed+gated). API unchanged; more TemplateError cases (payload > 64 KiB, field-named validation, text fit, paper edge, layout settling, 3 s in-page timeout). New npm dep qrcode-generator 2.0.4; src/web_build.py build_web(); print_profile.to_gray(); daily_print --template; samples/templates/<name>.json. Residual: a sync busy loop in a template could freeze page.evaluate (no current template can).
 
 ## Decisions
 

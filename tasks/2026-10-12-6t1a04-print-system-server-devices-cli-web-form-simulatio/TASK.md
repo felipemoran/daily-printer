@@ -41,3 +41,4 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T06:29:12+00:00: decided admin UI auth = Cloudflare Access + admin_emails allowlist in config; CLI keeps admin token — easy to change
 - 2026-10-12T07:00:40+00:00: decided after a device error or reply timeout, pause delivery to that printer 60 s (job stays queued, expiry applies) so out-of-paper does not burn 3 attempts in seconds — easy to change
 - 2026-10-12T07:00:40+00:00: decided server closes a device connection silent for 60 s; protocol violations release the job and close the connection; title <= 200 chars; expires_in <= 7 days — easy to change
+- 2026-10-12T07:28:56+00:00: decided web form: Title only in Message mode (photos print no title); sender email shown via a wrapping block, not a section_header (no edits to web/src CSS, owned by the design-system session); CSP on GET / — easy to change
