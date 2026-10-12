@@ -172,6 +172,7 @@ SERVER_LABEL=com.daily-printer.server
 DEVICE_LABEL=com.daily-printer.device
 CLOUDFLARED_LABEL=com.cloudflare.cloudflared
 CLOUDFLARED_CONFIG=/etc/cloudflared/config.yml
+NEWSYSLOG_CONF=/etc/newsyslog.d/daily-printer.conf
 DOCS=https://developers.cloudflare.com/cloudflare-one
 PLACEHOLDERS="SERVICE_USER UV REPO CONFIG HOME_DIR LOG_DIR SERVER_URL TOKEN_FILE TUNNEL_ID DEVICE_HOST SENDER_HOST PORT"
 HOSTNAME_PATTERN='^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$'
@@ -221,6 +222,27 @@ launchd_load() {
     sleep 2
   done
   die "launchctl could not load $2. Try: ${4:-} launchctl bootstrap $1 $2"
+}
+
+# rotate_log LOG: macOS only. Adds a newsyslog entry for LOG (10 MB, 5 files kept), once.
+rotate_log() {
+  if [[ -f "$NEWSYSLOG_CONF" ]] && awk -v path="$1" '$1 == path { found = 1 } END { exit !found }' "$NEWSYSLOG_CONF"; then
+    ok "newsyslog already rotates $1"
+    return 0
+  fi
+  printf '%s %s:%s 644 5 10240 * N\n' "$1" "$SERVICE_USER" "$(id -gn)" | sudo tee -a "$NEWSYSLOG_CONF" >/dev/null
+  ok "newsyslog rotates $1 at 10 MB and keeps 5 files"
+}
+
+# A 32-bit userland on a 64-bit kernel reports aarch64, so the word size decides.
+check_arch() {
+  case "$(uname -m)" in
+    arm*|aarch64)
+      if [[ "$(getconf LONG_BIT)" == 32 ]]; then
+        die "Playwright has no 32-bit ARM build; install 64-bit Raspberry Pi OS."
+      fi
+      ;;
+  esac
 }
 
 find_uv() {
@@ -433,6 +455,7 @@ stage_server_service() {
     local plist=/Library/LaunchDaemons/$SERVER_LABEL.plist
     install_rendered "$REPO/deploy/launchd/$SERVER_LABEL.plist" "$plist" 600 sudo
     launchd_load system "$plist" "$SERVER_LABEL" sudo
+    rotate_log "$LOG_DIR/server.log"
   else
     install_rendered "$REPO/deploy/systemd/print-server.service" /etc/systemd/system/print-server.service 644 sudo
     sudo systemctl daemon-reload
@@ -706,13 +729,14 @@ stage_device_service() {
   stage "Device service"
   local since log=""
   if [[ "$OS" == Darwin ]]; then
-    say "The device runs as your user while you are logged in. It needs no admin rights."
+    say "The device runs as your user while you are logged in. Log rotation asks for your password (sudo)."
     log="$LOG_DIR/device.log"
     launchctl bootout "gui/$(id -u)/$DEVICE_LABEL" 2>/dev/null || true
     since=$( (wc -l < "$log") 2>/dev/null || echo 0)
     mkdir -p "$HOME/Library/LaunchAgents"
     install_rendered "$REPO/deploy/launchd/$DEVICE_LABEL.plist" "$HOME/Library/LaunchAgents/$DEVICE_LABEL.plist" 600
     launchd_load "gui/$(id -u)" "$HOME/Library/LaunchAgents/$DEVICE_LABEL.plist" "$DEVICE_LABEL"
+    rotate_log "$log"
   else
     say "The device starts at boot. Installing it asks for your password (sudo)."
     printf 'SUBSYSTEM=="usb", ATTR{idVendor}=="6868", ATTR{idProduct}=="0200", OWNER="%s"\n' "$SERVICE_USER" \
@@ -753,6 +777,7 @@ device_connected() {
 # ── Main ──────────────────────────────────────────────────────────────────
 
 case "$OS" in Darwin|Linux) ;; *) die "This wizard supports macOS and Linux, not $OS." ;; esac
+check_arch
 (( EUID != 0 )) || die "Run as your user; the wizard calls sudo itself."
 if [[ "$REPO$HOME_DIR" =~ [[:space:]] ]]; then die "The repo path and the home folder must not contain spaces: the service files cannot quote them."; fi
 ROLE=${1:-}

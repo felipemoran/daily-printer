@@ -78,6 +78,14 @@ def check_ingress(text: str) -> list[dict[str, str]]:
     return rules
 
 
+def wizard_functions(*names: str) -> str:
+    text = WIZARD.read_text()
+    return "\n".join(
+        re.search(rf"^{name}\(\) +\{{[^\n]*\}}$|^{name}\(\) \{{\n.*?^\}}", text, re.MULTILINE | re.DOTALL).group(0)
+        for name in names
+    )
+
+
 def config_tool_source() -> str:
     match = re.search(r"<<'PY'\n(.*?)\nPY\n", WIZARD.read_text(), re.DOTALL)
     return match.group(1)
@@ -160,12 +168,8 @@ class DeployFilesTest(unittest.TestCase):
         self.assertEqual(used - wizard_placeholders(), set())
 
     def render(self, template: Path, values: dict[str, str]) -> subprocess.CompletedProcess:
-        text = WIZARD.read_text()
-        functions = "\n".join(
-            re.search(rf"^{name}\(\) \{{[^\n]*\}}$|^{name}\(\) \{{\n.*?^\}}", text, re.MULTILINE | re.DOTALL).group(0)
-            for name in ("die", "render")
-        )
-        placeholders = re.search(r'^PLACEHOLDERS=".*"$', text, re.MULTILINE).group(0)
+        functions = wizard_functions("die", "render")
+        placeholders = re.search(r'^PLACEHOLDERS=".*"$', WIZARD.read_text(), re.MULTILINE).group(0)
         script = f'set -euo pipefail\nRED=""; RESET=""\n{placeholders}\n{functions}\nrender "$1"\n'
         return subprocess.run(["bash", "-c", script, "render", str(template)], capture_output=True, text=True, env={**os.environ, **values})
 
@@ -187,6 +191,54 @@ class DeployFilesTest(unittest.TestCase):
         result = self.render(CLOUDFLARED, {"TUNNEL_ID": "tunnel-id"})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no value for __", result.stderr)
+
+    def arch_check(self, machine: str, bits: int) -> subprocess.CompletedProcess:
+        stubs = f"uname() {{ echo {machine}; }}\ngetconf() {{ echo {bits}; }}\n"
+        script = f'set -euo pipefail\nRED=""; RESET=""\n{stubs}{wizard_functions("die", "check_arch")}\ncheck_arch\n'
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+
+    def test_wizard_refuses_a_32_bit_arm_userland_even_on_a_64_bit_kernel(self):
+        for machine, bits in (("armv7l", 32), ("armv6l", 32), ("aarch64", 32)):
+            with self.subTest(machine=machine, bits=bits):
+                result = self.arch_check(machine, bits)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("install 64-bit Raspberry Pi OS", result.stderr)
+        for machine, bits in (("aarch64", 64), ("arm64", 64), ("x86_64", 64), ("i686", 32)):
+            with self.subTest(machine=machine, bits=bits):
+                self.assertEqual(self.arch_check(machine, bits).returncode, 0)
+        main = WIZARD.read_text().split("# ── Main", 1)[1]
+        self.assertLess(main.index("\ncheck_arch\n"), main.index("stage_tools"))
+
+    def rotate(self, conf: Path, *logs: str) -> None:
+        calls = "\n".join(f"rotate_log {log}" for log in logs)
+        script = (
+            'set -euo pipefail\nGREEN=""; RESET=""\nsudo() { "$@"; }\n'
+            f"NEWSYSLOG_CONF={conf}\nSERVICE_USER=someone\n{wizard_functions('ok', 'rotate_log')}\n{calls}\n"
+        )
+        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_log_rotation_adds_one_size_based_entry_per_log_and_survives_a_rerun(self):
+        with tempfile.TemporaryDirectory() as directory:
+            conf = Path(directory) / "daily-printer.conf"
+            self.rotate(conf, "/Users/someone/print-server/logs/server.log")
+            self.rotate(conf, "/Users/someone/print-server/logs/server.log", "/Users/someone/print-device/logs/device.log")
+            entries = [line.split() for line in conf.read_text().splitlines()]
+        self.assertEqual([entry[0] for entry in entries],
+                         ["/Users/someone/print-server/logs/server.log", "/Users/someone/print-device/logs/device.log"])
+        for entry in entries:
+            # logfilename owner:group mode count size(KB) when flags; N: newsyslog signals no process.
+            self.assertEqual(len(entry), 7)
+            self.assertTrue(entry[1].startswith("someone:"))
+            self.assertEqual(entry[2:], ["644", "5", "10240", "*", "N"])
+
+    def test_log_rotation_matches_the_whole_path_not_a_pattern(self):
+        with tempfile.TemporaryDirectory() as directory:
+            conf = Path(directory) / "daily-printer.conf"
+            conf.write_text("/logs/serverXlog someone:staff 644 5 10240 * N\n")
+            self.rotate(conf, "/logs/server.log")
+            self.assertEqual([line.split()[0] for line in conf.read_text().splitlines()],
+                             ["/logs/serverXlog", "/logs/server.log"])
 
     def access_check(self, answer: str, team_domain: str = "team.cloudflareaccess.com") -> int:
         function = re.search(r"^access_protects_sender\(\) \{\n.*?^\}", WIZARD.read_text(), re.MULTILINE | re.DOTALL).group(0)

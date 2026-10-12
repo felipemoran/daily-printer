@@ -38,7 +38,7 @@ git clone https://github.com/felipemoran/daily-printer.git ~/daily-printer
 ~/daily-printer/deploy/wizard.sh device
 ```
 
-It asks for the device hostname and the printer's token. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
+A Raspberry Pi needs the 64-bit Raspberry Pi OS: Playwright has no 32-bit ARM build, so the wizard stops on an ARM machine whose `getconf LONG_BIT` is 32. It asks for the device hostname and the printer's token. On macOS it also asks for your password (sudo), to set up log rotation. To see a token again, run `deploy/wizard.sh tokens` on the server. A printer plugged into the server needs the device wizard too.
 
 ## Files
 
@@ -52,6 +52,7 @@ It asks for the device hostname and the printer's token. To see a token again, r
 | `/etc/cloudflared/config.yml` | tunnel config, from `deploy/cloudflared/config.example.yml` |
 | `/Library/LaunchDaemons/com.daily-printer.server.plist` | macOS server service, from `deploy/launchd/` |
 | `~/Library/LaunchAgents/com.daily-printer.device.plist` | macOS device service, from `deploy/launchd/` |
+| `/etc/newsyslog.d/daily-printer.conf` | macOS log rotation: one line per service log |
 | `/etc/systemd/system/print-server.service`, `print-device.service` | Linux services, from `deploy/systemd/` |
 | `/etc/udev/rules.d/60-daily-printer.rules` | Linux: lets the device user open the USB printer |
 
@@ -72,7 +73,8 @@ After a `git pull` on the server, restart the server. When `web/` changed, run `
 
 ## Limits
 
-- The log files on macOS grow without rotation.
+- On macOS, newsyslog rotates each log at 10 MB and keeps 5 files. A running service keeps writing to the rotated file (`server.log.0`) until it restarts, because launchd opens the log only when it starts the service.
+- The wizard refuses a 32-bit ARM userland, also on a 64-bit kernel: Playwright has no build for it.
 - The macOS device service runs only while its user is logged in.
 - The wizard refuses a repo path or home folder with spaces: the service files cannot quote them.
 - An Access application whose wildcard hostname also covers the device hostname stops every device. Protect the sender hostname only.
