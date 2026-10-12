@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 title: Ticket templates on the Thermal design system — orchestrator mission log
-status: pending
+status: operator
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -33,6 +33,7 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T08:13:14+00:00: Retro: repeated the live-@ foot-gun (verify/integration merge parented on @). Caught before any write; froze it with jj new. Retro fix: never pass @ as a merge parent; jj new a described child first.
 - 2026-10-12T08:28:10+00:00: Print-system session asks how to land. Proposed (a): my chain as its own draft PR to main first, theirs after. Needs the operator's decision and SSH approval to push; staging locally meanwhile.
 - 2026-10-12T08:34:36+00:00: Final gate on mvmknm: 207 tests green twice, 0 skips; 14 templates; --text job 860 bytes (ESC @ + 855-byte body + 3 LF). Final review: no blockers, 5 should-fix (early-wave conventions, duplicate parsers/font helper, test skips/visibility); fix round in tpl-final. Two scope requests filed as drafts.
+- 2026-10-12T08:54:36+00:00: Final state (2026-10-12): all 14 Receipt Set 1 templates + render infrastructure + guards + render_text integrated in final merge vntkpt; final gate 212 tests green twice, 0 skips; every sample renders 384 wide, byte-identical across the last two gates. Not pushed: pushing needs the operator's SSH approval. Landing plan agreed with the print-system session: this chain as its own draft PR to main first (bookmark felipe/design-system-templates), theirs after (their line already merged an earlier stable point). Open for the operator: tasks 8-task cap; landing/push; hardware checks for native text (code page 0 for █ ░, ESC 3 24, GS B / GS !, column-32 wrap, FS .); design-system paper checks in design-system/verify.md; follow-up drafts (design-system fixes for Claude Design, image templates, UTC ages, daily_print flag combos, shared test helper, Recipe/Meme). Orchestrator manual lesson committed in the bacon repo (slouol, workspace orchestrator-live-commit__bacon), not pushed.
 
 ## Decisions
 
