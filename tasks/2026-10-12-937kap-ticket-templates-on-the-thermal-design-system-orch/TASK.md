@@ -28,6 +28,8 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 
 - 2026-10-12T06:39:32+00:00: Infra builder dispatched in .workspaces/tpl-infra (base mysqmu). Set 1 spec gathered (14 strips; 1g agenda, 1k rotated banner and 1m hero row need new layout; 1h stays a raster preview of TextMode).
 - 2026-10-12T07:17:24+00:00: Retro note: I based the fit-guard verify merge and two builder rebases on xzslrz while it was still my live @; a bacon write rewrote it mid-run (tasks/ only). Froze it with jj new. Manual §8 already warns; add 'freeze the close-out before building ANY merge or rebase on it' in the retro.
+- 2026-10-12T08:03:25+00:00: All 14 Set 1 templates integrated in merge nrlvsn (plus receipt wrap fix). Next: final gate, then validator cleanup + render_text (parallel), test build once, docs.
+- 2026-10-12T08:08:05+00:00: Final template gate on nrlvsnow: 187 tests green twice; 14 templates render (sprint 384 wide); daily receipt OK. Sent to the print-system session as a stable point.
 
 ## Decisions
 
@@ -52,3 +54,4 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T07:42:04+00:00: decided: sprint 'day' may exceed 'of' (overrun sprints are real); leaderboard keeps a 10-person cap and takes ranks from list order — easy to change
 - 2026-10-12T07:46:46+00:00: decided: 1h text mode truncates long values with '~' in fixed columns (documented), keeps empty-section headers (FAILURES (0)) as uptime does, prints 'since #N' only when the sender sends it, and takes the build name (e.g. NIGHTLY) as optional data — easy to change
 - 2026-10-12T07:47:44+00:00: Bug class from 1g review, propagated: never decide text fit with a character-width MODEL; measure the rendered text after fonts load (focus.tsx pattern). A model that under-counts turns a valid payload into a refused print under the fit guard.
+- 2026-10-12T08:04:27+00:00: Contract between the cleanup tasks: a template's server-side failure (e.g. a font that did not load) throws an Error with name 'ServerFault'; render-main rejects with the prefix 'server fault: '; render_template raises RuntimeError (not TemplateError) for that prefix.

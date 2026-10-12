@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-e0cx8m-receipt-app-wrap-long-unbroken-headings
 title: 'Receipt app: wrap long unbroken headings'
-status: pending
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies: []

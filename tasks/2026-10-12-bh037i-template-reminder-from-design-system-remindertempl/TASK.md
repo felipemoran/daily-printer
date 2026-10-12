@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-bh037i-template-reminder-from-design-system-remindertempl
 title: 'Template 1n: focus ticket'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description

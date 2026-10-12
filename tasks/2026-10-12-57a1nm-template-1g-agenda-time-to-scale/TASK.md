@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-57a1nm-template-1g-agenda-time-to-scale
 title: 'Template 1g: agenda (time to scale)'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
