@@ -63,6 +63,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  overflow-wrap: anywhere;
   margin: calc(14em / 16) 0 calc(6em / 16);
     padding: calc(6em / 16) calc(8em / 16);
     background: #000;
@@ -72,6 +73,7 @@
 .day-header {
   font-size: calc(13em / 16);
     font-weight: 700;
+    overflow-wrap: anywhere;
     margin: calc(9em / 16) 0 calc(5em / 16);
     padding: calc(5em / 16) calc(8em / 16);
     background: #000;
