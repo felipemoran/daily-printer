@@ -1,4 +1,5 @@
 // Strip 1g of designs/receipt-set-1, on the "Agenda to scale" pattern in design-system/README.md.
+import { use } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { array, limitedString, nonBlank, number, object, optional, string, TemplateDataError, type Parser } from './validate'
@@ -10,7 +11,6 @@ const GUTTER = 36
 const LANE_GAP = 4
 const LANE_WIDTH = (384 - GUTTER - LANE_GAP) / 2
 const LINE = 22
-const FONT = 16
 const NOW_TAG = 'NOW'
 const TAG_GAP = 8
 // Hour labels and the NOW tick reach 13 dots past the first and last hour lines.
@@ -107,11 +107,31 @@ const duration = (minutes: number) => {
   return hours && rest ? `${hours}h ${rest}m` : hours ? `${hours}h` : `${rest}m`
 }
 
-// IBM Plex Mono advances 0.6 em; its bundled subset is Latin. Any other glyph comes from a fallback
-// face and is budgeted a full em. The fit guard in src/ticket_templates.py catches a wider one.
-const textWidth = (text: string) => [...text].reduce((sum, char) => sum + (/[\u0020-\u00ff]/.test(char) ? 0.6 : 1) * FONT, 0)
+// A label measured in a fallback face misjudges the fit, so the render suspends until Plex Mono is in.
+let plexMono: Promise<void> | undefined
+const plexMonoLoaded = () =>
+  (plexMono ??= document.fonts.load('700 16px "IBM Plex Mono"').then((faces) => {
+    if (!faces.length) throw new Error('the IBM Plex Mono bold face did not load')
+  }))
 
-const label = (event: Event) => `${clock(event.start)} ${event.kind === 'focus' ? 'FOCUS · ' : ''}${event.title}`
+// Synchronous, so the committed layout is the measured one. Emoji and CJK come from system faces,
+// and only the real text in the real class measures them. Rounded up like the boxes that hold them.
+function textWidths(texts: string[]) {
+  const probe = document.createElement('div')
+  probe.className = 'meta-strong'
+  probe.style.cssText = 'position: absolute; visibility: hidden; white-space: nowrap; width: max-content'
+  document.body.append(probe)
+  try {
+    return texts.map((text) => {
+      probe.textContent = text
+      return Math.ceil(probe.getBoundingClientRect().width)
+    })
+  } finally {
+    probe.remove()
+  }
+}
+
+const label = (event: Event) => `${clock(event.start)} ${event.title}`
 
 const look = (event: Event, current: boolean) =>
   current ? { border: 0, inset: 0, padding: 8 } : event.kind === 'focus' ? { border: 2, inset: 3, padding: 6 } : { border: 3, inset: 0, padding: 8 }
@@ -120,19 +140,21 @@ export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => {
+    use(plexMonoLoaded())
+    const [nowWidth, ...labelWidths] = textWidths([NOW_TAG, ...data.events.map(label)])
     const origin = data.dayStart * 60
     const height = (data.dayEnd - data.dayStart) * HOUR
     // Each edge rounds to the nearest dot on its own, so touching events share an edge exactly.
     const y = (minutes: number) => Math.round(((minutes - origin) * HOUR) / 60)
     const isCurrent = (event: Event) => data.now !== undefined && data.now >= event.start && data.now < event.end
-    const boxes = data.events.map((event) => {
+    const boxes = data.events.map((event, index) => {
       const current = isCurrent(event)
       const { border, inset, padding } = look(event, current)
       const top = y(event.start)
       const width = event.shared ? LANE_WIDTH : 384 - GUTTER
       const boxHeight = y(event.end) - top
-      const room = width - 2 * (border + inset + padding) - (current ? TAG_GAP + textWidth(NOW_TAG) : 0)
-      const labelled = boxHeight >= 2 * (border + inset) + LINE && textWidth(label(event)) <= room
+      const room = width - 2 * (border + inset + padding) - (current ? TAG_GAP + nowWidth : 0)
+      const labelled = boxHeight >= 2 * (border + inset) + LINE && labelWidths[index] <= room
       return { event, current, border, inset, padding, top, width, boxHeight, labelled, left: GUTTER + (event.shared ? event.lane * (LANE_WIDTH + LANE_GAP) : 0) }
     })
     const unlabelled = boxes.filter((box) => !box.labelled)

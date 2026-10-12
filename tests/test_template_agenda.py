@@ -1,4 +1,5 @@
 import copy
+import itertools
 import json
 import subprocess
 import sys
@@ -100,7 +101,7 @@ class AgendaTest(unittest.TestCase):
     def test_sample_is_strip_1g(self):
         self.render(SAMPLE)
         text = self.text()
-        for expected in ("AGENDA", "THU 01 OCT", "5 EVENTS", "09:00 Standup", "10:00 FOCUS · billing migration",
+        for expected in ("AGENDA", "THU 01 OCT", "5 EVENTS", "09:00 Standup", "10:00 billing migration",
                          "14:00 Design review", "NOW", "BUSY 5h", "FREE 5h"):
             self.assertIn(expected, text)
         self.assertNotIn("UNLABELLED", text)
@@ -126,21 +127,55 @@ class AgendaTest(unittest.TestCase):
     def test_label_moves_below_when_it_does_not_fit_its_box(self):
         # A full-width meeting holds 33 Plex Mono cells: "09:00 " and 27 more.
         self.render(agenda(now=None, events=[event("09:00", "09:30", "W" * 27), event("10:00", "10:30", "W" * 28),
-                                             event("11:00", "11:15", "Standup"), event("12:00", "12:30", "漢" * 16)]))
+                                             event("11:00", "11:15", "Standup"), event("12:00", "13:00", "Budget", "focus")]))
         labels = [e["text"] for e in self.geometry()["events"]]
-        self.assertEqual(labels, ["09:00 " + "W" * 27, "", "", "12:00 " + "漢" * 16])
+        self.assertEqual(labels, ["09:00 " + "W" * 27, "", "", "12:00 Budget"])
         text = self.text()
         self.assertIn("UNLABELLED", text)
         self.assertIn("10:00–10:30", text)
         self.assertIn("11:00–11:15", text)
         self.assertNotIn("09:00–09:30", text)
+        self.assertNotIn("FOCUS", text)
+
+    def test_wide_glyphs_fit_up_to_the_last_one(self):
+        # Emoji and CJK come from system faces wider than their Plex Mono cell. For each box, find the
+        # longest title that stays in the box; it and one more glyph must both print on a fresh page.
+        shapes = {
+            "full width": lambda title: agenda(now=None, events=[event("10:00", "11:00", title)]),
+            "lane": lambda title: agenda(now=None, events=[event("10:00", "11:00", title), event("10:30", "11:30", "B")]),
+            "current": lambda title: agenda(now="10:30", events=[event("10:00", "11:00", title)]),
+        }
+        for (shape, build), glyph in itertools.product(shapes.items(), ("漢", "🚀")):
+            with self.subTest(shape=shape, glyph=glyph):
+                count = 1
+                while self.first_label(build(glyph * (count + 1))):
+                    count += 1
+                self.assertTrue(self.first_label(build(glyph * count)), "not even one glyph fits")
+                page = open_render_page(self.browser)
+                try:
+                    render_template(page, build(glyph * count))
+                    self.assertTrue(page.evaluate(_GEOMETRY_JS)["events"][0]["text"].startswith("10:00 " + glyph * count))
+                    render_template(page, build(glyph * (count + 1)))
+                    self.assertEqual(page.evaluate(_GEOMETRY_JS)["events"][0]["text"], "")
+                finally:
+                    page.close()
+
+    def test_mixed_titles_print(self):
+        for title, now in (("🚀🚀 Sync with the design te", None), ("☕ Sync with the design t", "10:30"), ("漢" * 16 + "W", None)):
+            for kind in ("meeting", "focus"):
+                with self.subTest(title=title, kind=kind):
+                    self.render(agenda(now=now, events=[event("10:00", "11:00", title, kind)]))
+
+    def first_label(self, payload):
+        self.render(payload)
+        return self.geometry()["events"][0]["text"]
 
     def test_focus_plate_and_now_tag_fit_at_the_limit(self):
-        # Focus: "13:00 FOCUS · " and 19 cells on the plate; current: 30 cells beside the NOW tag.
-        self.render(agenda(now="15:30", events=[event("13:00", "14:00", "W" * 19, "focus"), event("15:00", "16:00", "W" * 24),
-                                                event("16:00", "17:00", "W" * 20, "focus")]))
+        # Focus: 33 Plex Mono cells on the plate; current: 30 cells beside the NOW tag.
+        self.render(agenda(now="15:30", events=[event("13:00", "14:00", "W" * 27, "focus"), event("15:00", "16:00", "W" * 24),
+                                                event("16:00", "17:00", "W" * 28, "focus")]))
         labels = [e["text"] for e in self.geometry()["events"]]
-        self.assertEqual(labels[0], "13:00 FOCUS · " + "W" * 19)
+        self.assertEqual(labels[0], "13:00 " + "W" * 27)
         self.assertTrue(labels[1].startswith("15:00 " + "W" * 24) and labels[1].endswith("NOW"), labels[1])
         self.assertEqual(labels[2], "")
 
