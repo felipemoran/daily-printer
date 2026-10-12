@@ -246,7 +246,6 @@ check_arch() {
   if arm32; then die "Playwright has no 32-bit ARM build; install 64-bit Raspberry Pi OS."; fi
 }
 
-# PyPI has no 32-bit ARM wheels for Pillow and PyYAML, so uv builds them from source.
 install_build_tools() {
   if [[ "$OS" != Linux ]] || ! arm32; then return 0; fi
   local package missing=()
@@ -261,6 +260,7 @@ install_build_tools() {
   confirm "Install the build tools now (sudo apt-get install -y ${missing[*]})?" \
     || die "The build tools are missing, so Pillow cannot build. Install them (sudo apt-get install ${missing[*]}), then re-run."
   command -v apt-get >/dev/null 2>&1 || die "No apt-get here. Install a C compiler, the Python headers, libjpeg and zlib, then re-run."
+  sudo apt-get update
   sudo apt-get install -y "${missing[@]}"
 }
 
@@ -706,6 +706,7 @@ stage_device_libusb() {
     confirm "The USB printer needs libusb. Install it now (sudo apt-get install -y libusb-1.0-0)?" \
       || die "libusb is missing, so every print would fail. Install it (sudo apt-get install libusb-1.0-0), then re-run."
     command -v apt-get >/dev/null 2>&1 || die "No apt-get here. Install libusb-1.0 with this system's package manager, then re-run."
+    sudo apt-get update
     sudo apt-get install -y libusb-1.0-0
     ldconfig -p 2>/dev/null | grep -q 'libusb-1.0' || die "libusb is still missing after the install."
   fi

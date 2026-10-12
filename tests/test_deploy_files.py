@@ -244,7 +244,7 @@ class DeployFilesTest(unittest.TestCase):
         device_sync = "uv sync --quiet --script src/scripts/print_device.py"
         self.assertEqual(
             self.tools_stage("device", "armv7l", 32),
-            ["sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev", device_sync],
+            ["sudo apt-get update", "sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev", device_sync],
         )
         self.assertEqual(self.tools_stage("device", "aarch64", 64), [device_sync])
         self.assertEqual(self.tools_stage("server", "x86_64", 64), ["uv sync --quiet"])
