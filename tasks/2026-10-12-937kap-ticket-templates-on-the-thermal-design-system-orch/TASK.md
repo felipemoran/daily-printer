@@ -30,6 +30,8 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T07:17:24+00:00: Retro note: I based the fit-guard verify merge and two builder rebases on xzslrz while it was still my live @; a bacon write rewrote it mid-run (tasks/ only). Froze it with jj new. Manual §8 already warns; add 'freeze the close-out before building ANY merge or rebase on it' in the retro.
 - 2026-10-12T08:03:25+00:00: All 14 Set 1 templates integrated in merge nrlvsn (plus receipt wrap fix). Next: final gate, then validator cleanup + render_text (parallel), test build once, docs.
 - 2026-10-12T08:08:05+00:00: Final template gate on nrlvsnow: 187 tests green twice; 14 templates render (sprint 384 wide); daily receipt OK. Sent to the print-system session as a stable point.
+- 2026-10-12T08:13:14+00:00: Retro: repeated the live-@ foot-gun (verify/integration merge parented on @). Caught before any write; froze it with jj new. Retro fix: never pass @ as a merge parent; jj new a described child first.
+- 2026-10-12T08:28:10+00:00: Print-system session asks how to land. Proposed (a): my chain as its own draft PR to main first, theirs after. Needs the operator's decision and SSH approval to push; staging locally meanwhile.
 
 ## Decisions
 

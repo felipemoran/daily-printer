@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-u2rdxi-docs-template-table-and-final-ticket-templates-doc
 title: 'Docs: template table and final ticket-templates doc pass'
-status: pending
+status: in-progress
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: null
+phase: implementing
 ---
 
 ## Description
@@ -27,5 +27,6 @@ docs/feature-ticket-templates.md 'Design source' table lists only ticket. Add ev
 ## Execution log
 
 - 2026-10-12T07:42:04+00:00: Also: delete 'No template uses it yet' (landscape) now that sprint uses it; state that leaderboard people are in rank order.
+- 2026-10-12T08:22:27+00:00: Built upvspq (feature-ticket-templates.md rewritten; design-system issues section; README/AGENTS rows). Found: report (range, title, KPI label), review-queue (title, area) and tasks still accept blank visible strings.
 
 ## Decisions
