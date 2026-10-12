@@ -8,7 +8,8 @@ from PIL import Image, ImageChops, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from fake_printer import FakePrinter, decode  # noqa: E402
+from fake_printer import decode  # noqa: E402
+from print_device import FakeSink, SinkError  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
 
 
@@ -30,11 +31,13 @@ def _pattern(height: int) -> Image.Image:
     return image
 
 
-class DecodeTest(unittest.TestCase):
+class _ImageTestCase(unittest.TestCase):
     def assertSameImage(self, expected: Image.Image, actual: Image.Image) -> None:
         self.assertEqual(expected.size, actual.size)
         self.assertIsNone(ImageChops.difference(expected.convert("L"), actual.convert("L")).getbbox())
 
+
+class DecodeTest(_ImageTestCase):
     def test_round_trips_python_escpos_output(self):
         image = _pattern(200)
         self.assertSameImage(image, decode(_escpos_bytes(image)))
@@ -53,17 +56,40 @@ class DecodeTest(unittest.TestCase):
             decode(_escpos_bytes(_pattern(50))[:-200])
 
 
-class FakePrinterTest(unittest.TestCase):
+class FakeSinkTest(_ImageTestCase):
     def test_writes_png_and_raw_bytes_from_chunks(self):
         data = _escpos_bytes(_pattern(120))
         with tempfile.TemporaryDirectory() as tmp:
-            printer = FakePrinter(Path(tmp))
+            sink = FakeSink(Path(tmp))
+            sink.start("job-1")
             for i in range(0, len(data), 4096):
-                printer.write(data[i:i + 4096])
-            png = printer.finish("job-1")
+                sink.write(data[i:i + 4096])
+            sink.finish()
             self.assertEqual((Path(tmp) / "job-1.bin").read_bytes(), data)
-            with Image.open(png) as image:
-                self.assertEqual(image.size, (PRINT_WIDTH_DOTS, 120))
+            with Image.open(Path(tmp) / "job-1.png") as image:
+                self.assertSameImage(_pattern(120), image)
+
+    def test_an_aborted_job_leaves_nothing_in_the_next_one(self):
+        first, second = _escpos_bytes(_pattern(80)), _escpos_bytes(_pattern(40))
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = FakeSink(Path(tmp))
+            sink.start("job-1")
+            sink.write(first[:500])
+            sink.abort()
+            sink.start("job-2")
+            sink.write(second)
+            sink.finish()
+            self.assertEqual((Path(tmp) / "job-2.bin").read_bytes(), second)
+            self.assertFalse((Path(tmp) / "job-1.bin").exists())
+
+    def test_undecodable_bytes_are_a_sink_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = FakeSink(Path(tmp))
+            sink.start("job-1")
+            sink.write(b"\x1b@hello\n")
+            with self.assertRaisesRegex(SinkError, "no GS v 0"):
+                sink.finish()
+            self.assertFalse((Path(tmp) / "job-1.png").exists())
 
 
 if __name__ == "__main__":

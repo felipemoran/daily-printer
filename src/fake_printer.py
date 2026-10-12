@@ -1,8 +1,6 @@
-"""Stand-in for a receipt printer: saves what the paper would show as a PNG."""
+"""Decode ESC/POS raster bytes into the image the paper would show."""
 
 from __future__ import annotations
-
-from pathlib import Path
 
 from PIL import Image
 
@@ -38,22 +36,3 @@ def decode(data: bytes) -> Image.Image:
         top += block.height
     return page
 
-
-class FakePrinter:
-    """Collects one job's bytes; ``finish`` writes ``<out_dir>/<name>.png`` and the raw ``.bin``."""
-
-    def __init__(self, out_dir: Path) -> None:
-        self.out_dir = out_dir
-        self._buffer = bytearray()
-
-    def write(self, chunk: bytes) -> None:
-        self._buffer += chunk
-
-    def finish(self, name: str) -> Path:
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        data = bytes(self._buffer)
-        self._buffer.clear()
-        (self.out_dir / f"{name}.bin").write_bytes(data)
-        png = self.out_dir / f"{name}.png"
-        decode(data).save(png)
-        return png

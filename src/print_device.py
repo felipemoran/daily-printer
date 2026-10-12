@@ -18,7 +18,7 @@ import usb.core
 from escpos.exceptions import DeviceNotFoundError
 from escpos.printer import Usb
 
-from fake_printer import FakePrinter
+from fake_printer import decode
 from printer import PRODUCT_ID, VENDOR_ID
 
 CLIENT_VERSION = "python/1"
@@ -91,26 +91,30 @@ class FakeSink:
 
     def __init__(self, out_dir: Path) -> None:
         self.out_dir = out_dir
-        self._printer = FakePrinter(out_dir)
+        self._buffer = bytearray()
         self._job_id: str | None = None
 
     def start(self, job_id: str) -> None:
-        self._printer = FakePrinter(self.out_dir)
+        self._buffer = bytearray()
         self._job_id = job_id
 
     def write(self, chunk: bytes) -> None:
-        self._printer.write(chunk)
+        self._buffer += chunk
 
     def finish(self) -> None:
         if self._job_id is None:
             raise SinkError("no job started")
+        data = bytes(self._buffer)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        (self.out_dir / f"{self._job_id}.bin").write_bytes(data)
         try:
-            self._printer.finish(self._job_id)
+            page = decode(data)
         except ValueError as error:
             raise SinkError(f"fake printer cannot decode the job: {error}") from error
+        page.save(self.out_dir / f"{self._job_id}.png")
 
     def abort(self) -> None:
-        self._printer = FakePrinter(self.out_dir)
+        self._buffer = bytearray()
         self._job_id = None
 
 
