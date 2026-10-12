@@ -224,6 +224,21 @@ class SimulateMainTest(unittest.TestCase):
         for _, _, path in jobs[2:]:
             self.assertTrue(path.is_file(), path)
 
+    def test_a_missing_uv_fails_before_the_server_starts(self):
+        # main() ends in Children.stop, which ignores Ctrl-C in this process; later test children would inherit that.
+        for environment in ({"PATH": ""}, {"PATH": os.environ["PATH"], "UV": "/nonexistent/uv"}):
+            with self.subTest(environment), tempfile.TemporaryDirectory() as workdir, \
+                    mock.patch.dict(simulate.os.environ, environment, clear=True), \
+                    mock.patch.object(simulate.tempfile, "mkdtemp", return_value=workdir), \
+                    mock.patch.object(simulate.Children, "start") as start, \
+                    mock.patch.object(simulate.signal, "signal"), \
+                    contextlib.redirect_stderr(io.StringIO()) as stderr:
+                code = simulate.main(["--once", "--port", str(_free_port())])
+            self.assertEqual(code, 1)
+            self.assertIn("uv is missing, so the fake printers cannot start.", stderr.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
+            start.assert_not_called()
+
     def test_the_admin_token_never_reaches_the_front_end(self):
         files = [path for path in (_TESTS.parent / "src" / "static").rglob("*") if path.is_file()]
         self.assertTrue(files)

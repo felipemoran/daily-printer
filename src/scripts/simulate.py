@@ -208,6 +208,11 @@ def _all_online(admin: Client) -> bool:
 
 def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]:
     base = f"http://127.0.0.1:{port}"
+    # A device runs the way a real one does: in its script environment, without the server's dependencies.
+    uv = shutil.which(os.environ.get("UV") or "uv")
+    if uv is None:
+        raise SimulationError("uv is missing, so the fake printers cannot start. "
+                              "Install uv, or set UV to its path, then run this again.")
     _check_port_free(port)
     config, client_token = _write_config(workdir, port)
     admin = Client(base, ADMIN_TOKEN, timeout=POLL_TIMEOUT)
@@ -219,10 +224,6 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
     _until(children, "the server to listen", READY_TIMEOUT,
            lambda: f"listening on {base}" in children.log("server").read_text(errors="replace"))
 
-    # A device runs the way a real one does: in its script environment, without the server's dependencies.
-    uv = os.environ.get("UV") or shutil.which("uv")
-    if uv is None:
-        raise SimulationError("uv is missing, so the fake printers cannot start. Install uv, then run this again.")
     print(f"Starting the fake printers: {', '.join(p[0] for p in PRINTERS)} ...", flush=True)
     for printer_id, *_ in PRINTERS:
         children.start(f"device-{printer_id}", [
