@@ -124,7 +124,7 @@ _COLUMNS = (
 )
 
 _SCHEMA = (
-    """CREATE TABLE jobs (
+    """CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
         printer TEXT NOT NULL,
         kind TEXT NOT NULL,
@@ -144,18 +144,18 @@ _SCHEMA = (
         printed_at REAL,
         data BLOB
     )""",
-    "CREATE INDEX jobs_printer_status ON jobs (printer, status)",
-    "CREATE INDEX jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued'",
-    "CREATE INDEX jobs_source ON jobs (ingress, source, created_at)",
-    """CREATE TABLE job_events (
+    "CREATE INDEX IF NOT EXISTS jobs_printer_status ON jobs (printer, status)",
+    "CREATE INDEX IF NOT EXISTS jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued'",
+    "CREATE INDEX IF NOT EXISTS jobs_source ON jobs (ingress, source, created_at)",
+    """CREATE TABLE IF NOT EXISTS job_events (
         id INTEGER PRIMARY KEY,
         job_id TEXT NOT NULL REFERENCES jobs (id),
         at REAL NOT NULL,
         event TEXT NOT NULL,
         detail TEXT
     )""",
-    "CREATE INDEX job_events_job ON job_events (job_id)",
-    """CREATE TABLE printers (
+    "CREATE INDEX IF NOT EXISTS job_events_job ON job_events (job_id)",
+    """CREATE TABLE IF NOT EXISTS printers (
         id TEXT PRIMARY KEY,
         last_seen REAL,
         connected_since REAL,
@@ -167,18 +167,29 @@ _SCHEMA = (
 )
 
 
-def _drop_png(db: sqlite3.Connection) -> None:
+def _from_unversioned(db: sqlite3.Connection) -> None:
+    """Adds what an older development database lacks, and drops the unused ``png`` column."""
+    for statement in _SCHEMA:
+        db.execute(statement)
     if any(column[1] == "png" for column in db.execute("PRAGMA table_info(jobs)")):
         db.execute("ALTER TABLE jobs DROP COLUMN png")
 
 
 # Step n takes a database from version n to n + 1. Version 0 is the schema from before versioning.
-_MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_drop_png,)
+_MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_from_unversioned,)
 SCHEMA_VERSION = len(_MIGRATIONS)
 
 
 class SchemaTooNew(RuntimeError):
     """The database was written by a newer server."""
+
+
+def _schema_version(db: sqlite3.Connection) -> int:
+    version = db.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        raise SchemaTooNew(f"its schema version is {version}, and this server knows versions up to"
+                           f" {SCHEMA_VERSION}. Run a newer server, or restore a backup from before the upgrade.")
+    return version
 
 
 def _job(row: tuple) -> Job:
@@ -225,13 +236,11 @@ class JobQueue:
             raise
 
     def _open(self) -> None:
-        version = self._db.execute("PRAGMA user_version").fetchone()[0]
-        if version > SCHEMA_VERSION:
-            raise SchemaTooNew(f"its schema version is {version}, and this server knows versions up to"
-                               f" {SCHEMA_VERSION}. Run a newer server, or restore a backup from before the upgrade.")
+        _schema_version(self._db)
         self._db.execute("PRAGMA journal_mode = WAL")
         self._db.execute("PRAGMA foreign_keys = ON")
         with self._transaction():
+            version = _schema_version(self._db)
             if self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'jobs'").fetchone() is None:
                 for statement in _SCHEMA:
                     self._db.execute(statement)

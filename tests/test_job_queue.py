@@ -211,13 +211,21 @@ class SchemaVersionTest(unittest.TestCase):
         self.assertEqual(version, job_queue.SCHEMA_VERSION)
         self.assertEqual(job_queue.SCHEMA_VERSION, 1)
 
+    def unversioned(self, *, png: bool = True, lacking: tuple[str, ...] = ()) -> None:
+        statements = [s for s in job_queue._SCHEMA if not any(f" {name} " in s for name in lacking)]
+        self.write(";\n".join(statements) + (";\nALTER TABLE jobs ADD COLUMN png BLOB;" if png else ";"))
+
     def test_a_database_from_before_versioning_is_migrated_and_drops_the_png_column(self):
         JobQueue(self.path).close()
         _, current = self.schema()
-        for name, extra in {"with png": "ALTER TABLE jobs ADD COLUMN png BLOB;", "without png": ""}.items():
+        for name, unversioned in {
+            "with png": {},
+            "without png": {"png": False},
+            "an older one without printers or jobs_source": {"lacking": ("printers", "jobs_source")},
+        }.items():
             with self.subTest(name):
                 self.path.unlink()
-                self.write(";\n".join(job_queue._SCHEMA) + f"; {extra}")
+                self.unversioned(**unversioned)
                 queue = JobQueue(self.path)
                 job = queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
                                 width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
@@ -226,6 +234,19 @@ class SchemaVersionTest(unittest.TestCase):
                 queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", now=3)
                 queue.close()
                 self.assertEqual(self.schema(), (job_queue.SCHEMA_VERSION, current))
+
+    def test_a_failing_step_leaves_the_database_at_its_old_version(self):
+        self.unversioned(lacking=("jobs_source",))
+        _, before = self.schema()
+
+        def broken(db):
+            raise sqlite3.OperationalError("disk gone")
+
+        with mock.patch.object(job_queue, "_MIGRATIONS", (*job_queue._MIGRATIONS, broken)), \
+                mock.patch.object(job_queue, "SCHEMA_VERSION", job_queue.SCHEMA_VERSION + 1), \
+                self.assertRaisesRegex(sqlite3.OperationalError, "disk gone"):
+            JobQueue(self.path)
+        self.assertEqual(self.schema(), (0, before))
 
     def test_a_database_from_a_newer_server_is_refused_and_left_alone(self):
         self.write(f"CREATE TABLE future (id INTEGER); PRAGMA user_version = {job_queue.SCHEMA_VERSION + 1};")
