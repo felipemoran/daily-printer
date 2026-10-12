@@ -1,9 +1,17 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "aiohttp>=3.14.5",
+#     "pillow>=12.2.0",
+#     "python-escpos[usb]>=3.1",
+# ]
+# ///
 """
 Connect this computer's receipt printer to the print server and print the jobs it sends.
 
 Examples:
-  PRINT_DEVICE_TOKEN=... uv run src/scripts/print_device.py --server wss://device.example.com/device
-  uv run src/scripts/print_device.py --server ws://127.0.0.1:8787/device --token-file ~/.print-token --fake out/
+  PRINT_DEVICE_TOKEN=... uv run --script src/scripts/print_device.py --server wss://device.example.com/device
+  uv run --script src/scripts/print_device.py --server ws://127.0.0.1:8787/device --token-file ~/.print-token --fake out/
 """
 
 from __future__ import annotations
