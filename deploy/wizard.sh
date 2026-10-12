@@ -412,7 +412,7 @@ stage_tools() {
     install_build_tools
     step "Installing the device's Python dependencies (uv sync --script)"
     if [[ "$OS" == Linux ]] && arm32; then note "This step builds Pillow from source, so it is slower than on a 64-bit system."; fi
-    (cd "$REPO" && "$UV" sync --quiet --script src/scripts/print_device.py)
+    (cd "$REPO" && "$UV" sync --quiet --locked --script src/scripts/print_device.py)
   else
     step "Installing the Python dependencies (uv sync)"
     (cd "$REPO" && "$UV" sync --quiet)

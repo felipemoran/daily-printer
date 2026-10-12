@@ -17,7 +17,7 @@ SCRIPT = SRC / "scripts" / "print_device.py"
 METADATA_BLOCK = re.compile(r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$")
 REQUIREMENT = re.compile(r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[(?P<extras>[^\]]*)\])?")
 NEVER_ON_DEVICE = {"playwright", "jwt"}
-UV = os.environ.get("UV") or shutil.which("uv")
+UV = shutil.which(os.environ.get("UV") or "uv")
 # (module, import): why the device never needs it.
 UNDECLARED_ALLOWED = {
     ("printer.py", "bleak"): "only printer._ble_find_and_send imports it, and the device never calls it",
@@ -110,6 +110,14 @@ class DeviceDependenciesTest(unittest.TestCase):
         for path in device_modules():
             with self.subTest(module=path.name):
                 self.assertFalse(imports(path) & NEVER_ON_DEVICE)
+
+    def test_an_allowed_undeclared_import_never_runs_at_module_load(self):
+        for module, name in UNDECLARED_ALLOWED:
+            with self.subTest(module=module, imports=name):
+                body = ast.parse(local_module(module.removesuffix(".py")).read_text()).body
+                top_level = {alias.name.split(".")[0] for node in body if isinstance(node, ast.Import) for alias in node.names}
+                top_level |= {node.module.split(".")[0] for node in body if isinstance(node, ast.ImportFrom) and node.module}
+                self.assertNotIn(name, top_level, f"{module} imports {name} at load time, so a device would crash")
 
     @unittest.skipIf(UV is None, "uv is not installed, so the script lock cannot be checked")
     def test_script_lock_matches_the_script_metadata(self):

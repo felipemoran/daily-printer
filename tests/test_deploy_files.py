@@ -241,7 +241,7 @@ class DeployFilesTest(unittest.TestCase):
             return calls.read_text().splitlines()
 
     def test_device_role_installs_only_the_device_script_dependencies_and_builds_pillow_on_32_bit_arm(self):
-        device_sync = "uv sync --quiet --script src/scripts/print_device.py"
+        device_sync = "uv sync --quiet --locked --script src/scripts/print_device.py"
         self.assertEqual(
             self.tools_stage("device", "armv7l", 32),
             ["sudo apt-get update", "sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev", device_sync],
