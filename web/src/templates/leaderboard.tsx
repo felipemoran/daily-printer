@@ -8,22 +8,17 @@ const MAX_PCT = 1000
 
 // The track shows 0 to 133% of quota, so the quota line sits at 75%: pct * 3 / 400 is exact at 100.
 const QUOTA_AT = 0.75
-const fraction = (pct: number) => Math.min(1, (pct * 3) / 400)
 
 // BarList columns: label, 12px gap, track, 12px gap, 52px value. Its quota mark is centred on QUOTA_X.
 const LABEL_WIDTH = 140
 const TRACK = 384 - LABEL_WIDTH - 52 - 2 * 12
-const QUOTA_X = LABEL_WIDTH + 12 + Math.round(QUOTA_AT * TRACK)
+const QUOTA_PX = Math.round(QUOTA_AT * TRACK)
+const QUOTA_X = LABEL_WIDTH + 12 + QUOTA_PX
+// BarList rounds 99.7% up onto the quota line; a bar below quota stops one dot short of it.
+const fraction = (pct: number) => Math.min(pct >= 100 ? 1 : (QUOTA_PX - 1) / TRACK, (pct * 3) / 400)
 const QUOTA_LABEL_WIDTH = 60
 
-// The BarList value cell is 52px: five 16px Plex Mono glyphs. The bundled fonts cover only Latin-1 and €;
-// a fallback-font glyph is wider and would overrun the cell.
-const AMOUNT = /^[0-9A-Za-z$£¥€.,'+-]+$/u
-const amount = (max: number): Parser<string> => (value, path) => {
-  const result = nonBlank(limitedString(max))(value, path)
-  if (!AMOUNT.test(result)) throw new TemplateDataError(`${path}: expected digits, Latin letters or $ £ ¥ € . , ' + -`)
-  return result
-}
+const amount = (max: number) => nonBlank(limitedString(max))
 
 const percent: Parser<number> = (value, path) => {
   const result = number(value, path)

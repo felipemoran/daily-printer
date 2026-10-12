@@ -86,8 +86,7 @@ class LeaderboardTest(unittest.TestCase):
             (leaderboard(status="W" * 13), r"^data\.status: expected at most 12 characters$"),
             (leaderboard(people=[{**PERSON, "name": "W" * 25}]), r"^data\.people\[0\]\.name: expected at most 24"),
             (leaderboard(people=[{**PERSON, "amount": "$1,234K"}]), r"^data\.people\[0\]\.amount: expected at most 5"),
-            (leaderboard(people=[{**PERSON, "amount": "１２３"}]), r"^data\.people\[0\]\.amount: expected digits, Latin"),
-            (leaderboard(people=[{**PERSON, "amount": "$1 2"}]), r"^data\.people\[0\]\.amount: expected digits, Latin"),
+            (leaderboard(people=[PERSON, {**PERSON, "amount": "１２３４"}]), r'^text does not fit: "１２３４" is wider than its 52px cell$'),
             (leaderboard(total={"amount": "$12,345.6K", "pct": 1}), r"^data\.total\.amount: expected at most 8"),
             (leaderboard(people=[]), r"^data\.people: expected at least 1 item$"),
             (leaderboard(people=[PERSON] * 11), r"^data\.people: expected at most 10 items$"),
@@ -110,6 +109,12 @@ class LeaderboardTest(unittest.TestCase):
                 self.assertEqual(self.page.evaluate(OVERFLOW), [])
                 self.assertEqual(len(self.page.query_selector_all("#receipt .rp-barrow")), 9)
 
+    def test_amounts_outside_ascii_render(self):
+        for amount in ("R$ 1K", "₹12K"):
+            with self.subTest(amount):
+                render_template(self.page, leaderboard(people=[{**PERSON, "amount": amount}] * 2))
+                self.assertEqual(self.page.inner_text("#receipt .rp-barrow-v"), amount)
+
     def test_fresh_page_renders_a_cyrillic_name(self):
         page = open_render_page(self.browser)
         try:
@@ -131,7 +136,7 @@ class LeaderboardTest(unittest.TestCase):
                 self.assertEqual(bars[0][2], solid)
 
     def test_bars_scale_to_quota_on_whole_pixels(self):
-        pcts = [137, 1000, 100, 99.6, 50, 0]
+        pcts = [137, 1000, 100, 99.6, 99.7, 99.99, 50, 0]
         geometry = self.geometry(leaderboard(people=[{**PERSON, "pct": pct} for pct in pcts]))
         track_left, track = geometry["tracks"][0]
         self.assertEqual((track_left, track), (152, 168))
@@ -142,10 +147,10 @@ class LeaderboardTest(unittest.TestCase):
         self.assertEqual(quota_left + quota_width / 2, 278)
         widths = [width for _, width, _ in geometry["bars"]]
         # A tone bar's 2px outline leaves a 4px hollow stub at 0%.
-        self.assertEqual(widths, [168, 126, 125, 63, 4])
+        self.assertEqual(widths, [168, 126, 125, 125, 125, 63, 4])
         for left, width, _ in geometry["bars"]:
             self.assertEqual((left, width), (round(left), round(width)))
-        self.assertEqual([solid for *_, solid in geometry["bars"]], [True, True, False, False, False])
+        self.assertEqual([solid for *_, solid in geometry["bars"]], [True, True, False, False, False, False, False])
 
     def test_hero_alone_has_no_rows(self):
         render_template(self.page, leaderboard(people=[PERSON]))
