@@ -96,6 +96,14 @@ class FocusTest(unittest.TestCase):
         self.assertEqual(self.render(payload)["size"], "display-sm")
         self.assertEqual(self.page.evaluate(_OVERFLOW_JS), [])
 
+    def test_bitmap_is_the_laid_out_receipt_on_a_fresh_page(self):
+        # A fresh page resolves fallback faces late; text the bundled fonts draw must not reflow at capture.
+        page = open_render_page(self.browser)
+        image = render_template(page, focus(id="ÉTÉ-118", title="Déjà vu façade — “naïve” Œuvre", estimate="2h · €"))
+        self.assertEqual(image.height, page.evaluate("() => document.querySelector('#receipt').offsetHeight"))
+        bottom = image.crop((0, image.height - 8, image.width, image.height))
+        self.assertIsNone(bottom.convert("L").point(lambda value: 255 - value).getbbox(), "ink in the feed")
+
     def test_counts_default_and_draw_whole_pixel_boxes(self):
         for pomodoros, notes, expected in ((None, None, (6, 4)), (1, 1, (1, 1)), (12, 8, (12, 8))):
             with self.subTest(pomodoros=pomodoros, notes=notes):
@@ -130,6 +138,9 @@ class FocusTest(unittest.TestCase):
             ({"date": "01.10.26"}, r"data\.date: expected at most 6 characters"),
             ({"startedAt": "W" * 11}, r"data\.startedAt: expected at most 10 characters"),
             ({"done": True}, r"data\.done: unknown field"),
+            ({"id": "ШШШ-118"}, r'data\.id: expected Latin text; the printer fonts have no "Ш"'),
+            ({"title": "Ship 账单 migration"}, r'data\.title: expected Latin text; the printer fonts have no "账"'),
+            ({"date": "01 ◯"}, r'data\.date: expected Latin text; the printer fonts have no "◯"'),
         ):
             with self.subTest(data), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, focus(**data))

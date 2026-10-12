@@ -10,9 +10,17 @@ const count = (min: number, max: number): Parser<number> => (value, path) => {
   return n
 }
 
+// Characters in the cmap of all three faces under web/public/fonts, less controls, soft hyphen and combining
+// marks. Chrome draws any other character from a system face it resolves differently in the page (Times)
+// and in the screenshot (Menlo): a Cyrillic id wrapped the header in layout but not on paper, and the PNG
+// ended in a band of page canvas.
+const UNPRINTABLE = /[^\u0020-\u007E\u00A0-\u00AC\u00AE-\u00FF\u0131\u0152\u0153\u02BC\u02C6\u02DA\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2022\u2026\u2032\u2033\u2039\u203A\u2044\u20AC\u2122\u2191\u2193\u2212\u2215]/u
+
 const text = (max: number): Parser<string> => (value, path) => {
   const s = limitedString(max)(value, path)
   if (!s.trim()) throw new TemplateDataError(`${path}: expected non-empty text`)
+  const unprintable = UNPRINTABLE.exec(s)
+  if (unprintable) throw new TemplateDataError(`${path}: expected Latin text; the printer fonts have no "${unprintable[0]}"`)
   return s
 }
 
@@ -30,24 +38,34 @@ const parse = object({
 // Largest first. The title takes the first size at which its longest word fits the paper;
 // words wrap at spaces. A word too long even for display-sm breaks anywhere.
 const TITLE_SIZES = ['display-lg', 'display-md', 'display-sm'] as const
+const PAPER_WIDTH = 384
 
-// Measuring with a fallback face picks the wrong size, so the render suspends until Archivo is in.
-let archivo: Promise<void> | undefined
-const archivoLoaded = () =>
-  (archivo ??= document.fonts.load('900 79px Archivo').then((faces) => {
-    if (!faces.length) throw new Error('the Archivo display face did not load')
+// The title probe must measure Archivo, not a fallback; the mono faces load too so the first commit
+// lays out in its final faces.
+const FACES = ['900 79px Archivo', '500 18px "IBM Plex Mono"', '700 18px "IBM Plex Mono"']
+let facesLoading: Promise<void> | undefined
+const facesLoaded = () =>
+  (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face))).then(
+    (loaded) => {
+      const missing = FACES.filter((_, index) => !loaded[index].length)
+      if (missing.length) throw new Error(`fonts did not load: ${missing.join(', ')}`)
+    },
+  ).catch((error: unknown) => {
+    facesLoading = undefined
+    throw error
   }))
 
 // Synchronous, so the committed layout is the measured one: no effect resizes the title later.
 function titleSize(text: string) {
   const probe = document.createElement('div')
-  probe.style.cssText = 'position: absolute; visibility: hidden; width: var(--paper-width, 384px); text-transform: uppercase'
+  // min-content is the longest word; its bounding width keeps the fraction scrollWidth rounds away.
+  probe.style.cssText = 'position: absolute; visibility: hidden; width: min-content; text-transform: uppercase'
   probe.textContent = text
   document.body.append(probe)
   try {
     return TITLE_SIZES.find((name) => {
       probe.className = name
-      return probe.scrollWidth <= probe.clientWidth
+      return probe.getBoundingClientRect().width <= PAPER_WIDTH
     }) ?? TITLE_SIZES[TITLE_SIZES.length - 1]
   } finally {
     probe.remove()
@@ -60,7 +78,7 @@ export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => {
-    use(archivoLoaded())
+    use(facesLoaded())
     const meta = [data.startedAt && `started ${data.startedAt}`, data.estimate && `estimate ${data.estimate}`].filter(Boolean).join(' · ')
     return (
       <>
