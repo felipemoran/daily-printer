@@ -204,15 +204,28 @@ class DeliveryTest(HubTestCase):
         self.assertIn("no reply within", self.queue.job(job.id).events[-1].detail)
         self.assertAlmostEqual(self.hub.paused_until("home"), time.time() + device_hub.ERROR_PAUSE_SECONDS, delta=5)
 
-    async def test_a_cancelled_job_in_sending_is_not_confirmed(self):
+    async def test_a_job_cancelled_while_sending_that_the_device_prints_is_printed(self):
         job = self.add_job()
         ws = await self.connect()
         await self.receive_job(ws)
         self.queue.cancel(job.id)
         await ws.send_json({"type": "printed", "id": job.id})
-        await asyncio.sleep(0.1)
-        self.assertEqual(self.queue.job(job.id).status, "cancelled")
+        await self.until(lambda: self.queue.job(job.id).status == "printed")
+        last = self.queue.job(job.id).events[-1]
+        self.assertEqual((last.event, last.detail), ("printed", "after the cancel"))
+        self.assertEventsMatchStatus(job.id)
         self.assertTrue(self.hub.online("home"))
+
+    async def test_a_job_cancelled_while_sending_that_the_device_fails_stays_cancelled(self):
+        job = self.add_job()
+        ws = await self.connect()
+        await self.receive_job(ws)
+        self.queue.cancel(job.id)
+        await ws.send_json({"type": "error", "id": job.id, "message": "out of paper"})
+        await self.until(lambda: self.hub.paused_until("home") is not None)
+        stored = self.queue.job(job.id)
+        self.assertEqual((stored.status, stored.attempts, stored.events[-1].event), ("cancelled", 1, "cancelled"))
+        self.assertIsNone(self.queue.take("home"))
 
     async def test_a_handshake_that_races_shutdown_takes_no_job(self):
         job = self.add_job()

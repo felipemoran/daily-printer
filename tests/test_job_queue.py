@@ -116,13 +116,18 @@ class LifecycleTest(QueueTestCase):
         self.assertEqual(self.status(work.id), Status.QUEUED)
         self.assertEqual(self.events(two.id)[-1], Event.CANCELLED)
 
-    def test_a_cancelled_job_in_flight_is_not_marked_printed(self):
-        job = self.add(now=0)
-        self.queue.take("home", now=0)
-        self.queue.cancel(job.id, now=0)
-        self.queue.confirm(job.id, now=1)
-        self.assertEqual(self.status(job.id), Status.CANCELLED)
-        self.assertIsNone(self.queue.job(job.id).printed_at)
+    def test_a_job_cancelled_while_sending_and_then_confirmed_is_printed(self):
+        for name, cancel in {"cancel": lambda job: self.queue.cancel(job.id, now=1),
+                             "clear": lambda job: self.queue.clear("home", now=1)}.items():
+            with self.subTest(name):
+                job = self.add(now=0)
+                self.queue.take("home", now=0)
+                cancel(job)
+                self.queue.confirm(job.id, now=2)
+                stored = self.queue.job(job.id, now=2)
+                self.assertEqual((stored.status, stored.printed_at), (Status.PRINTED, 2))
+                last = stored.events[-1]
+                self.assertEqual((last.event, last.detail), (Event.PRINTED, "after the cancel"))
 
     def test_mark_sent_ignores_a_job_that_is_not_sending(self):
         job = self.add(now=0)

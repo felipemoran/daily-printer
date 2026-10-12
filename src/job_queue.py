@@ -247,10 +247,15 @@ class JobQueue:
         return changed > 0
 
     def confirm(self, job_id: str, *, now: float | None = None) -> None:
+        """Mark the job the device printed as printed, also when it was cancelled while sending."""
         now = time.time() if now is None else now
         with self._transaction():
-            if self._finish(job_id, Status.PRINTED, now, only_if=Status.SENDING):
-                self._db.execute("UPDATE jobs SET printed_at = ? WHERE id = ?", (now, job_id))
+            row = self._db.execute("SELECT status FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None or row[0] not in (Status.SENDING, Status.CANCELLED):
+                return
+            detail = "after the cancel" if row[0] == Status.CANCELLED else None
+            self._finish(job_id, Status.PRINTED, now, detail=detail)
+            self._db.execute("UPDATE jobs SET printed_at = ? WHERE id = ?", (now, job_id))
 
     def release(self, job_id: str, *, detail: str | None = None, now: float | None = None) -> None:
         """Return an unconfirmed job to the queue, unless it used its last attempt or expired."""
