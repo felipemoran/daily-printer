@@ -1,0 +1,56 @@
+/* Generated from design-system/ by src/scripts/sync_design_system.py. Do not edit. */
+
+:root, [data-theme="paper"] {
+  --paper: #ffffff;
+  --ink: #000000;
+  --tone-15: #d9d9d9;
+  --tone-35: #a6a6a6;
+  --tone-50: #808080;
+  --tone-65: #595959;
+  --canvas: #d8d5cf;
+  --canvas-ink: #1c1b19;
+  --canvas-muted: #4a4740;
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-feed: 56px;
+  --radius-none: 0;
+  --stroke-hair: 2px;
+  --stroke-rule: 3px;
+  --stroke-box: 4px;
+  --stroke-heavy: 6px;
+  --stroke-bar: 8px;
+  --paper-width: 384px;
+  --strip-width: 448px;
+  --textmode-columns: 32;
+  --qr-size: 120px;
+  --checkbox: 30px;
+  --font-display: "Archivo", "Arial Narrow", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-text: "JetBrains Mono", ui-monospace, monospace;
+}
+.display-mega { font-family: var(--font-display); font-size: 172px; line-height: 134px; font-weight: 900; }
+.display-hero { font-family: var(--font-display); font-size: 132px; line-height: 103px; font-weight: 900; }
+.display-xl { font-family: var(--font-display); font-size: 92px; line-height: 83px; font-weight: 900; }
+.display-lg { font-family: var(--font-display); font-size: 79px; line-height: 67px; font-weight: 900; }
+.display-md { font-family: var(--font-display); font-size: 63px; line-height: 57px; font-weight: 900; }
+.display-stat { font-family: var(--font-display); font-size: 48px; line-height: 48px; font-weight: 900; }
+.display-sm { font-family: var(--font-display); font-size: 42px; line-height: 42px; font-weight: 900; }
+.lead { font-family: var(--font-mono); font-size: 21px; line-height: 26px; font-weight: 700; }
+.item { font-family: var(--font-mono); font-size: 20px; line-height: 24px; font-weight: 700; }
+.body { font-family: var(--font-mono); font-size: 18px; line-height: 24px; font-weight: 500; }
+.body-strong { font-family: var(--font-mono); font-size: 18px; line-height: 24px; font-weight: 700; }
+.label { font-family: var(--font-mono); font-size: 18px; line-height: 24px; font-weight: 700; letter-spacing: 3px; }
+.meta { font-family: var(--font-mono); font-size: 16px; line-height: 24px; font-weight: 500; }
+.meta-strong { font-family: var(--font-mono); font-size: 16px; line-height: 24px; font-weight: 700; }
+.micro { font-family: var(--font-mono); font-size: 14px; line-height: 21px; font-weight: 700; }
+.textmode { font-family: var(--font-text); font-size: 20px; line-height: 24px; font-weight: 400; }
+.textmode-double { font-family: var(--font-text); font-size: 40px; line-height: 48px; font-weight: 400; }

@@ -1,7 +1,7 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample photo-compare photo-strip test web-dev web-build setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample photo-compare photo-strip test web-dev web-build design-sync setup setup-web setup-playwright
 
 # Default: show help
 help:
@@ -37,6 +37,9 @@ web-dev: ## Start Vite dev server (edits web/public/payload.json to preview)
 
 web-build: ## Build web/dist (runs automatically during print)
 	cd web && npm run build
+
+design-sync: ## Mirror the design system and regenerate web files: make design-sync SRC=<downloaded project/>
+	uv run src/scripts/sync_design_system.py $(SRC)
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
