@@ -9,8 +9,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 SAMPLE = json.loads((ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
-EMAIL = "long.receipts.sender.mailbox@example.com"
-NO_WRAP = ".section-header, .day-header { overflow-wrap: normal !important; }"
+EMAIL = "wwwwwwwwwwwwwwwwww@mmmmmmmmmmmmmmmmm.com"
+NO_WRAP = "#receipt, #receipt * { overflow-wrap: normal !important; }"
 
 OVERFLOW = """() => {
   const receipt = document.querySelector('#receipt'), left = receipt.getBoundingClientRect().left;
@@ -48,18 +48,22 @@ class ReceiptWrapTest(unittest.TestCase):
             browser.close()
         return result
 
-    def test_long_unbroken_headings_stay_inside_the_band(self):
+    def test_long_unbroken_tokens_stay_inside_the_band(self):
         payload = {
             "schemaVersion": SAMPLE["schemaVersion"],
             "blocks": [
+                {"type": "receipt_header", "date": EMAIL},
                 {"type": "section_header", "title": EMAIL},
                 {"type": "day_header", "title": EMAIL},
+                {"type": "task", "content": EMAIL},
             ],
         }
-        self.assertTrue(self.render(payload, NO_WRAP)[0], "payload no longer overflows without the fix")
+        unwrapped = " ".join(self.render(payload, NO_WRAP)[0])
+        for name in ("receipt-header__date", "section-header", "day-header", "task-content"):
+            self.assertIn(f'class="{name}"', unwrapped, "this block no longer overflows without the fix")
         self.assertEqual(self.render(payload)[0], [])
 
-    def test_normal_headings_keep_their_layout(self):
+    def test_normal_text_keeps_its_layout(self):
         payload = dict(SAMPLE, blocks=[*SAMPLE["blocks"], {"type": "day_header", "title": "Tue Apr 14"}])
         overflow, boxes = self.render(payload)
         self.assertEqual(overflow, [])
