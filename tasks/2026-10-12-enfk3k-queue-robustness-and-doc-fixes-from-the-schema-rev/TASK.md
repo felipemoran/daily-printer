@@ -44,3 +44,5 @@ Notes, no action unless measured:
 ## Execution log
 
 ## Decisions
+
+- 2026-10-12T15:29:00+00:00: Operator decision 2026-10-12: cancel of a job in sending stays allowed. If the device then confirms it, the job becomes printed (with an event that says it printed after the cancel), so the admin page never shows cancelled for a ticket on paper.
