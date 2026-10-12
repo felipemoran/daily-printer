@@ -77,6 +77,9 @@ class TestPageTest(unittest.TestCase):
             with self.subTest(ascii(blank)), self.assertRaisesRegex(TemplateError, r"^data\.printer: expected non-blank text$"):
                 render_template(self.page, test_page(printer=blank))
 
+    def test_zero_width_joiner_inside_an_emoji_is_text(self):
+        render_template(self.page, test_page(printer="\U0001F468‍\U0001F469‍\U0001F467 family"))
+
 
 if __name__ == "__main__":
     unittest.main()

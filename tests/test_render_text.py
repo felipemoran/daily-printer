@@ -11,7 +11,7 @@ from test_template_build import DOM_LINES, SAMPLE, WORST, build  # noqa: E402
 from ticket_templates import TemplateError, open_render_page, render_template, render_text  # noqa: E402
 
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
-START = b"\x1b3\x18" + b"\x1bt\x00"
+START = b"\x1c." + b"\x1b3\x18" + b"\x1bt\x00"
 END = b"\x1b2"
 WRAPPERS = {"reverse": (b"\x1dB\x01", b"\x1dB\x00"), "double": (b"\x1d!\x11", b"\x1d!\x00")}
 GLYPHS = {0xDB: "█", 0xB0: "░"}
@@ -88,20 +88,25 @@ class RenderTextTest(unittest.TestCase):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_text(self.page, payload)
 
-    def test_server_fault_in_the_line_model(self):
-        # buildLines calls Math.max once; any throw there stands in for a fault in the line model.
-        self.page.evaluate("""() => {
-          window.originalMax = Math.max;
-          Math.max = () => { throw Object.assign(new Error('line model broke'), { name: 'ServerFault' }); };
-        }""")
-        try:
-            with self.assertRaisesRegex(RuntimeError, "^server fault: line model broke$") as caught:
-                render_text(self.page, SAMPLE)
-        finally:
-            self.page.evaluate("() => { Math.max = window.originalMax; }")
-        self.assertNotIsInstance(caught.exception, TemplateError)
+    def test_any_fault_past_the_data_is_the_servers(self):
+        # buildLines calls Math.max once; a throw there stands in for a fault in the line model.
+        cases = (
+            ("Math.max = () => { throw Object.assign(new Error('line model broke'), { name: 'ServerFault' }); }",
+             "^server fault: line model broke$"),
+            ("Math.max = () => { throw new TypeError('x is undefined'); }", "^server fault: x is undefined$"),
+            ("delete window.templateLines", "^server fault: render.html has no templateLines; rebuild web/dist$"),
+        )
+        for patch, pattern in cases:
+            with self.subTest(pattern):
+                self.page.evaluate("() => { window.originals = { max: Math.max, lines: window.templateLines }; }")
+                self.page.evaluate(f"() => {{ {patch}; }}")
+                try:
+                    with self.assertRaisesRegex(RuntimeError, pattern) as caught:
+                        render_text(self.page, SAMPLE)
+                finally:
+                    self.page.evaluate("() => { Math.max = window.originals.max; window.templateLines = window.originals.lines; }")
+                self.assertNotIsInstance(caught.exception, TemplateError)
         self.assertTrue(render_text(self.page, SAMPLE).startswith(START))
-
 
 if __name__ == "__main__":
     unittest.main()

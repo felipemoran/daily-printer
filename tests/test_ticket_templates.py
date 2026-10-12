@@ -46,6 +46,8 @@ def ticket(**data):
 SHORT_TICKET = ticket(fields=None, comment=None, qr=None)
 
 
+# No web/dist needed: the template list is the only thing check_envelope reads from the build.
+@mock.patch("ticket_templates.template_names", lambda: ["ticket"])
 class EnvelopeTest(unittest.TestCase):
     """Python refuses a malformed envelope before it reaches the page."""
 
@@ -149,6 +151,24 @@ class RenderTest(unittest.TestCase):
                 render_template(self.page, TICKET)
         self.assertNotIsInstance(caught.exception, TemplateError)
         render_template(self.page, TICKET)
+
+    def test_font_that_does_not_load_is_a_server_fault(self):
+        # focus and agenda load their faces on the first render, so a patch after the page opens is in time.
+        failures = {
+            "missing": "() => { document.fonts.load = () => Promise.resolve([]); }",
+            "rejected": "() => { document.fonts.load = () => Promise.reject(new DOMException('blocked', 'NetworkError')); }",
+        }
+        for name, faces in (("focus", "fonts 900 79px Archivo, .*"), ("agenda", 'font 700 16px "IBM Plex Mono"')):
+            payload = json.loads((ROOT / "samples" / "templates" / f"{name}.json").read_text(encoding="utf-8"))
+            for failure, patch in failures.items():
+                page = open_render_page(self.browser)
+                try:
+                    page.evaluate(patch)
+                    with self.subTest(f"{name} {failure}"), self.assertRaisesRegex(RuntimeError, f"^server fault: {faces} did not load$") as caught:
+                        render_template(page, payload)
+                    self.assertNotIsInstance(caught.exception, TemplateError)
+                finally:
+                    page.close()
 
     def test_effect_that_throws_fails_the_render(self):
         with self.failing_transition(EFFECT_THROWS):
@@ -306,12 +326,12 @@ class RenderTest(unittest.TestCase):
 class CliTest(unittest.TestCase):
     """print_template.py reports sender errors as one line, without a traceback."""
 
-    def run_cli(self, payload, artifact_dir):
+    def run_cli(self, payload, artifact_dir, *flags):
         path = Path(artifact_dir) / "payload.json"
         path.write_text(json.dumps(payload), encoding="utf-8")
         return subprocess.run(
             [sys.executable, str(ROOT / "src" / "scripts" / "print_template.py"), str(path),
-             "--no-print", "--no-build", "--artifact-dir", artifact_dir],
+             "--no-print", "--no-build", "--artifact-dir", artifact_dir, *flags],
             capture_output=True, text=True, check=False,
         )
 
@@ -320,6 +340,21 @@ class CliTest(unittest.TestCase):
             result = self.run_cli(TICKET, artifact_dir)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((Path(artifact_dir) / "ticket.png").is_file())
+
+    def test_text_writes_the_framed_job(self):
+        build = json.loads((ROOT / "samples" / "templates" / "build.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as artifact_dir:
+            result = self.run_cli(build, artifact_dir, "--text")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            job = (Path(artifact_dir) / "build.bin").read_bytes()
+        self.assertTrue(job.startswith(b"\x1b@\x1c."), job[:8])
+        self.assertTrue(job.endswith(b" ci.local/b/1184\n\x1b2\n\n\n"), job[-24:])
+
+    def test_text_refuses_a_template_without_text_mode(self):
+        with tempfile.TemporaryDirectory() as artifact_dir:
+            result = self.run_cli(TICKET, artifact_dir, "--text")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr, 'ERROR: template "ticket" has no text mode\n')
 
     def test_template_error_is_one_line(self):
         with tempfile.TemporaryDirectory() as artifact_dir:

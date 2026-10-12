@@ -26,9 +26,9 @@ const FACES = ['900 79px Archivo', '500 18px "IBM Plex Mono"', '700 18px "IBM Pl
 // A rejection stays cached: a missing face is a build defect, and every focus render then fails with it.
 let facesLoading: Promise<void> | undefined
 const facesLoaded = () =>
-  (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face))).then((loaded) => {
+  (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face).catch(() => []))).then((loaded) => {
     const missing = FACES.filter((_, index) => !loaded[index].length)
-    if (missing.length) throw serverFault(`font ${missing.join(', ')} did not load`)
+    if (missing.length) throw serverFault(`${missing.length > 1 ? 'fonts' : 'font'} ${missing.join(', ')} did not load`)
   }))
 
 // Synchronous, so the committed layout is the measured one: no effect resizes the title later.

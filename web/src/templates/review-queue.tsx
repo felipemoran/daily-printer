@@ -5,16 +5,14 @@ import { array, integer, limitedString, object } from './validate'
 
 // The maxima bound a row to 3 title lines and one line each for number and meta,
 // so 20 rows stay under the 4000-dot render cap.
-const whole = (max: number) => integer(0, max)
-
 const parse = object({
   prs: array(object({
-    number: whole(999_999_999_999),
+    number: integer(0, 999_999_999_999),
     title: limitedString(64),
     area: limitedString(10),
-    added: whole(999_999),
-    removed: whole(999_999),
-    ageDays: whole(9999),
+    added: integer(0, 999_999),
+    removed: integer(0, 999_999),
+    ageDays: integer(0, 9999),
   }), 20),
 })
 

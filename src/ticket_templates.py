@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from escpos.constants import CODEPAGE_CHANGE, FS, LINESPACING_RESET, TXT_SIZE
 from PIL import Image
 
 from print_profile import DEFAULT_PROFILE, capture_options, to_bitmap, to_gray
@@ -34,6 +35,7 @@ async ([name, payload, timeout]) => {
   const expired = new Promise((resolve) => {
     timer = setTimeout(() => resolve([`render did not finish within ${timeout} ms`, null]), timeout);
   });
+  if (typeof window[name] !== 'function') return [`server fault: render.html has no ${name}; rebuild web/dist`, null];
   const called = Promise.resolve().then(() => window[name](payload))
     .then((result) => [null, result ?? null], (error) => [error instanceof Error ? error.message : String(error), null]);
   try {
@@ -161,14 +163,14 @@ def check_envelope(payload) -> None:
     name = payload.get("template")
     if not isinstance(name, str):
         raise TemplateError("template: expected string")
-    names = template_names()
-    if name not in names:
-        raise TemplateError(f'unknown template "{name}"; known: {", ".join(sorted(names))}')
     version = payload.get("schemaVersion")
     if not isinstance(version, int) or isinstance(version, bool):
         raise TemplateError("schemaVersion: expected integer")
     if not isinstance(payload.get("data"), dict):
         raise TemplateError("data: expected object")
+    names = template_names()
+    if name not in names:
+        raise TemplateError(f'unknown template "{name}"; known: {", ".join(sorted(names))}')
 
 
 def _length(page, landscape: bool) -> int:
@@ -233,21 +235,23 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     return bitmap
 
 
-# Font A code page: ESC t 0 selects PC437, the ESC/POS power-on default, and its bytes for the bar glyphs.
-# Unverified on the MPT-II (design-system/verify.md, Text mode).
-TEXT_CODE_PAGE = (b"\x1bt\x00", {"\u2588": 0xDB, "\u2591": 0xB0})
+# PC437, the ESC/POS power-on default, and its bytes for the bar glyphs. Unverified on the MPT-II
+# (design-system/verify.md, Text mode).
+CODE_PAGE = CODEPAGE_CHANGE + b"\x00"
+GLYPH_BYTES = {"\u2588": 0xDB, "\u2591": 0xB0}
+# Generic printers can start in Chinese double-byte mode, where 0xDB 0xDB prints one Chinese glyph.
+# FS . leaves it; the body cannot restore a state it cannot read.
+KANJI_OFF = FS + b"."
 LINE_SPACING_24 = b"\x1b3\x18"
-LINE_SPACING_DEFAULT = b"\x1b2"
-DOUBLE_ON, DOUBLE_OFF = b"\x1d!\x11", b"\x1d!\x00"
+DOUBLE_ON, DOUBLE_OFF = TXT_SIZE + b"\x11", TXT_SIZE + b"\x00"
 REVERSE_ON, REVERSE_OFF = b"\x1dB\x01", b"\x1dB\x00"
 
 
 def _encode(text: str) -> bytes:
-    glyphs = TEXT_CODE_PAGE[1]
     encoded = bytearray()
     for char in text:
-        if char in glyphs:
-            encoded.append(glyphs[char])
+        if char in GLYPH_BYTES:
+            encoded.append(GLYPH_BYTES[char])
         elif " " <= char <= "~":
             encoded.append(ord(char))
         else:
@@ -260,7 +264,7 @@ def render_text(page, payload) -> bytes:
 
     Breaks lines where ``render_template`` previews them. Raises TemplateError for sender faults.
     """
-    body = bytearray(LINE_SPACING_24 + TEXT_CODE_PAGE[0])
+    body = bytearray(KANJI_OFF + LINE_SPACING_24 + CODE_PAGE)
     for line in _call(page, "templateLines", payload):
         text = _encode(line["text"])
         if line.get("double"):
@@ -270,4 +274,4 @@ def render_text(page, payload) -> bytes:
         # LF after every line, a full 32-column one too. Unverified: firmware that auto-wraps at column 32
         # would then feed a blank line.
         body += text + b"\n"
-    return bytes(body + LINE_SPACING_DEFAULT)
+    return bytes(body + LINESPACING_RESET)

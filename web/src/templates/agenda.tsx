@@ -106,7 +106,7 @@ const duration = (minutes: number) => {
 // A label measured in a fallback face misjudges the fit, so the render suspends until Plex Mono is in.
 let plexMono: Promise<void> | undefined
 const plexMonoLoaded = () =>
-  (plexMono ??= document.fonts.load('700 16px "IBM Plex Mono"').then((faces) => {
+  (plexMono ??= document.fonts.load('700 16px "IBM Plex Mono"').catch(() => []).then((faces) => {
     if (!faces.length) throw serverFault('font 700 16px "IBM Plex Mono" did not load')
   }))
 

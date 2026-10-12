@@ -7,6 +7,7 @@ import './fonts.css'
 import T from './thermal'
 import type { Template } from './templates/define'
 import type { Line } from './templates/textmode-lines'
+import { TemplateDataError } from './templates/validate'
 
 declare global {
   interface Window {
@@ -57,11 +58,16 @@ function envelope(payload: unknown): { name: string; template: Template<unknown>
   return { name, template, data }
 }
 
+// Unlike a render, only the envelope and the data are the sender's: anything else here is a server bug.
 window.templateLines = (payload) => {
   const { name, template, data } = envelope(payload)
   const { lines } = template
   if (!lines) throw new Error(`template "${name}" has no text mode`)
-  return guarded(() => lines(template.parse(data, 'data')))
+  try {
+    return lines(template.parse(data, 'data'))
+  } catch (error) {
+    throw error instanceof TemplateDataError ? error : new Error(`server fault: ${message(error)}`)
+  }
 }
 
 const container = document.getElementById('root')!
