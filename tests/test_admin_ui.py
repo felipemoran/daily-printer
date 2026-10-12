@@ -554,6 +554,7 @@ class AdminActionsTest(AdminBrowserCase):
         page = await self.open(f"/admin#/job/{self.waiting.id}", ready="#act-cancel")
         await page.locator("#act-cancel").click()
         await expect(page.locator("#dialog-title")).to_have_text("Cancel this job?")
+        await expect(page.locator("#dialog-text")).to_have_text("Office checklist will not print on Office.")
         await page.get_by_role("button", name="Go back").click()
         await expect(page.locator("#dialog")).to_be_hidden()
         self.assertEqual(self.queue.job(self.waiting.id).status, "queued")
@@ -580,6 +581,12 @@ class AdminActionsTest(AdminBrowserCase):
         await expect(page.locator("#notice")).to_have_text("Reprint queued on Home")
         self.assertEqual(len(self.queue.jobs("home", "queued")), 1)
 
+    async def test_cancel_of_a_job_being_sent_warns_that_it_may_still_print(self):
+        page = await self.open(f"/admin#/job/{self.printing.id}", ready="#act-cancel")
+        await page.locator("#act-cancel").click()
+        await expect(page.locator("#dialog-text")).to_have_text(
+            "Shopping list is being sent to Home. It may still print, and then shows as printed.")
+
     async def test_a_refused_action_shows_the_servers_reason(self):
         page = await self.open(f"/admin#/job/{self.printed.id}", ready="#act-reprint")
         await page.route("**/reprint", lambda route: route.fulfill(
@@ -600,7 +607,8 @@ class AdminActionsTest(AdminBrowserCase):
         await expect(home.get_by_role("button", name="Clear queue")).to_be_visible()
         await home.get_by_role("button", name="Clear queue").click()
         await expect(page.locator("#dialog-text")).to_have_text(
-            "2 queued jobs and the job printing now will be cancelled and will not print.")
+            "2 queued jobs will be cancelled and will not print."
+            " The job printing now will be cancelled too. It may still print, and then shows as printed.")
         await page.locator("#dialog").get_by_role("button", name="Clear queue").click()
         await expect(page.locator("#notice")).to_have_text("3 jobs cancelled")
         statuses = {self.queue.job(j.id).status for j in (self.waiting, self.waiting_too, self.printing)}

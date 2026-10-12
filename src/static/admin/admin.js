@@ -1024,7 +1024,11 @@ $("act-print-on").addEventListener("click", async () => {
 $("act-cancel").addEventListener("click", async () => {
   const job = state.job;
   const sure = await ask({
-    title: "Cancel this job?", text: jobName(job) + " will not print on " + printerName(job.printer) + ".", ok: "Cancel job",
+    title: "Cancel this job?",
+    text: job.status === "sending"
+      ? jobName(job) + " is being sent to " + printerName(job.printer) + ". It may still print, and then shows as printed."
+      : jobName(job) + " will not print on " + printerName(job.printer) + ".",
+    ok: "Cancel job",
   });
   if (!sure) return;
   act(async () => {
@@ -1052,8 +1056,8 @@ async function clearQueue(id) {
   const p = printer(id);
   const sure = await ask({
     title: "Clear the queue of " + p.name + "?",
-    text: plural(p.queued, "queued job") + (p.current_job ? " and the job printing now" : "")
-      + " will be cancelled and will not print.",
+    text: plural(p.queued, "queued job") + " will be cancelled and will not print."
+      + (p.current_job ? " The job printing now will be cancelled too. It may still print, and then shows as printed." : ""),
     ok: "Clear queue",
   });
   if (!sure) return;
