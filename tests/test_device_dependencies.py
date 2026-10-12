@@ -14,6 +14,10 @@ SCRIPT = SRC / "scripts" / "print_device.py"
 METADATA_BLOCK = re.compile(r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$")
 REQUIREMENT = re.compile(r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[(?P<extras>[^\]]*)\])?")
 NEVER_ON_DEVICE = {"playwright", "jwt"}
+# (module, import): why the device never needs it.
+UNDECLARED_ALLOWED = {
+    ("printer.py", "bleak"): "only printer._ble_find_and_send imports it, and the device never calls it",
+}
 
 
 def normalize(name: str) -> str:
@@ -28,29 +32,15 @@ def script_metadata(path: Path) -> dict:
     return tomllib.loads("".join(line[2:] if line.startswith("# ") else line[1:] for line in lines))
 
 
-class _Imports(ast.NodeVisitor):
-    def __init__(self, at_load_only: bool) -> None:
-        self.at_load_only = at_load_only
-        self.names: set[str] = set()
-
-    def visit_Import(self, node: ast.Import) -> None:
-        self.names.update(alias.name.split(".")[0] for alias in node.names)
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.level == 0 and node.module != "__future__":
-            self.names.add(node.module.split(".")[0])
-
-    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if not self.at_load_only:
-            self.generic_visit(node)
-
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-
-def imports(path: Path, at_load_only: bool) -> set[str]:
-    visitor = _Imports(at_load_only)
-    visitor.visit(ast.parse(path.read_text(), str(path)))
-    return visitor.names
+def imports(path: Path) -> set[str]:
+    """Top-level names of every import in the file, inside functions too."""
+    names = set()
+    for node in ast.walk(ast.parse(path.read_text(), str(path))):
+        if isinstance(node, ast.Import):
+            names.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module != "__future__":
+            names.add(node.module.split(".")[0])
+    return names
 
 
 def local_module(name: str) -> Path | None:
@@ -62,14 +52,14 @@ def local_module(name: str) -> Path | None:
 
 
 def device_modules() -> list[Path]:
-    """The script and every local module it reaches, lazy imports included."""
+    """The script and every local module it reaches."""
     found, pending = [], [SCRIPT]
     while pending:
         path = pending.pop()
         if path in found:
             continue
         found.append(path)
-        pending += [module for name in imports(path, at_load_only=False) if (module := local_module(name))]
+        pending += [module for name in imports(path) if (module := local_module(name))]
     return found
 
 
@@ -97,23 +87,25 @@ class DeviceDependenciesTest(unittest.TestCase):
             {"scripts/print_device.py", "print_device.py", "fake_printer.py", "printer.py"},
         )
 
-    def test_every_third_party_import_at_load_is_declared_in_the_script_metadata(self):
+    def test_every_third_party_import_is_declared_in_the_script_metadata(self):
         distributions = importlib.metadata.packages_distributions()
         declared = declared_distributions()
         for path in device_modules():
-            for name in sorted(third_party(imports(path, at_load_only=True))):
+            for name in sorted(third_party(imports(path))):
+                if (path.name, name) in UNDECLARED_ALLOWED:
+                    continue
                 with self.subTest(module=path.name, imports=name):
                     self.assertIn(name, distributions, f"{name} is not installed, so it maps to no distribution")
                     self.assertTrue(
                         {normalize(dist) for dist in distributions[name]} & declared,
-                        f"{path.name} imports {name} ({', '.join(distributions[name])}), "
-                        f"which the metadata in {SCRIPT.name} does not declare",
+                        f"{path.relative_to(SRC.parent)} imports {name} ({', '.join(distributions[name])}), "
+                        f"which the metadata in {SCRIPT.relative_to(SRC.parent)} does not declare",
                     )
 
     def test_playwright_and_jwt_are_never_imported_on_the_device_path(self):
         for path in device_modules():
             with self.subTest(module=path.name):
-                self.assertFalse(imports(path, at_load_only=False) & NEVER_ON_DEVICE)
+                self.assertFalse(imports(path) & NEVER_ON_DEVICE)
 
 
 if __name__ == "__main__":
