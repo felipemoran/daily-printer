@@ -183,19 +183,55 @@ class JobRecordTest(QueueTestCase):
         self.assertEqual([e.event for e in stored.events], [Event.RECEIVED, Event.RENDERED])
         self.assertIsNone(self.queue.job("nope", now=0))
 
-    def test_a_database_from_before_the_artifact_folders_still_opens_and_takes_jobs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "jobs.db"
-            old = sqlite3.connect(path)
-            old.executescript(job_queue._SCHEMA.replace("    data BLOB\n", "    data BLOB,\n    png BLOB\n"))
-            old.close()
-            queue = JobQueue(path)
-            self.addCleanup(queue.close)
-            job = queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
-                            width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
-            self.assertEqual(queue.take("home", now=1).data, DATA)
-            queue.confirm(job.id, now=2)
-            self.assertEqual(queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", now=3).kind, "receipt")
+
+
+class SchemaVersionTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.path = Path(tmp.name) / "jobs.db"
+
+    def schema(self) -> tuple[int, list[tuple]]:
+        db = sqlite3.connect(self.path)
+        try:
+            version = db.execute("PRAGMA user_version").fetchone()[0]
+            return version, db.execute("SELECT type, name, sql FROM sqlite_master ORDER BY name").fetchall()
+        finally:
+            db.close()
+
+    def write(self, sql: str) -> None:
+        db = sqlite3.connect(self.path)
+        db.executescript(sql)
+        db.close()
+
+    def test_a_new_database_gets_the_current_version(self):
+        JobQueue(self.path).close()
+        version, _ = self.schema()
+        self.assertEqual(version, job_queue.SCHEMA_VERSION)
+        self.assertEqual(job_queue.SCHEMA_VERSION, 1)
+
+    def test_a_database_from_before_versioning_is_migrated_and_drops_the_png_column(self):
+        JobQueue(self.path).close()
+        _, current = self.schema()
+        for name, extra in {"with png": "ALTER TABLE jobs ADD COLUMN png BLOB;", "without png": ""}.items():
+            with self.subTest(name):
+                self.path.unlink()
+                self.write(";\n".join(job_queue._SCHEMA) + f"; {extra}")
+                queue = JobQueue(self.path)
+                job = queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
+                                width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
+                self.assertEqual(queue.take("home", now=1).data, DATA)
+                queue.confirm(job.id, now=2)
+                queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", now=3)
+                queue.close()
+                self.assertEqual(self.schema(), (job_queue.SCHEMA_VERSION, current))
+
+    def test_a_database_from_a_newer_server_is_refused_and_left_alone(self):
+        self.write(f"CREATE TABLE future (id INTEGER); PRAGMA user_version = {job_queue.SCHEMA_VERSION + 1};")
+        before = self.path.read_bytes()
+        with self.assertRaisesRegex(job_queue.SchemaTooNew, f"schema version is {job_queue.SCHEMA_VERSION + 1}"):
+            JobQueue(self.path)
+        self.assertEqual(self.path.read_bytes(), before)
 
 
 class JobIdTest(QueueTestCase):

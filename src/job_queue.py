@@ -122,48 +122,62 @@ _COLUMNS = (
     f" render_ms, width, height, height * 1.0 / {DOTS_PER_MM}, size_bytes, frames, sent_at, printed_at"
 )
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS jobs (
-    id TEXT PRIMARY KEY,
-    printer TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    title TEXT NOT NULL,
-    source TEXT NOT NULL,
-    ingress TEXT NOT NULL,
-    status TEXT NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    created_at REAL NOT NULL,
-    expires_at REAL NOT NULL,
-    render_ms INTEGER NOT NULL,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    size_bytes INTEGER NOT NULL,
-    frames INTEGER NOT NULL,
-    sent_at REAL,
-    printed_at REAL,
-    data BLOB
-);
-CREATE INDEX IF NOT EXISTS jobs_printer_status ON jobs (printer, status);
-CREATE INDEX IF NOT EXISTS jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued';
-CREATE INDEX IF NOT EXISTS jobs_source ON jobs (ingress, source, created_at);
-CREATE TABLE IF NOT EXISTS job_events (
-    id INTEGER PRIMARY KEY,
-    job_id TEXT NOT NULL REFERENCES jobs (id),
-    at REAL NOT NULL,
-    event TEXT NOT NULL,
-    detail TEXT
-);
-CREATE INDEX IF NOT EXISTS job_events_job ON job_events (job_id);
-CREATE TABLE IF NOT EXISTS printers (
-    id TEXT PRIMARY KEY,
-    last_seen REAL,
-    connected_since REAL,
-    address TEXT,
-    route TEXT,
-    latency_ms REAL,
-    client_version TEXT
-);
-"""
+_SCHEMA = (
+    """CREATE TABLE jobs (
+        id TEXT PRIMARY KEY,
+        printer TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        source TEXT NOT NULL,
+        ingress TEXT NOT NULL,
+        status TEXT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at REAL NOT NULL,
+        expires_at REAL NOT NULL,
+        render_ms INTEGER NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        frames INTEGER NOT NULL,
+        sent_at REAL,
+        printed_at REAL,
+        data BLOB
+    )""",
+    "CREATE INDEX jobs_printer_status ON jobs (printer, status)",
+    "CREATE INDEX jobs_queued_expiry ON jobs (expires_at) WHERE status = 'queued'",
+    "CREATE INDEX jobs_source ON jobs (ingress, source, created_at)",
+    """CREATE TABLE job_events (
+        id INTEGER PRIMARY KEY,
+        job_id TEXT NOT NULL REFERENCES jobs (id),
+        at REAL NOT NULL,
+        event TEXT NOT NULL,
+        detail TEXT
+    )""",
+    "CREATE INDEX job_events_job ON job_events (job_id)",
+    """CREATE TABLE printers (
+        id TEXT PRIMARY KEY,
+        last_seen REAL,
+        connected_since REAL,
+        address TEXT,
+        route TEXT,
+        latency_ms REAL,
+        client_version TEXT
+    )""",
+)
+
+
+def _drop_png(db: sqlite3.Connection) -> None:
+    if any(column[1] == "png" for column in db.execute("PRAGMA table_info(jobs)")):
+        db.execute("ALTER TABLE jobs DROP COLUMN png")
+
+
+# Step n takes a database from version n to n + 1. Version 0 is the schema from before versioning.
+_MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_drop_png,)
+SCHEMA_VERSION = len(_MIGRATIONS)
+
+
+class SchemaTooNew(RuntimeError):
+    """The database was written by a newer server."""
 
 
 def _job(row: tuple) -> Job:
@@ -203,9 +217,27 @@ def _local_midnight(now: float, tz: tzinfo | None) -> float:
 class JobQueue:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, isolation_level=None, timeout=BUSY_TIMEOUT_SECONDS)
+        try:
+            self._open()
+        except BaseException:
+            self._db.close()
+            raise
+
+    def _open(self) -> None:
+        version = self._db.execute("PRAGMA user_version").fetchone()[0]
+        if version > SCHEMA_VERSION:
+            raise SchemaTooNew(f"its schema version is {version}, and this server knows versions up to"
+                               f" {SCHEMA_VERSION}. Run a newer server, or restore a backup from before the upgrade.")
         self._db.execute("PRAGMA journal_mode = WAL")
         self._db.execute("PRAGMA foreign_keys = ON")
-        self._db.executescript(_SCHEMA)
+        with self._transaction():
+            if self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'jobs'").fetchone() is None:
+                for statement in _SCHEMA:
+                    self._db.execute(statement)
+            else:
+                for step in _MIGRATIONS[version:]:
+                    step(self._db)
+            self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def close(self) -> None:
         self._db.close()
