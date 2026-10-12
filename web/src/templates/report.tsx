@@ -9,7 +9,8 @@ const MAX_AMOUNT = 1e12
 const amount: Parser<number> = (value, path) => {
   const parsed = number(value, path)
   if (!(parsed >= 0 && parsed <= MAX_AMOUNT)) throw new TemplateDataError(`${path}: expected a number from 0 to 1e12`)
-  return parsed
+  // -0 passes the check above and would print as "-0".
+  return parsed + 0
 }
 
 const week: Parser<number> = (value, path) => {

@@ -119,6 +119,13 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(geometry["bars"], ["9,999", "12.3K", "123K", "1.23M", "999.5", "0.25", "1T"])
         self.assertEqual(geometry["values"], ["10K", "12K", "123K", "1.2M", "1K", "0.25", "1T"])
 
+    def test_negative_zero_prints_as_zero(self):
+        geometry = self.geometry(report(
+            channels=[{"label": "A", "value": -0.0, "prev": -0.0}],
+            days=[{"label": "M", "value": -0.0}],
+        ))
+        self.assertEqual((geometry["bars"], geometry["values"]), (["0"], ["0"]))
+
     def test_kpi_grid_has_no_empty_tile(self):
         for count, columns in ((1, 1), (2, 2), (3, 1), (4, 2)):
             with self.subTest(count):
