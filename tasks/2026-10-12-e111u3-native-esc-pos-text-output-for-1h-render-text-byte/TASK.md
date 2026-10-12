@@ -27,5 +27,11 @@ Operator approved (2026-10-12) as a lower-priority fallback print path, to do ne
 ## Execution log
 
 - 2026-10-12T06:47:54+00:00: Agreed with print-system session: kind 'text', same envelope as 'template'. render_text returns the BODY only (no INIT, no trailing feed, no cut); reset any double size, reverse or alignment it sets. The server also calls render_template on 1h for the preview image and paper length, so the raster 1h must keep the same line breaks as the text bytes.
+- 2026-10-12T07:46:46+00:00: From 1h review: send ESC 3 24 (the preview assumes a 24-dot line; default spacing is ~30 dots, so paper length from the raster would be short); some firmware auto-wraps at column 32 AND feeds on LF — a full 32-char rule may print a blank line (unverified on MPT-II). Output charset = printable ASCII + CP437 █ (0xDB) ░ (0xB0). buildLines needs a window.templateLines(payload) export in render-main.
+- 2026-10-12T07:54:00+00:00: Also (from the print-system review): make raster_capture._ALIASED_TEXT_CSS a public name and import it; replace render_template's bitmap.convert('1') fallback (Pillow would Floyd-Steinberg dither, not the paper-tested profile) with a RuntimeError if to_bitmap ever returns another mode.
+- 2026-10-12T07:56:40+00:00: Also (print-system review): payload size counts UTF-8 bytes (json.dumps(ensure_ascii=False).encode()), not ASCII-escaped; public check_envelope(payload) raising TemplateError for envelope + size BEFORE a browser is launched (schema checks still need the page); too-tall message in cm ('would print 51.3 cm long; the limit is 50 cm').
+- 2026-10-12T08:03:02+00:00: Also: a font that fails to load (focus.tsx, agenda.tsx) must reach render_template's caller as a server fault (RuntimeError), not TemplateError: tag the error in render-main and map it in ticket_templates.py.
 
 ## Decisions
+
+- 2026-10-12T07:54:07+00:00: Agreed with the print-system session: render_text(page, payload) -> bytes (page passed in; same page used for the preview raster). Body only (no INIT, no trailing feed, no cut), printer state reset at the end, line breaks identical to the 1h raster.

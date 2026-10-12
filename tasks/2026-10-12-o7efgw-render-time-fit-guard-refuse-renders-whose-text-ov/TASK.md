@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-o7efgw-render-time-fit-guard-refuse-renders-whose-text-ov
 title: 'Render-time fit guard: refuse renders whose text overflows its box'
-status: in-progress
+status: done
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -33,5 +33,6 @@ Structural fix for the bug class found in wave-1 reviews: text inside a fixed-wi
 - 2026-10-12T07:25:16+00:00: Re-review round 1: llroup confirmed; pmtrqn refuses fractional heights < .5 (offset* rounds, capture rounds up). Fix sent.
 - 2026-10-12T07:26:22+00:00: yrkxum: length measured as ceil(getBoundingClientRect) everywhere (25 tests). Viewport-sizing commit requested next.
 - 2026-10-12T07:29:39+00:00: rqmkok: viewport sized to the receipt before capture; fallback face now identical at resolve and capture on 3 fresh pages (Times, 918 dots); 26 tests. Final re-review sent.
+- 2026-10-12T07:30:54+00:00: Integrated in merge otvylk (fit guard chain vzoxqn..rqmkok).
 
 ## Decisions

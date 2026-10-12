@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-doxbyl-template-1l-morning-briefing
 title: 'Template 1l: morning briefing'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -30,5 +30,7 @@ Implement strip 1l of Receipt Set 1 as a named template on the template infrastr
 - 2026-10-12T07:10:56+00:00: Built wvnzlz (briefing.tsx, sample, 4 tests). Optional weather/firstUp/oneThing blocks; hero temperature padded to whole pixels; uses calc-size() (Chromium 145) to round the hero width.
 - 2026-10-12T07:19:55+00:00: Review: 1 should-fix (blank required strings print), calc-size accepted. Fix round 1 sent (rebase onto xzslrz, nonBlank).
 - 2026-10-12T07:20:46+00:00: Fix round 1: wvkyvv (nonBlank for required strings; whitespace-only optional strings refused; 8 refusal cases). Re-review batched with 1n.
+- 2026-10-12T07:30:54+00:00: Integrated in merge otvylk (wvkyvv); re-review of wvkyvv still pending (batched with 1n).
+- 2026-10-12T07:33:39+00:00: Re-review: no new findings. Integrated (wvkyvv in otvylkrs).
 
 ## Decisions

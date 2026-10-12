@@ -26,4 +26,6 @@ docs/feature-ticket-templates.md 'Design source' table lists only ticket. Add ev
 
 ## Execution log
 
+- 2026-10-12T07:42:04+00:00: Also: delete 'No template uses it yet' (landscape) now that sprint uses it; state that leaderboard people are in rank order.
+
 ## Decisions

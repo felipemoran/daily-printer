@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-e4e1v2-template-1f-uptime-heatmap
 title: 'Template 1f: uptime heatmap'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -31,5 +31,7 @@ Implement strip 1f of Receipt Set 1 as a named template on the template infrastr
 - 2026-10-12T07:17:04+00:00: Review: 2 should-fix (blank inputs print; ﷽ worst case), DS legend fractional, 2 nits. Fix round 1 sent (nonBlank, floor percent); wide-glyph inputs left to the height limit and fit guard.
 - 2026-10-12T07:19:22+00:00: Fix round 1: commit 86bf95 (change lznzzs; nonBlank fields, uptime truncated not rounded; 5 tests). Change id is divergent with an empty duplicate 1dba31 — abandoning it was refused by the permission system; left for the operator. Address the fix by commit id 86bf95.
 - 2026-10-12T07:20:39+00:00: Re-review: no new findings. Final tip: commit 86bf95. Accepted.
+- 2026-10-12T07:30:54+00:00: Integrated in merge otvylk (commit 86bf95). Empty divergent duplicate 1dba31 left for the operator.
+- 2026-10-12T07:40:44+00:00: Empty divergent duplicate 1dba31 abandoned by the orchestrator (verified empty, no descendants, not on the line); divergent() is empty.
 
 ## Decisions
