@@ -28,5 +28,7 @@ Implement strip 1l of Receipt Set 1 as a named template on the template infrastr
 ## Execution log
 
 - 2026-10-12T07:10:56+00:00: Built wvnzlz (briefing.tsx, sample, 4 tests). Optional weather/firstUp/oneThing blocks; hero temperature padded to whole pixels; uses calc-size() (Chromium 145) to round the hero width.
+- 2026-10-12T07:19:55+00:00: Review: 1 should-fix (blank required strings print), calc-size accepted. Fix round 1 sent (rebase onto xzslrz, nonBlank).
+- 2026-10-12T07:20:46+00:00: Fix round 1: wvkyvv (nonBlank for required strings; whitespace-only optional strings refused; 8 refusal cases). Re-review batched with 1n.
 
 ## Decisions

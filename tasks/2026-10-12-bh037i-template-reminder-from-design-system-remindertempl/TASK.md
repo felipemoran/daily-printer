@@ -28,5 +28,7 @@ Port design-system/components/ReminderTemplate/preview.html into a named templat
 ## Execution log
 
 - 2026-10-12T07:12:11+00:00: Built sytyor (focus.tsx, sample, 7 tests). Title takes the largest of display-lg/md/sm at which its longest word fits; suspends on fonts.load via use(); measures in render.
+- 2026-10-12T07:19:55+00:00: Review: 1 should-fix reproduced (fresh page + Cyrillic: render resolves on a stale layout; PNG ends in a grey band; success reported), 2 nits. Fix round 1 sent (root cause + test).
+- 2026-10-12T07:26:12+00:00: Fix round 1: nxlxuw. Root cause: system fallback face for glyphs missing from bundled fonts changes (Times-Bold -> Menlo-Bold) when the screenshot resizes the viewport. Builder's fix refuses non-Latin text in focus — held pending an infra fix (viewport sized before capture); then re-test with the refusal off.
 
 ## Decisions

@@ -27,6 +27,7 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 ## Execution log
 
 - 2026-10-12T06:39:32+00:00: Infra builder dispatched in .workspaces/tpl-infra (base mysqmu). Set 1 spec gathered (14 strips; 1g agenda, 1k rotated banner and 1m hero row need new layout; 1h stays a raster preview of TextMode).
+- 2026-10-12T07:17:24+00:00: Retro note: I based the fit-guard verify merge and two builder rebases on xzslrz while it was still my live @; a bacon write rewrote it mid-run (tasks/ only). Froze it with jj new. Manual §8 already warns; add 'freeze the close-out before building ANY merge or rebase on it' in the retro.
 
 ## Decisions
 
@@ -45,3 +46,5 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T07:12:55+00:00: decided: review-queue bounds title ≤ 64, area ≤ 10, diff counts ≤ 999,999, list ≤ 20, so the worst case stays under 4000 dots. A 10-char area refuses names like 'billing-api' — easy to change (trade against title length or list cap)
 - 2026-10-12T07:17:05+00:00: decided: no character-set restrictions on free text (names need accents); pathological wide glyphs are refused loudly by the 4000-dot limit and the render-time fit guard. Worst-case height tests use W and CJK glyphs — easy to change
 - 2026-10-12T07:17:05+00:00: decided: habit log — skipped days break a streak and are excluded from completion; completion and uptime percentages round DOWN so 'all done / fully up' is never shown when it is not true — easy to change
+- 2026-10-12T07:19:55+00:00: Bug class from 1n review, propagated: a render can resolve before layout settles (fresh page, fallback-font glyphs), so the capture differs from the measured receipt. Guard: render_template compares measured vs captured length and refuses; templates that measure text await the faces for the actual text; tests include a fresh page with non-Latin text.
+- 2026-10-12T07:26:12+00:00: Root cause (1n): glyphs absent from the bundled fonts use a system fallback face that Chrome may switch when Playwright's screenshot resizes the viewport, changing layout during capture. Structural fix first: size the viewport to the receipt before measuring/capturing. Refusing non-Latin text is the fallback and needs the operator's call.

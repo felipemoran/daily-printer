@@ -26,4 +26,6 @@ limitedString counts UTF-16 units, so 31 emoji fail 'at most 60 characters' whil
 
 ## Execution log
 
+- 2026-10-12T07:20:39+00:00: Also: nonBlank must treat zero-width characters (U+200B-U+200D, U+2060, U+FEFF) as blank; dedupe the integer()/text() helpers duplicated in briefing.tsx and focus.tsx into validate.ts.
+
 ## Decisions

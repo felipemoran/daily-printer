@@ -26,4 +26,6 @@ From review of the infrastructure: render-main does not await <img> decode and d
 
 ## Execution log
 
+- 2026-10-12T07:25:16+00:00: Now required, not optional: the capture-length guard refuses a T.Image without height that loads after fonts.ready. Image templates must pass height or the render must await img.decode().
+
 ## Decisions
