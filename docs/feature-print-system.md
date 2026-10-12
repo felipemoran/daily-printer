@@ -8,19 +8,43 @@ Receipt, template and text jobs render in Chromium from the built web app. On a 
 
 | Command | Does |
 |---|---|
-| `make simulate` | Starts the server and two fake printers (`home`, `work`), prints a receipt on `home` and an image on `work`, then keeps running until Ctrl-C. |
+| `make demo` | Builds `web/dist` when it is missing, then runs `make simulate`. |
+| `make simulate` | Starts the server and two fake printers (`home`, `work`), prints one job per sample, then keeps running until Ctrl-C. |
+| `make demo-<name>` | Sends one sample to the running demo, on `home`. `make help` lists the names. |
 | `make server CONFIG=<file>` | Starts the server with your config. Format: `samples/print-server.example.toml`. The file must have mode 0600. |
 | `make device-fake TOKEN_FILE=<file> [SERVER=<url>] [OUT=<dir>]` | Starts one device with a fake printer. `SERVER` defaults to `ws://127.0.0.1:8787/device`, `OUT` to `data/fake-printer`. |
 
-`make simulate` writes its config, tokens and logs to a new temporary folder, `print-sim-<random>`. It prints:
+### Samples
+
+The simulation sends these jobs, in turn to `home` and `work`. Each `make demo-<name>` target sends the same file:
+
+| Name | Kind | File |
+|---|---|---|
+| one per template, e.g. `ticket` | `template` | `samples/templates/<name>.json` |
+| `text` | `text` | `samples/templates/build.json` |
+| `image` | `image` | `samples/test-pattern.png` |
+| `receipt` | `receipt` | `samples/receipt-sample.json` |
+
+A new file in `samples/templates/` becomes a sample and a make target with no code change.
+
+### Output
+
+`make simulate` writes its config, printer tokens and logs to a new temporary folder, `print-sim-<random>`. It prints:
 
 1. a line for each start step;
-2. one line for each printed job: printer, kind, status, size in dots, paper length in cm, and the PNG path;
-3. the server URL, the admin token file, the folder, and ready `printctl` commands to try in another terminal. `printctl` is the admin CLI, `uv run src/scripts/printctl.py`.
+2. one line for each job when the server accepts it;
+3. one line for each printed job: printer, kind, name, status, size in dots, paper length in cm, and the output file;
+4. the admin page URL, the admin token, the folder, the `make demo-<name>` command, and ready `printctl` commands. `printctl` is the admin CLI, `uv run src/scripts/printctl.py`.
 
-A fake printer saves each job as `<dir>/<job id>.png`, with the raw ESC/POS (the printer's command language) bytes in `<job id>.bin`. In the simulation, `<dir>` is `<temporary folder>/<printer id>`.
+A fake printer saves each job as `<dir>/<job id>.png`, with the raw ESC/POS (the printer's command language) bytes in `<job id>.bin`. A text job has no image, so it has only the `.bin`. In the simulation, `<dir>` is `<temporary folder>/<printer id>`.
 
-`uv run src/scripts/simulate.py --once` stops after both jobs print. `--port PORT` uses another port.
+`uv run src/scripts/simulate.py --once` stops after every job prints. `--port PORT` uses another port. Then pass the server to the make targets: `make demo-ticket DEMO_SERVER=http://127.0.0.1:PORT`.
+
+### Admin token
+
+The simulation always uses the admin token `moranlindo`, the `ADMIN_TOKEN` constant in `src/scripts/simulate.py`. Open `http://127.0.0.1:8787/admin` and enter it. The Makefile holds a copy for the `demo-<name>` targets, and `tests/test_make_demo.py` checks that the two agree.
+
+The server accepts a token of any length, so a short token also works on the real server. It refuses an empty token and a token that two entries share. The token never appears in the front-end files in `src/static/`: only the server checks it.
 
 ## Send a job
 
