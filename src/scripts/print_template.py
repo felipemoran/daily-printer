@@ -24,10 +24,7 @@ from playwright.sync_api import Error as PlaywrightError, sync_playwright  # noq
 
 from printer import open_printer  # noqa: E402
 from web_build import build_web  # noqa: E402
-from ticket_templates import TemplateError, open_render_page, render_template, render_text  # noqa: E402
-
-# The print server's framing around a render_text body.
-TEXT_FEED = b"\n" * 3
+from ticket_templates import TEXT_FEED, TemplateError, open_render_page, render_template, render_text  # noqa: E402
 
 
 def _parse_args() -> argparse.Namespace:

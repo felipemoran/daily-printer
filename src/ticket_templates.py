@@ -22,6 +22,9 @@ RENDER_TIMEOUT_MS = 3_000
 SCREENSHOT_TIMEOUT_MS = 10_000
 # The in-page timeout cannot interrupt a busy render; small payloads keep every render short.
 MAX_PAYLOAD_BYTES = 64 * 1024
+# Playwright serialises an evaluate argument recursively: about 500 levels raise RecursionError, 1000 a
+# PlaywrightError. Real payloads nest 6 levels deep.
+MAX_DEPTH = 32
 
 _CAPTURE = capture_options(DEFAULT_PROFILE)
 VIEWPORT_MARGIN = 64
@@ -150,16 +153,31 @@ def open_render_page(browser):
     return page
 
 
+def _depth(value) -> int:
+    deepest, stack = 0, [(value, 1)]
+    while stack:
+        value, depth = stack.pop()
+        if isinstance(value, (dict, list, tuple)):
+            deepest = max(deepest, depth)
+            stack.extend((child, depth + 1) for child in (value.values() if isinstance(value, dict) else value))
+    return deepest
+
+
 def check_envelope(payload) -> None:
     """Raises TemplateError for an envelope render.html would refuse, without a browser."""
     if not isinstance(payload, dict):
         raise TemplateError("payload: expected object")
+    too_deep = f"payload: nested more than {MAX_DEPTH} levels deep"
     try:
         size = len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode())
+    except RecursionError as error:
+        raise TemplateError(too_deep) from error
     except (TypeError, ValueError) as error:
         raise TemplateError(f"payload: not JSON ({error})") from error
     if size > MAX_PAYLOAD_BYTES:
         raise TemplateError(f"payload: {size} bytes; the limit is {MAX_PAYLOAD_BYTES}")
+    if _depth(payload) > MAX_DEPTH:
+        raise TemplateError(too_deep)
     name = payload.get("template")
     if not isinstance(name, str):
         raise TemplateError("template: expected string")
@@ -259,8 +277,13 @@ def _encode(text: str) -> bytes:
     return bytes(encoded)
 
 
+TEXT_FEED = b"\n" * 3
+
+
 def render_text(page, payload) -> bytes:
-    """``payload`` as native ESC/POS Font A text: the body only, with no init, feed or cut.
+    """``payload`` as native ESC/POS Font A text: the body only, with no cut.
+
+    The caller sends ``HW_INIT`` before it and ``TEXT_FEED`` after it.
 
     Breaks lines where ``render_template`` previews them. Raises TemplateError for sender faults.
     """

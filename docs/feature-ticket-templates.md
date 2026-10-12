@@ -41,7 +41,7 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 | Call | Does |
 |---|---|
 | `template_names()` | The template names in the last build. |
-| `check_envelope(payload)` | Checks the envelope and the size limit without a browser. It does not check `schemaVersion` against the template. |
+| `check_envelope(payload)` | Checks the envelope, the size limit and the nesting depth (32 levels) without a browser. It does not check `schemaVersion` against the template. |
 | `open_render_page(browser)` | Opens a Playwright page on `render.html`. Open it once and reuse it: a failed render leaves it usable. The page loads files from `web/dist` only, never from the network. |
 | `render_template(page, payload, *, max_height_dots=4000)` | The print as a mode `"1"` PIL image, 384 dots wide. `max_height_dots` sets the length limit (see *Render guards*). |
 | `render_text(page, payload)` | The print as native ESC/POS text bytes (see *Native text output*). |
@@ -68,7 +68,7 @@ A render that does not finish within 3 seconds raises `TemplateError`. The page 
 
 A template with a text mode prints in the printer's own Font A (32 columns), not as a raster. Only `build` has one. `render_text` raises `TemplateError` for any other template. The text breaks where the raster preview breaks.
 
-`render_text` returns the body only. The caller adds `ESC @` (initialize) before it and the paper feed after it. The body is:
+`render_text` returns the body only. The caller adds `ESC @` (initialize) before it and the paper feed, `TEXT_FEED`, after it. The body is:
 
 1. `FS .`: leave Chinese double-byte mode, which some printers start in.
 2. `ESC 3 24`: a 24-dot line.

@@ -14,7 +14,9 @@ from tests.web_build import build_web
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ticket_templates import TemplateError, check_envelope, open_render_page, render_template, template_names  # noqa: E402
+from ticket_templates import (  # noqa: E402
+    MAX_DEPTH, TemplateError, check_envelope, open_render_page, render_template, render_text, template_names,
+)
 
 SAMPLES = sorted((ROOT / "samples" / "templates").glob("*.json"))
 TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
@@ -40,6 +42,14 @@ def ticket(**data):
 
 
 SHORT_TICKET = ticket(fields=None, comment=None, qr=None)
+
+
+def nested(levels):
+    """``ticket()`` with ``data.deep`` grown until the payload nests ``levels`` deep."""
+    value = []
+    for _ in range(levels - 3):
+        value = [value]
+    return ticket(deep=value)
 
 
 def widest_ticket(glyph):
@@ -78,6 +88,16 @@ class EnvelopeTest(unittest.TestCase):
         with self.assertRaisesRegex(TemplateError, r"^payload: \d+ bytes; the limit is 65536$"):
             check_envelope(ticket(title="\u00e7\u00e3o" * 14_000))
 
+    def test_deep_payload_is_a_sender_fault(self):
+        # 50,000 levels: json.dumps raises RecursionError. 500: Playwright would.
+        for levels in (50_000, 500, MAX_DEPTH + 1):
+            payload = nested(levels)
+            for call in (check_envelope, lambda payload: render_template(None, payload),
+                         lambda payload: render_text(None, payload)):
+                with self.subTest(levels=levels), self.assertRaisesRegex(TemplateError, f"^payload: nested more than {MAX_DEPTH} levels deep$"):
+                    call(payload)
+        check_envelope(nested(MAX_DEPTH))
+
     def test_unknown_template_fails_without_a_page(self):
         with self.assertRaisesRegex(TemplateError, '^unknown template "nope"; known: .*ticket'):
             render_template(None, {"template": "nope", "schemaVersion": 1, "data": {}})
@@ -103,6 +123,10 @@ class RenderTest(unittest.TestCase):
         with self.assertRaisesRegex(TemplateError, pattern):
             render_template(self.page, payload, **kwargs)
         self.assertLess(time.monotonic() - start, 5)
+
+    def test_deepest_accepted_payload_reaches_the_page(self):
+        with self.assertRaisesRegex(TemplateError, r"^data\.deep: unknown field$"):
+            render_template(self.page, nested(MAX_DEPTH))
 
     def test_sample_is_a_printable_bitmap(self):
         image = render_template(self.page, TICKET)
