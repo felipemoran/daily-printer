@@ -69,11 +69,11 @@ The page at `/` lets a person send a message (printed as a receipt) or a photo. 
 | Command | Does |
 |---|---|
 | `printctl jobs [--printer P] [--status S] [--limit N]` | Lists jobs, newest first. Default limit: 20. |
-| `printctl show <id>` | Shows a job and its event timeline. |
-| `printctl image <id> -o <file>` | Saves the rendered PNG. |
+| `printctl show <id>` | Shows a job, the path of its artifact folder on the server, and its event timeline. |
+| `printctl image <id> -o <file>` | Saves the job's `print.png`. |
 | `printctl cancel <id>` | Cancels a queued job. |
 | `printctl clear <printer>` | Cancels every queued job of a printer. |
-| `printctl reprint <id> [--printer P]` | Queues a finished job again, on the same or another printer. |
+| `printctl reprint <id> [--printer P]` | Queues a finished job again, on the same or another printer. It sends the same bytes as the first print. |
 | `printctl move <from> <to>` | Moves the queued jobs of one printer to another. |
 | `printctl printers` | Shows each printer's connection and queue. |
 | `printctl stats` | Shows print counts, paper use and hourly activity. |
@@ -82,6 +82,34 @@ The admin page at `<server URL>/admin`, e.g. `http://127.0.0.1:8787/admin`, show
 
 - Behind Cloudflare Access, an email in `admin_emails` opens it with no token.
 - Locally, the page asks for the admin token. It keeps the token only for that browser tab.
+
+## Job artifacts
+
+The server keeps every job as it was created, in `<directory of the database>/artifacts/<job id>/`. A later template, font or code change does not alter a past job. `printctl show <id>` prints the folder path. Write order, retention and failure handling: "Job storage" in `docs/planning-print-system-architecture.md`.
+
+| File | What it is | Kinds |
+|---|---|---|
+| `payload.json` | The `payload` of the request, as JSON | receipt, template, text |
+| `source.<ext>` | The uploaded file, byte for byte; `<ext>` from its format, e.g. `jpg` | image |
+| `page.mhtml` | The rendered page with its style sheets, images and web fonts, as Chromium's MHTML. For `text`, the preview page. Chrome opens it offline. | receipt, template, text |
+| `screenshot.png` | Chromium's capture of `#receipt`, before rotation and the 1-bit conversion. A landscape template's capture runs along the paper. | receipt, template, text |
+| `print.png` | The 1-bit bitmap. For `text`, the preview. | all |
+| `job.escpos` | The exact bytes sent to the printer | all |
+| `meta.json` | `kind`, `template`, `created_at`, `width`, `height`, `render_ms`, `web_dist_sha256` (a digest of every file in `web/dist`), and `reprint_of` for a reprint | all |
+
+Chromium's MHTML writer leaves web fonts out. Before the snapshot, the server adds a copy of each fetched `@font-face` rule with the font file as a `data:` URL, so the fonts travel in a style sheet part. The receipt app draws in system fonts (Tahoma, Verdana), which no archive carries: its `page.mhtml` shows in the fonts of the machine that opens it.
+
+The server reads `web/dist` for `web_dist_sha256` once, at the first job after start. Restart the server after `make web-build`, or later jobs record the old digest.
+
+Disk use per job, measured 2026-10-12 on the samples in `samples/templates/` and `samples/receipt-sample.json`:
+
+| Job | Disk |
+|---|---|
+| `template`, one of the 14 samples | 210-280 KB; `page.mhtml` is 150-195 KB of it, mostly the fonts |
+| `text` (`build`) | 180 KB |
+| `receipt` (the sample) | 110 KB |
+| `image` | the upload, plus `print.png` and `job.escpos` |
+| reprint | one new `meta.json`; the other files are hard links to the original's |
 
 ## Run a real device
 

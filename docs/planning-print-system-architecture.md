@@ -84,7 +84,8 @@ The contract between server, device client, CLI and web form. Change it here fir
 | Module | Role |
 |---|---|
 | `src/job_queue.py` | SQLite store: jobs, job events, printer state, stats queries |
-| `src/render_job.py` | Job content to a 1-bit bitmap, PNG and ESC/POS bytes |
+| `src/render_job.py` | Job content to a 1-bit bitmap, PNG and ESC/POS bytes, with the raw screenshot and the page as MHTML |
+| `src/job_artifacts.py` | Each job's artifact folder: written at intake, read for the image and for reprints |
 | `src/server_config.py` | Reads the server TOML config |
 | `src/access_auth.py` | Verifies a Cloudflare Access token and returns the email |
 | `src/device_hub.py` | Device WebSocket sessions and job delivery |
@@ -137,12 +138,12 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 
 | Method and path | Who | Does |
 |---|---|---|
-| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, then queues. 201 with the job. |
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, writes the job's artifact folder, then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
-| `GET /api/jobs/{id}` | admin | Job with its events |
-| `GET /api/jobs/{id}/image` | admin | The rendered 1-bit PNG |
+| `GET /api/jobs/{id}` | admin | Job with its events, and `artifacts`: the path of its artifact folder on the server, or null when the folder is missing |
+| `GET /api/jobs/{id}/image` | admin | `print.png` from the job's artifact folder. 404 when the folder has none. |
 | `POST /api/jobs/{id}/cancel` | admin | Cancel |
-| `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job from the stored PNG, recorded with the admin as `source`. 409 when the original is still queued or sending. |
+| `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job of the same kind that sends the original's `job.escpos`, recorded with the admin as `source`. Its artifact folder is a copy of the original's, with `reprint_of` in `meta.json`. 409 when the original is still queued or sending, or has no artifact folder. |
 | `POST /api/printers/{id}/clear` | admin | Cancel every queued and sending job of the printer |
 | `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
 | `GET /api/printers` | admin | Printer state (see below) |
@@ -161,9 +162,24 @@ Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credent
 
 `id`, `printer`, `kind`, `title`, `source`, `ingress`, `status`, `attempts`, `created_at`, `expires_at`, `render_ms`, `width` and `height` (dots), `paper_mm` (height / 8; the printer has 8 dots per mm), `size_bytes` (ESC/POS), `frames`, `sent_at`, `printed_at`.
 
-The rendered PNG stays for 30 days, for preview, download and reprint. The ESC/POS bytes are dropped when the job reaches a final state.
+The ESC/POS bytes in SQLite are dropped when the job reaches a final state. The artifact folder keeps a copy.
 
 Events (`job_id`, `at`, `event`, `detail`): `received`, `rendered`, `sending`, `sent`, `printed`, `released`, `failed`, `expired`, `cancelled`, `moved`, `reprinted`.
+
+### Job storage
+
+SQLite, at the `database` path, is the index: job records, events and printer state. Each job also has an artifact folder, `<directory of database>/artifacts/<job id>/`. The server writes it once, at intake, and never changes it. Nothing re-renders a past job. The files: "Job artifacts" in `docs/feature-print-system.md`.
+
+Retention: forever. Nothing prunes the folders or the job records.
+
+Write order:
+
+1. The server writes the files into `artifacts/.tmp-<random>/`.
+2. It inserts the job, and renames the folder to the job id in the same SQLite transaction.
+3. A failed write or rename refuses the job with 500, and leaves no folder and no job.
+4. At start, the server deletes every `.tmp-*` folder.
+
+A crash after the rename and before the commit leaves a folder that no job names. Nothing reads it. A later job that draws the same id is then refused with 500. A job without a folder comes only from outside the server, for example a folder deleted by hand. Its image is then a 404 and a reprint a 409.
 
 ### Printer state
 
