@@ -434,9 +434,8 @@ $("photo").addEventListener("change", async () => {
 });
 
 function receiptPayload(lines, title) {
-  // Only task text wraps on the receipt; a long email or title in a header block is cut off.
-  const blocks = [{ type: "task", content: state.email }];
-  if (title) blocks.push({ type: "task", content: title });
+  const blocks = [{ type: "section_header", title: state.email }];
+  if (title) blocks.push({ type: "day_header", title: title });
   for (const line of lines) blocks.push({ type: "task", content: line });
   return { schemaVersion: 2, generatedAt: new Date().toISOString(), blocks: blocks };
 }

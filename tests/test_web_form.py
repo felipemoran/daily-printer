@@ -7,6 +7,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from PIL import Image
 from playwright.async_api import async_playwright, expect
@@ -25,6 +26,14 @@ RENDER_TIMEOUT_MS = 60_000
 SIGNED_OUT = "Your sign-in expired \u2014 reload the page to sign in again."
 LOGIN = "https://daily-printer.cloudflareaccess.com/cdn-cgi/access/login/print.example.com"
 LONG_EMAIL = "maria.fernanda.albuquerque.oliveira@escritorioexemplo.com.br"
+DIST = _TESTS.parent / "web" / "dist"
+RECEIPT_ORIGIN = "http://receipt.invalid"
+HEADER_FIT_JS = """(el) => {
+  const text = document.createRange();
+  text.selectNodeContents(el);
+  return { scroll: el.scrollWidth, client: el.clientWidth, right: text.getBoundingClientRect().right,
+           lines: text.getClientRects().length };
+}"""
 
 
 class SendPageRouteTest(ServerTestCase):
@@ -127,8 +136,8 @@ class SendPageBrowserTest(ServerTestCase):
         self.assertEqual((body["printer"], body["kind"], body["title"]), ("home", "receipt", "Hello from Lisbon"))
         self.assertEqual(body["payload"]["schemaVersion"], 2)
         self.assertEqual(body["payload"]["blocks"], [
-            {"type": "task", "content": SENDER_EMAIL},
-            {"type": "task", "content": "Hello from Lisbon"},
+            {"type": "section_header", "title": SENDER_EMAIL},
+            {"type": "day_header", "title": "Hello from Lisbon"},
             {"type": "task", "content": "Saw this and thought of you."},
             {"type": "task", "content": "See you Friday!"},
         ])
@@ -222,12 +231,32 @@ class SendPageBrowserTest(ServerTestCase):
         await expect(self.page.locator("#result")).to_have_text("Queued for Home", timeout=RENDER_TIMEOUT_MS)
         [job] = self.queue.jobs()
         payload = request.post_data_json["payload"]
-        self.assertEqual(payload["blocks"][0], {"type": "task", "content": LONG_EMAIL})
-        payload["blocks"][0]["content"] = "ana@example.com"
+        self.assertEqual(payload["blocks"][0], {"type": "section_header", "title": LONG_EMAIL})
+        fit = await self.receipt_header_fit(payload)
+        self.assertLessEqual(fit["scroll"], fit["client"])
+        self.assertLessEqual(fit["right"], 384)
+        self.assertGreaterEqual(fit["lines"], 2)
+        payload["blocks"][0]["title"] = "ana@example.com"
         one_line = await asyncio.to_thread(render, "receipt", payload=payload)
         self.assertEqual((job.width, one_line.width), (384, 384))
         # A clipped email keeps one line; a wrapped one adds a line of text.
         self.assertGreater(job.height, one_line.height)
+
+    async def receipt_header_fit(self, payload: dict) -> dict:
+        """Text box of the sender header in the built receipt app at print width."""
+        page = await self.browser.new_page(viewport={"width": 384, "height": 720})
+        self.addAsyncCleanup(page.close)
+
+        async def serve(route) -> None:
+            path = urlsplit(route.request.url).path
+            if path == "/payload.json":
+                await route.fulfill(json=payload)
+            else:
+                await route.fulfill(path=DIST / path.lstrip("/"))
+
+        await page.route(f"{RECEIPT_ORIGIN}/**", serve)
+        await page.goto(f"{RECEIPT_ORIGIN}/index.html")
+        return await page.locator("#receipt .section-header").evaluate(HEADER_FIT_JS)
 
     async def test_several_public_printers_offer_a_picker_and_names_stay_text(self):
         hostile = '<img src=x onerror="document.title=1">'
