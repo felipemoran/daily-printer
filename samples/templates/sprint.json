@@ -1,0 +1,33 @@
+{
+  "template": "sprint",
+  "schemaVersion": 1,
+  "data": {
+    "sprint": "SPRINT 24",
+    "day": 6,
+    "of": 10,
+    "date": "01 OCT",
+    "columns": [
+      { "name": "BACKLOG", "cards": [
+        { "id": "BIL-130", "title": "Proration edge cases" },
+        { "id": "WEB-77", "title": "Dark mode tokens" },
+        { "id": "OPS-12", "title": "Rotate API keys" },
+        { "id": "WEB-80", "title": "Footer links audit" }
+      ] },
+      { "name": "DOING", "cards": [
+        { "id": "BIL-118", "title": "Billing migration" },
+        { "id": "BIL-121", "title": "Flaky checkout test" },
+        { "id": "WEB-74", "title": "CSV export" }
+      ] },
+      { "name": "REVIEW", "cards": [
+        { "id": "API-482", "title": "Webhook backoff" },
+        { "id": "BIL-479", "title": "Legacy renderer" }
+      ] },
+      { "name": "DONE", "cards": [
+        { "id": "WEB-70", "title": "Pricing copy" },
+        { "id": "OPS-9", "title": "On-call rota" },
+        { "id": "API-460", "title": "Rate limits" },
+        { "id": "BIL-110", "title": "Invoice PDFs" }
+      ] }
+    ]
+  }
+}
