@@ -49,9 +49,9 @@ These rules go into device firmware, so they are expensive to change later.
 
 ## Job lifecycle
 
-- The writer of a job sets its expiry. A job not confirmed before its expiry is dropped.
+- The writer of a job sets its expiry; the default is 1 hour. A job not confirmed before its expiry is dropped.
 - The server sends an unconfirmed job again when the device reconnects. It stops after 3 attempts in total and marks the job failed. A duplicate print is possible when a device dies between printing and confirming.
-- Manual controls: list queued jobs, cancel one job, clear a printer's queue.
+- Manual controls, as a CLI: list queued jobs, cancel one job, clear a printer's queue. A web page is separate work.
 - The queue survives a server restart.
 
 ## Devices
@@ -83,7 +83,5 @@ These rules go into device firmware, so they are expensive to change later.
 
 ## Open
 
-- Expiry when the writer sets none.
-- The form of the manual controls: CLI, web page, or both.
 - How outside senders authenticate.
-- The public hostname.
+- The public hostname. `print.<zone>` is the working name.
