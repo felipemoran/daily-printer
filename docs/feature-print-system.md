@@ -25,7 +25,7 @@ The simulation sends these jobs, in turn to `home` and `work`. Each `make demo-<
 | `image` | `image` | `samples/test-pattern.png` |
 | `receipt` | `receipt` | `samples/receipt-sample.json` |
 
-A new file in `samples/templates/` becomes a sample and a make target with no code change.
+A new `.json` file in `samples/templates/` becomes a sample and a make target with no code change.
 
 ### Output
 
@@ -38,7 +38,7 @@ A new file in `samples/templates/` becomes a sample and a make target with no co
 
 A fake printer saves each job as `<dir>/<job id>.png`, with the raw ESC/POS (the printer's command language) bytes in `<job id>.bin`. A text job has no image, so it has only the `.bin`. In the simulation, `<dir>` is `<temporary folder>/<printer id>`.
 
-`uv run src/scripts/simulate.py --once` stops after every job prints. `--port PORT` uses another port. Then pass the server to the make targets: `make demo-ticket DEMO_SERVER=http://127.0.0.1:PORT`.
+`uv run src/scripts/simulate.py --once` stops after every job prints. `--port PORT` uses another port. With `--port PORT`, pass the server to the make targets: `make demo-ticket DEMO_SERVER=http://127.0.0.1:PORT`.
 
 ### Admin token
 
@@ -147,7 +147,7 @@ A device service installed before the block existed runs `uv run` without `--scr
 |---|---|
 | `--server URL` | The server's device endpoint. Must start with `ws://` or `wss://`. Required. |
 | `--token-file PATH` | The file with this printer's token. Without it, the token comes from `$PRINT_DEVICE_TOKEN`. There is no `--token` flag, so the token never shows in `ps`. |
-| `--fake DIR` | Save each job as `DIR/<job id>.png` and do not print. |
+| `--fake DIR` | Save each job as `DIR/<job id>.bin`, plus `DIR/<job id>.png` for a raster job, and do not print. |
 
 Without `--fake`, the device prints on the USB receipt printer. It opens the printer only during a job. When the device cannot open the printer, or a USB write takes no data for 10 s, it reports an error for that job. The usual causes of a write timeout are no paper or an open cover. The device reconnects by itself when the connection drops.
 

@@ -49,7 +49,7 @@ def _parse_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
         "--fake",
         type=Path,
         metavar="DIR",
-        help="save each job as DIR/<job id>.png in place of printing over USB",
+        help="save each job as DIR/<job id>.bin, plus DIR/<job id>.png for a raster job, in place of printing over USB",
     )
     return parser, parser.parse_args()
 
