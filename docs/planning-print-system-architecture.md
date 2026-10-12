@@ -152,7 +152,7 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 | `GET /api/me` | web | The sender's email and the public printers |
 | `GET /` | web, admin (Access email) | The sender web form |
 | `GET /admin` | anyone | The admin web page. It holds no data; its API calls need admin rights. |
-| `GET /admin/{name}` | anyone | The admin page's `admin.css` and `admin.js` |
+| `GET /admin/{name}` | anyone | One file of the admin page, by exact name; a name may span path segments. Serves `admin.css`, `admin.js` and the woff2 fonts under `fonts/` (as `font/woff2`). Any other name is 404. |
 | `GET /device` | device | The device WebSocket (see below) |
 
 Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit, 500 server fault (a generic message; the traceback goes only to the server log).

@@ -78,7 +78,7 @@ The page at `/` lets a person send a message (printed as a receipt) or a photo. 
 | `printctl printers` | Shows each printer's connection and queue. |
 | `printctl stats` | Shows print counts, paper use and hourly activity. |
 
-The admin page at `<server URL>/admin`, e.g. `http://127.0.0.1:8787/admin`, shows the same data in a browser, on desktop or phone. It has three views: the job rail (queue first, then the recent jobs), the printers, and the clients. From it you can cancel, reprint, clear a printer and move its queue.
+The admin page at `<server URL>/admin`, e.g. `http://127.0.0.1:8787/admin`, shows the same data in a browser, on desktop or phone. It has three views: the job rail (queue first, then the recent jobs), the job detail, and Connections (the printers, then the clients). From it you can cancel, reprint, clear a printer and move its queue.
 
 - Behind Cloudflare Access, an email in `admin_emails` opens it with no token.
 - Locally, the page asks for the admin token. It keeps the token only for that browser tab.
