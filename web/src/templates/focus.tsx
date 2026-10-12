@@ -16,7 +16,6 @@ const text = (max: number): Parser<string> => (value, path) => {
   return s
 }
 
-// id 12 keeps the header on one line beside NOW WORKING ON.
 const parse = object({
   id: optional(text(12)),
   title: text(60),
@@ -35,16 +34,12 @@ const PAPER_WIDTH = 384
 // The title probe must measure Archivo, not a fallback; the mono faces load too so the first commit
 // lays out in its final faces.
 const FACES = ['900 79px Archivo', '500 18px "IBM Plex Mono"', '700 18px "IBM Plex Mono"']
+// A rejection stays cached: a missing face is a build defect, and every focus render then fails with it.
 let facesLoading: Promise<void> | undefined
 const facesLoaded = () =>
-  (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face))).then(
-    (loaded) => {
-      const missing = FACES.filter((_, index) => !loaded[index].length)
-      if (missing.length) throw new Error(`fonts did not load: ${missing.join(', ')}`)
-    },
-  ).catch((error: unknown) => {
-    facesLoading = undefined
-    throw error
+  (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face))).then((loaded) => {
+    const missing = FACES.filter((_, index) => !loaded[index].length)
+    if (missing.length) throw new Error(`fonts did not load: ${missing.join(', ')}`)
   }))
 
 // Synchronous, so the committed layout is the measured one: no effect resizes the title later.
@@ -75,8 +70,8 @@ export default defineTemplate({
     return (
       <>
         <div className="label" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-          <span>NOW WORKING ON</span>
-          {data.id ? <span>{data.id}</span> : null}
+          <span style={{ flex: 'none', whiteSpace: 'nowrap' }}>NOW WORKING ON</span>
+          {data.id ? <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{data.id}</span> : null}
         </div>
         <T.Rule weight="bar" style={{ margin: '14px 0 18px' }} />
         <div className={titleSize(data.title)} style={{ textTransform: 'uppercase', textWrap: 'balance', overflowWrap: 'anywhere' }}>

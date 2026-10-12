@@ -21,6 +21,14 @@ _TITLE_JS = """
 }
 """
 
+_LABEL_LINES_JS = """
+() => {
+  const range = document.createRange();
+  range.selectNodeContents(document.querySelector('#receipt > div:first-child > span'));
+  return range.getClientRects().length;
+}
+"""
+
 # Clipped or overflowing text prints a wrong value while the render still succeeds.
 _OVERFLOW_JS = """
 () => [...document.querySelectorAll('#receipt, #receipt *')]
@@ -99,7 +107,7 @@ class FocusTest(unittest.TestCase):
     def test_bitmap_is_the_laid_out_receipt_on_fresh_pages(self):
         # A fresh page draws characters the bundled fonts lack from a system face that can change at capture.
         for data in (
-            {"id": "ШШШШШШШШШШШ", "title": "Миграция биллинга"},
+            {"id": "Ш" * 12, "title": "Миграция биллинга"},
             {"title": "账单迁移 billing migration"},
             {"id": "ÉTÉ-118", "title": "Déjà vu façade — “naïve” Œuvre", "estimate": "2h · €"},
         ):
@@ -109,6 +117,7 @@ class FocusTest(unittest.TestCase):
                     try:
                         image = render_template(page, focus(**data))
                         self.assertEqual(image.height, page.evaluate("() => document.querySelector('#receipt').offsetHeight"))
+                        self.assertEqual(page.evaluate(_LABEL_LINES_JS), 1, "NOW WORKING ON wrapped")
                         bottom = image.crop((0, image.height - 8, image.width, image.height))
                         self.assertIsNone(bottom.convert("L").point(lambda value: 255 - value).getbbox(), "ink in the feed")
                     finally:
