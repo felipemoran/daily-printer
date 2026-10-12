@@ -19,7 +19,9 @@ Seen by the wave 4/5 gate after the design-system merge. Not investigated. Needs
 ## Acceptance check
 
 <!-- AC:BEGIN -->
-- [ ]
+- [x] `npm audit` reports 0 findings after a clean `npm ci` in `web/`.
+- [x] Every payload in `samples/templates/` renders byte-identical before and after.
+- [x] `npm run build` and the Python suite pass.
 <!-- AC:END -->
 
 ## Planning
@@ -29,3 +31,5 @@ Seen by the wave 4/5 gate after the design-system merge. Not investigated. Needs
 - 2026-10-12T14:59:43+00:00: npm audit in web/ found 10 vulnerabilities (1 low, 2 moderate, 7 high), all in dev tooling: vite and its postcss/nanoid/source-map-js chain, eslint and typescript-eslint (brace-expansion, js-yaml, @humanfs/node), and eslint-plugin-react-hooks (@babel/core, browserslist, baseline-browser-mapping). None was in the shipped runtime dependencies (react, react-dom, qrcode-generator). npm audit fix without --force cleared all 10; only package-lock.json changed, within the existing package.json ranges. The main moves were vite 8.0.8 to 8.3.4 and rolldown 1.0.0-rc.15 to 1.2.13. No major bump and no overrides were needed. The render baseline stayed byte-identical: all 14 samples/templates payloads produce the same render_template bitmaps, and the build template's render_text produces the same bytes. The baseline was confirmed deterministic by two runs before the fix. npm run build and npm run lint pass. web/ has no npm test script. The Python suite (uv run python -m unittest discover -s tests) ran 579 tests, all OK.
 
 ## Decisions
+
+- 2026-10-12T15:03:52+00:00: Operator approved this fix on 2026-10-12 ("ok to fix this"). The change is lockfile-only, within the existing package.json ranges; no package was added to package.json.
