@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import json
 import re
+import shutil
 import sys
 import time
 import unittest
@@ -253,6 +254,14 @@ class AdminViewsTest(AdminBrowserCase):
         await page.get_by_role("button", name="Show stats").click()
         await expect(page.locator("#stats")).to_contain_text("Printed today")
         await expect(page.locator("#stats dd").first).to_have_text("3")
+
+    async def test_a_job_without_its_artifact_folder_says_so_where_its_image_would_be(self):
+        shutil.rmtree(artifacts_root(self.config.database) / self.retried.id)
+        page = await self.open(f"/admin#/job/{self.retried.id}", ready="#job-title")
+        paper = page.locator("#job-image").locator("xpath=ancestor::*[contains(@class, 'paper')][1]")
+        await expect(paper).to_have_class(re.compile(r"\bmissing\b"))
+        self.assertEqual(await paper.evaluate("el => getComputedStyle(el, '::after').content"),
+                         '"The server has no artifact folder for this job."')
 
     async def test_the_detail_view_shows_the_image_events_and_raw_data_of_a_job(self):
         page = await self.open()

@@ -206,7 +206,7 @@ main:focus { outline: none; }
 .paper-wrap { filter: drop-shadow(0 8px 14px var(--shadow)); }
 .paper.missing img { display: none; }
 .paper.missing::after {
-  content: "Image deleted after 30 days"; display: block; padding: 24px 0; text-align: center;
+  content: "The server has no artifact folder for this job."; display: block; padding: 24px 0; text-align: center;
   color: #5f5850; font-size: 12px; line-height: 16px;
 }
 
