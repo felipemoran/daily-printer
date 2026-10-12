@@ -19,7 +19,14 @@ The device client (src/print_device.py) never renders, but the device install ru
 ## Acceptance check
 
 <!-- AC:BEGIN -->
-- [ ]
+- [x] `src/scripts/print_device.py` declares its dependencies in PEP 723 metadata (aiohttp, pillow, python-escpos[usb], pyproject floors); `src/scripts/print_device.py.lock` pins them.
+- [x] `uv run --script` and `uv sync --script` install only those and read the lock; playwright and jwt are not importable there (checked locally).
+- [x] `tests/test_device_dependencies.py` fails on an undeclared device import, lazy ones included (bleak allowed in printer.py only), on any playwright or jwt import, and on a stale lock.
+- [x] `deploy/wizard.sh device` syncs only the script environment, has no 32-bit refusal, and on 32-bit ARM Linux runs apt-get update and installs the Pillow build tools; `deploy/wizard.sh server` keeps the refusal.
+- [x] The systemd unit, launchd plist, `make device-fake` and `simulate.py` start the device with `uv run --script`.
+- [x] Docs state the device platforms, the lock, the ARMv6 exclusion and the sources.
+- [x] Full suite passes; `simulate.py --once` prints both jobs.
+- [ ] A device runs on a real 32-bit Raspberry Pi (Pi 2 or later): wizard, Pillow build, service, one printed job.
 <!-- AC:END -->
 
 ## Planning
@@ -27,5 +34,6 @@ The device client (src/print_device.py) never renders, but the device install ru
 ## Execution log
 
 - 2026-10-12T15:17:42+00:00: Device runs with 'uv run --script src/scripts/print_device.py': PEP 723 metadata lists aiohttp, pillow and python-escpos[usb] at the pyproject floors, and uv installs only those (confirmed: playwright, jwt, bleak not importable in the script env). tests/test_device_dependencies.py maps every load-time third-party import of the device modules to the metadata and bans playwright/jwt. Wizard device role syncs the script env (uv sync --script), skips the 32-bit refusal (now server-only), and on 32-bit ARM Linux apt-installs build-essential python3-dev libjpeg-dev zlib1g-dev because PyPI has no armv7l wheel for Pillow or PyYAML (PyYAML falls back to pure Python). systemd unit, launchd plist, make device-fake and simulate.py start devices the same way. uv (Tier 2, armv7 binaries) and python-build-standalone (armv7 gnueabihf, CPython 3.12-3.14) support armv7; no ARMv6 Python build exists. Not run on a real Pi. Full suite 583 OK; simulate --once OK on port 18787.
+- 2026-10-12T15:39:01+00:00: Review round: the guard now checks every import, lazy ones included (bleak allowed in printer.py only; a lazy 'import dotenv' in src/print_device.py now fails it). Added src/scripts/print_device.py.lock; uv run/sync --script read it (proved with a scratch script locked to an old idna) and a test runs 'uv lock --script --check' (skipped without uv). Wizard runs apt-get update before both apt installs. Docs: ARMv6 not supported (.python-version pins 3.12, no ARMv6 build); 'should run, not yet tested on a Pi'; old services without --script move to the script env at their next restart and need the network once. Device+deploy+dependency tests 56 OK; full suite 584 OK; simulate --once OK on port 18788. Still not run on a real Pi.
 
 ## Decisions
