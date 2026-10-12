@@ -379,7 +379,7 @@ class IntakeTest(ServerTestCase):
         self.assertEqual(status, 422, body)
         self.assertIn('unknown template "nope"', body["error"])
         fault = RuntimeError("server fault: render.html has no renderTemplate; rebuild web/dist")
-        with mock.patch("render_job.render_template", side_effect=fault):
+        with mock.patch("render_job.capture_template", side_effect=fault):
             job = {**job, "payload": ticket}
             status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
         self.assertEqual(status, 500, body)

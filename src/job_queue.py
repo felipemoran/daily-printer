@@ -169,6 +169,12 @@ def _job(row: tuple) -> Job:
     return Job(*row[:6], Status(row[6]), *row[7:])
 
 
+def _place(artifacts: Path | None, job_id: str) -> None:
+    # A failed rename rolls the insert back. A crash after it leaves a folder no job names.
+    if artifacts is not None:
+        artifacts.rename(artifacts.with_name(job_id))
+
+
 def _new_id() -> str:
     return secrets.token_hex(4)
 
@@ -188,14 +194,16 @@ class JobQueue:
         self._db.close()
 
     def add(self, printer: str, data: bytes, *, kind: str, title: str, source: str, ingress: str,
-            png: bytes, width: int, height: int, render_ms: int,
+            png: bytes, width: int, height: int, render_ms: int, artifacts: Path | None = None,
             expires_in: float = DEFAULT_EXPIRY_SECONDS, now: float | None = None) -> Job:
+        """``artifacts``, a staged folder, becomes ``<its parent>/<job id>`` before the insert commits."""
         now = time.time() if now is None else now
         with self._transaction():
             job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, png=png,
                                width=width, height=height, render_ms=render_ms, expires_at=now + expires_in, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}")
             self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots in {render_ms} ms")
+            _place(artifacts, job.id)
         return job
 
     def take(self, printer: str, *, now: float | None = None) -> Job | None:

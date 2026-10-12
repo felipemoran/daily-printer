@@ -20,6 +20,7 @@ from aiohttp import web
 
 from access_auth import HEADER, AccessDenied, AccessVerifier
 from device_hub import DeviceHub, bearer_token
+from job_artifacts import ArtifactStore, artifacts_root, job_files
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
@@ -124,6 +125,7 @@ class _Api:
         self.queue = queue
         self.hub = hub
         self.verifier = verifier
+        self.artifacts = ArtifactStore(artifacts_root(config.database))
         self.render_slots = _RenderSlots(RENDER_CONCURRENCY)
         self.web_jobs: dict[str, deque[float]] = {}
         self.started = time.monotonic()
@@ -255,11 +257,21 @@ class _Api:
                 log.exception("rendering a %s job for %s failed", kind, caller.source)
                 raise ApiError(500, "rendering failed on the server") from None
 
-        job = self.queue.add(
-            printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,
-            png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
-            expires_in=expires_in,
-        )
+        now = time.time()
+        files = job_files(kind, rendered, payload=payload, image=image, created_at=now)
+        try:
+            staged = await asyncio.to_thread(self.artifacts.stage, files)
+        except Exception:
+            log.exception("writing the artifacts of a %s job for %s failed", kind, caller.source)
+            raise ApiError(500, "saving the job failed on the server") from None
+        try:
+            job = self.queue.add(
+                printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,
+                png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
+                artifacts=staged, expires_in=expires_in, now=now,
+            )
+        finally:
+            self.artifacts.discard(staged)
         log.info("job %s queued for %s by %s via %s (%d dots tall)", job.id, printer.id, caller.source,
                  caller.ingress, job.height)
         self.hub.notify(printer.id)
@@ -473,6 +485,9 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/server", api.server)
 
     async def start(_: web.Application) -> None:
+        swept = api.artifacts.sweep()
+        if swept:
+            log.info("deleted %d unfinished artifact folders in %s", swept, api.artifacts.root)
         hub.start()
 
     async def stop(_: web.Application) -> None:

@@ -19,8 +19,10 @@ from playwright.sync_api import Error as PlaywrightError, sync_playwright
 from photo_dither import dither, prepare
 from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, to_bitmap
 from printer import DOTS_PER_MM, PRINT_WIDTH_DOTS
-from raster_capture import capture_receipt
-from ticket_templates import TEXT_FEED, TemplateError, check_envelope, open_render_page, render_template, render_text
+from raster_capture import capture_receipt, snapshot_mhtml
+from ticket_templates import (
+    TEXT_FEED, TemplateError, bitmap_from_capture, capture_template, check_envelope, open_render_page, render_text,
+)
 
 KINDS = ("receipt", "image", "template", "text")
 MAX_HEIGHT_DOTS = 500 * DOTS_PER_MM
@@ -57,28 +59,40 @@ class Rendered:
     width: int
     height: int
     render_ms: int
+    screenshot: bytes | None = None
+    mhtml: bytes | None = None
+
+
+@dataclass(frozen=True)
+class _Output:
+    bitmap: Image.Image
+    screenshot: bytes | None = None
+    mhtml: bytes | None = None
+    text: bytes | None = None
 
 
 def render(kind: str, *, payload: dict | None = None, image: bytes | None = None) -> Rendered:
     started = time.perf_counter()
-    text = None
     if kind == "receipt":
-        bitmap = _receipt_bitmap(payload)
+        output = _receipt_render(payload)
     elif kind == "image":
-        bitmap = _image_bitmap(image)
+        output = _Output(_image_bitmap(image))
     elif kind in ("template", "text"):
-        bitmap, text = _template_render(payload, text=kind == "text")
+        output = _template_render(payload, text=kind == "text")
     else:
         raise RenderError(f"unknown kind {kind!r}; expected one of: {', '.join(KINDS)}")
+    bitmap = output.bitmap
     png = io.BytesIO()
     bitmap.save(png, format="PNG")
     return Rendered(
         bitmap=bitmap,
         png=png.getvalue(),
-        escpos=_escpos(bitmap) if text is None else HW_INIT + text + TEXT_FEED,
+        escpos=_escpos(bitmap) if output.text is None else HW_INIT + output.text + TEXT_FEED,
         width=bitmap.width,
         height=bitmap.height,
         render_ms=round((time.perf_counter() - started) * 1000),
+        screenshot=output.screenshot,
+        mhtml=output.mhtml,
     )
 
 
@@ -95,7 +109,7 @@ def _escpos(bitmap: Image.Image) -> bytes:
     return printer.output
 
 
-def _receipt_bitmap(payload: dict | None) -> Image.Image:
+def _receipt_render(payload: dict | None) -> _Output:
     if payload is None:
         raise RenderError("a receipt job needs a payload")
     if not isinstance(payload, dict):
@@ -108,10 +122,11 @@ def _receipt_bitmap(payload: dict | None) -> Image.Image:
         shutil.copytree(DIST_DIR, site)
         (site / "payload.json").write_text(json.dumps(payload), encoding="utf-8")
         screenshot = Path(scratch) / "receipt.png"
+        mhtml = Path(scratch) / "page.mhtml"
         options = capture_options(DEFAULT_PROFILE)
         options["prepare_js"] = join_js(options["prepare_js"], _PROBE_JS)
         try:
-            capture_receipt(site, out_png=screenshot, **options)
+            capture_receipt(site, out_png=screenshot, out_mhtml=mhtml, **options)
         except PlaywrightError as error:
             rejected = re.search(re.escape(_REJECT) + r"(?:height=(\d+)|(.*))", str(error))
             if not rejected:
@@ -121,11 +136,11 @@ def _receipt_bitmap(payload: dict | None) -> Image.Image:
             raise RenderError(rejected[2]) from None
         gray = load_gray(screenshot)
         _check_height("receipt", gray.height)
-        return to_bitmap(gray, DEFAULT_PROFILE)
+        return _Output(to_bitmap(gray, DEFAULT_PROFILE), screenshot.read_bytes(), mhtml.read_bytes())
 
 
-def _template_render(payload: dict | None, *, text: bool) -> tuple[Image.Image, bytes | None]:
-    """The preview bitmap, and the ESC/POS text body when ``text``."""
+def _template_render(payload: dict | None, *, text: bool) -> _Output:
+    """The preview, with the ESC/POS text body when ``text``."""
     try:
         check_envelope(payload)
         with sync_playwright() as playwright:
@@ -133,7 +148,8 @@ def _template_render(payload: dict | None, *, text: bool) -> tuple[Image.Image, 
             try:
                 page = open_render_page(browser)
                 body = render_text(page, payload) if text else None
-                return render_template(page, payload, max_height_dots=MAX_HEIGHT_DOTS), body
+                capture = capture_template(page, payload, max_height_dots=MAX_HEIGHT_DOTS)
+                return _Output(bitmap_from_capture(capture), capture.png, snapshot_mhtml(page), body)
             finally:
                 browser.close()
     except TemplateError as error:

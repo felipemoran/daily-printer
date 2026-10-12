@@ -203,9 +203,9 @@ class TemplateRenderErrorTest(unittest.TestCase):
                         render(kind, payload=payload)
                     playwright.assert_not_called()
 
-    def test_server_fault_from_render_template_stays_a_runtime_error(self):
+    def test_server_fault_from_capture_template_stays_a_runtime_error(self):
         fault = RuntimeError("server fault: render.html has no renderTemplate; rebuild web/dist")
-        with mock.patch.object(render_job, "render_template", side_effect=fault):
+        with mock.patch.object(render_job, "capture_template", side_effect=fault):
             with self.assertRaisesRegex(RuntimeError, "^server fault: "):
                 render("template", payload=TICKET)
 
