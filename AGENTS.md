@@ -110,3 +110,4 @@ docs/setup-usb-macos-troubleshooting.md
 | Images | USB cable only: BLE garbles rasters (`docs/setup-bluetooth-investigation.md`) |
 | Print settings | `src/print_profile.py`; why: `docs/research-print-quality.md` |
 | Design system | `design-system/` mirrors Claude Design; never edit it by hand (`docs/feature-design-system.md`) |
+| Print templates | `web/src/templates/`, one `.tsx` per template; rendered by `src/ticket_templates.py` (`docs/feature-ticket-templates.md`) |

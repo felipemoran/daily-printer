@@ -53,3 +53,12 @@ Port a print as a template and print it with `make template PAYLOAD=<payload.jso
 The whole print profile applies, with one exception: automatic weight skips pages whose `#receipt` has the `rp-paper` class, so the design system's own weights reach the paper.
 
 Glyphs outside the Latin subsets (`→ ▲ ✓ █`) fall back to a system font.
+
+## Issues to fix in Claude Design
+
+The templates found these. Fix them in the artifact, then sync.
+
+- `Tag`: the box is as wide as its text, so its width is fractional.
+- `BarList`: the previous-period bar has a 2px border on each side, so a value of 0 prints a 4px stub.
+- `CellGrid`: the `ticks` row uses `justify-content: space-between`, so ticks land on fractional x.
+- `CellGrid`: legend swatches follow text of fractional width, so they land on fractional x.
