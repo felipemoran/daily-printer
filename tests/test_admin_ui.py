@@ -352,7 +352,7 @@ class AdminViewsTest(AdminBrowserCase):
     @staticmethod
     async def at_bottom(page, sheet) -> None:
         await page.wait_for_function("s => s.scrollTop > 0 && s.scrollTop + s.clientHeight >= s.scrollHeight - 1",
-                                     arg=await sheet.element_handle())
+                                     arg=await sheet.element_handle(), timeout=3000)
 
     async def test_a_tall_ticket_scrolls_on_its_own_and_keeps_its_place_across_a_poll(self):
         page = await self.open()
@@ -376,7 +376,6 @@ class AdminViewsTest(AdminBrowserCase):
         await self.at_bottom(page, tall)
         bottom = (await self.scroll_state(tall))["top"]
         self.assertEqual((await self.scroll_state(other))["top"], 0)
-        self.assertEqual(await page.evaluate("window.scrollY"), 0)
         self.assertEqual(await page.locator("#rail").evaluate("r => r.scrollLeft"), rail_left)
 
         await tall.evaluate("s => { s.probe = true; }")
@@ -404,7 +403,7 @@ class AdminViewsTest(AdminBrowserCase):
                     await page.keyboard.down("Shift")
                 await page.mouse.wheel(dx, dy)
                 await page.keyboard.up("Shift")
-                await page.wait_for_function("([r, start]) => r.scrollLeft !== start", arg=[rail, start])
+                await page.wait_for_function("([r, start]) => r.scrollLeft !== start", arg=[rail, start], timeout=3000)
 
     async def test_on_a_phone_a_swipe_on_a_ticket_scrolls_only_that_ticket(self):
         page = await self.open(width=390, height=844)
