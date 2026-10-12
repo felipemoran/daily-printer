@@ -243,6 +243,20 @@ class SendTest(PrintctlTestCase):
         job = self.job(re.search(r"Queued (\w+) for home", out)[1])
         self.assertEqual(round(job.expires_at - job.created_at), 3600)
 
+    def test_send_template_queues_a_template_job_and_reports_a_bad_template_with_the_server_message(self):
+        sample = _TESTS.parent / "samples" / "templates" / "ticket.json"
+        out = self.ok("send", "template", str(sample), "--printer", "home", "--title", "OPS-2481")
+        job = self.job(re.search(r"Queued (\w+) for home", out)[1])
+        self.assertEqual((job.kind, job.title, job.width), ("template", "OPS-2481", 384))
+
+        unknown = self.tmp / "unknown.json"
+        unknown.write_text(json.dumps({**json.loads(sample.read_text(encoding="utf-8")), "template": "nope"}),
+                           encoding="utf-8")
+        err = self.fails("send", "template", str(unknown), "--printer", "home")
+        self.assertIn('unknown template "nope"', err)
+        self.assertIn("(HTTP 422)", err)
+        self.assertEqual([queued.id for queued in self.server.call(self.server.queue.jobs)], [job.id])
+
     def test_expires_accepts_minutes_hours_and_days_only(self):
         for text, seconds in {"30m": 1800, "2h": 7200, "1d": 86400, "45M": 2700}.items():
             self.assertEqual(printctl.expiry_seconds(text), seconds)

@@ -13,14 +13,15 @@ from pathlib import Path
 
 from escpos.printer import Dummy
 from PIL import ExifTags, Image, UnidentifiedImageError
-from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
 from photo_dither import dither, prepare
 from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, to_bitmap
 from printer import PRINT_WIDTH_DOTS
 from raster_capture import capture_receipt
+from ticket_templates import TemplateError, open_render_page, render_template
 
-KINDS = ("receipt", "image")
+KINDS = ("receipt", "image", "template")
 MAX_HEIGHT_DOTS = 4000  # 50 cm at 8 dots/mm
 MAX_SOURCE_PIXELS = 25_000_000
 DIST_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
@@ -63,6 +64,8 @@ def render(kind: str, *, payload: dict | None = None, image: bytes | None = None
         bitmap = _receipt_bitmap(payload)
     elif kind == "image":
         bitmap = _image_bitmap(image)
+    elif kind == "template":
+        bitmap = _template_bitmap(payload)
     else:
         raise RenderError(f"unknown kind {kind!r}; expected one of: {', '.join(KINDS)}")
     png = io.BytesIO()
@@ -117,6 +120,20 @@ def _receipt_bitmap(payload: dict | None) -> Image.Image:
         gray = load_gray(screenshot)
         _check_height("receipt", gray.height)
         return to_bitmap(gray, DEFAULT_PROFILE)
+
+
+def _template_bitmap(payload: dict | None) -> Image.Image:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            return render_template(open_render_page(browser), payload, max_height_dots=MAX_HEIGHT_DOTS)
+        except TemplateError as error:
+            raise RenderError(str(error)) from None
+        # Playwright serializes the payload recursively; about 900 levels exhaust Python's stack.
+        except RecursionError:
+            raise RenderError("the payload is nested too deeply") from None
+        finally:
+            browser.close()
 
 
 def _image_bitmap(data: bytes | None) -> Image.Image:

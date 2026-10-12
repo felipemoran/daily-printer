@@ -26,7 +26,7 @@ from server_config import ServerConfig
 MAX_BODY_BYTES = 10 * 1024 * 1024
 MAX_EXPIRES_IN = 7 * 86400
 RATE_WINDOW_SECONDS = 600
-# Each receipt render starts a Chromium.
+# Each receipt or template render starts a Chromium.
 RENDER_CONCURRENCY = 2
 MAX_TITLE_LENGTH = 200
 MAX_LIST_LIMIT = 1000
@@ -205,10 +205,10 @@ class _Api:
         if not number or not 1 <= expires_in <= MAX_EXPIRES_IN:
             raise ApiError(400, f"expires_in must be a number of seconds from 1 to {MAX_EXPIRES_IN}")
         payload = image = None
-        if kind == "receipt":
+        if kind in ("receipt", "template"):
             payload = body.get("payload")
             if not isinstance(payload, dict):
-                raise ApiError(400, "a receipt job needs a payload object")
+                raise ApiError(400, f"a {kind} job needs a payload object")
         else:
             encoded = body.get("image")
             if not isinstance(encoded, str) or not encoded:

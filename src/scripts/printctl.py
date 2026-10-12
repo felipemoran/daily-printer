@@ -6,6 +6,7 @@ The admin token comes from env PRINT_ADMIN_TOKEN or --token-file, never from the
 Examples:
   export PRINT_ADMIN_TOKEN=...
   uv run src/scripts/printctl.py send receipt samples/receipt-sample.json --printer home --expires 2h
+  uv run src/scripts/printctl.py send template samples/templates/ticket.json --printer home
   uv run src/scripts/printctl.py jobs --status queued
   uv run src/scripts/printctl.py show 3f9a2c1b
 """
@@ -30,7 +31,7 @@ from typing import TextIO
 DEFAULT_SERVER = "http://127.0.0.1:8787"
 SERVER_ENV = "PRINT_SERVER_URL"
 TOKEN_ENV = "PRINT_ADMIN_TOKEN"
-# A receipt job starts a Chromium on the server, so intake can take a while.
+# A receipt or template job starts a Chromium on the server, so intake can take a while.
 TIMEOUT_SECONDS = 120
 EXPIRY_UNITS = {"m": 60, "h": 3600, "d": 86400}
 # The server refuses bodies over 10 MB; base64 adds a third, and the JSON around it needs a little room.
@@ -231,9 +232,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--token-file", type=Path, metavar="PATH", help=f"a file with the admin token (default: ${TOKEN_ENV})")
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
-    send = commands.add_parser("send", help="send a receipt or an image to a printer")
-    send.add_argument("kind", choices=["receipt", "image"])
-    send.add_argument("file", type=Path, help="receipt JSON payload, or an image file")
+    send = commands.add_parser("send", help="send a receipt, a template or an image to a printer")
+    send.add_argument("kind", choices=["receipt", "template", "image"])
+    send.add_argument("file", type=Path, help="receipt or template JSON payload, or an image file")
     send.add_argument("--printer", required=True, help="printer id")
     send.add_argument("--title", default="", help="a short label for the job list")
     send.add_argument("--expires", type=expiry_seconds, metavar="DURATION",
@@ -313,13 +314,13 @@ def cmd_send(args, client: Client, out: TextIO, style: Style) -> None:
     body = {"printer": args.printer, "kind": args.kind, "title": args.title}
     if args.expires is not None:
         body["expires_in"] = args.expires
-    if args.kind == "receipt":
+    if args.kind in ("receipt", "template"):
         try:
             payload = json.loads(content)
         except ValueError as error:
             raise Failure(f"{args.file} is not valid JSON: {error}") from None
         if not isinstance(payload, dict):
-            raise Failure(f"{args.file} must hold a JSON object, the receipt payload")
+            raise Failure(f"{args.file} must hold a JSON object, the {args.kind} payload")
         body["payload"] = payload
     else:
         if len(content) > MAX_IMAGE_BYTES:

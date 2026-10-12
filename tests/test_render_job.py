@@ -21,6 +21,8 @@ from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, RenderError, escpos_f
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 SAMPLE_TASK = next(block for block in SAMPLE_PAYLOAD["blocks"] if block["type"] == "task")
+TEMPLATE_SAMPLES = sorted((_ROOT / "samples" / "templates").glob("*.json"))
+TICKET = json.loads((_ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
 # A Chromium launch plus a rejected render; far below the 30 s screenshot wait.
 FAST_REJECT_SECONDS = 10
 
@@ -42,6 +44,13 @@ def _photo(size: tuple[int, int], mode: str, fmt: str, *, exif: Image.Exif | Non
     out = io.BytesIO()
     picture.save(out, format=fmt, **({"exif": exif} if exif else {}))
     return out.getvalue()
+
+
+def _nested(depth: int) -> dict:
+    node: dict = {}
+    for _ in range(depth):
+        node = {"x": node}
+    return node
 
 
 def _rotated_exif() -> Image.Exif:
@@ -87,6 +96,49 @@ class ReceiptRenderTest(RenderInvariants, unittest.TestCase):
 
     def test_receipt_is_taller_than_one_line(self):
         self.assertGreater(self.rendered.height, 200)
+
+
+class TicketTemplateRenderTest(RenderInvariants, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rendered = render("template", payload=TICKET)
+
+
+class TemplateSamplesTest(unittest.TestCase):
+    def test_every_template_sample_prints_exactly_its_bitmap_at_print_width(self):
+        self.assertGreater(len(TEMPLATE_SAMPLES), 1)
+        for path in TEMPLATE_SAMPLES:
+            with self.subTest(path.stem):
+                rendered = render("template", payload=json.loads(path.read_text(encoding="utf-8")))
+                self.assertEqual((rendered.bitmap.mode, rendered.width), ("1", PRINT_WIDTH_DOTS))
+                self.assertGreater(rendered.height, 0)
+                paper = decode(rendered.escpos)
+                self.assertEqual(paper.size, rendered.bitmap.size)
+                self.assertIsNone(ImageChops.difference(paper.convert("L"), rendered.bitmap.convert("L")).getbbox())
+
+
+class TemplateRenderErrorTest(unittest.TestCase):
+    def test_unknown_template_is_a_render_error_naming_it(self):
+        with self.assertRaisesRegex(RenderError, 'unknown template "nope"'):
+            render("template", payload={**TICKET, "template": "nope"})
+
+    def test_invalid_field_is_a_render_error_naming_the_field_path(self):
+        with self.assertRaisesRegex(RenderError, r"^data\.titel: unknown field$"):
+            render("template", payload={**TICKET, "data": {**TICKET["data"], "titel": "typo"}})
+
+    def test_payload_that_is_not_an_object_is_a_render_error(self):
+        with self.assertRaisesRegex(RenderError, "^payload: expected object$"):
+            render("template", payload=["not", "an", "object"])
+
+    def test_payload_nested_900_deep_is_a_render_error_not_a_recursion_error(self):
+        with self.assertRaisesRegex(RenderError, "^the payload is nested too deeply$"):
+            render("template", payload={**TICKET, "data": {**TICKET["data"], "deep": _nested(900)}})
+
+    def test_render_taller_than_the_server_cap_is_a_render_error(self):
+        # The ticket sample is far shorter than 4000 dots, so the test lowers the cap below it.
+        with mock.patch.object(render_job, "MAX_HEIGHT_DOTS", 100):
+            with self.assertRaisesRegex(RenderError, "dots long; the limit is 100$"):
+                render("template", payload=TICKET)
 
 
 class JpegPhotoRenderTest(RenderInvariants, unittest.TestCase):
@@ -230,6 +282,11 @@ class RenderErrorTest(unittest.TestCase):
 
     def test_receipt_payload_that_is_not_an_object_is_a_render_error(self):
         self.assertRenderError("receipt", payload=["not", "an", "object"])
+
+    def test_receipt_payload_nested_900_deep_is_not_a_server_fault(self):
+        # The receipt payload reaches the page as a file, so deep nesting never meets Playwright's serializer.
+        rendered = render("receipt", payload={**SAMPLE_PAYLOAD, "deep": _nested(900)})
+        self.assertEqual(rendered.width, PRINT_WIDTH_DOTS)
 
     def test_receipt_payload_the_app_rejects_is_a_render_error_with_the_app_message(self):
         with self.assertRaisesRegex(RenderError, "schemaVersion 999 \\(expected 2\\)"):

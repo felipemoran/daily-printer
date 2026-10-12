@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import io
+import json
 import re
 import shutil
 import signal
@@ -38,6 +39,7 @@ from test_http_api import (  # noqa: E402
 
 TIMEOUT = 30
 SCRIPT = _TESTS.parent / "src" / "scripts" / "print_server.py"
+TICKET = json.loads((_TESTS.parent / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
 
 
 class RecordingSink(FakeSink):
@@ -158,6 +160,24 @@ class EndToEndTest(ServerTestCase):
         for printer in body["printers"]:
             self.assertEqual((printer["online"], printer["printed_today"], printer["queued"]), (True, 1, 0))
             self.assertEqual(printer["client_version"], "python/1")
+        self.assertAllEventsMatchStatus()
+
+    async def test_a_template_job_prints_pixel_for_pixel_and_a_bad_one_is_refused_with_422(self):
+        _, home = self.start_device(HOME_TOKEN, "home")
+        await self.until(lambda: self.hub.online("home"))
+
+        job_id = await self.submit("home", kind="template", title="OPS-2481", payload=TICKET)
+        await self.until(lambda: self.status(job_id) == "printed")
+        self.assertPrintedExactly(job_id, home)
+        self.assertEqual(self.queue.job(job_id).kind, "template")
+        self.assertEqual(self.queue.job(job_id).width, 384)
+
+        status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body={
+            "printer": "home", "kind": "template", "payload": {**TICKET, "template": "nope"}})
+        self.assertEqual(status, 422, body)
+        self.assertIn('unknown template "nope"', str(body))
+        self.assertEqual([job.id for job in self.queue.jobs()], [job_id])
+        self.assertEqual(home.printed, [job_id])
         self.assertAllEventsMatchStatus()
 
     async def test_a_restart_mid_job_delivers_the_job_again_as_a_duplicate(self):
