@@ -38,3 +38,5 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T06:18:15+00:00: decided web sender rate limit 10 jobs per email per 10 min, body limit 10 MB, rendered PNG kept 30 days — easy to change
 - 2026-10-12T06:29:12+00:00: decided reprint records the requesting admin as source and refuses a queued/sending original (409) — easy to change
 - 2026-10-12T06:29:12+00:00: decided admin UI auth = Cloudflare Access + admin_emails allowlist in config; CLI keeps admin token — easy to change
+- 2026-10-12T07:00:40+00:00: decided after a device error or reply timeout, pause delivery to that printer 60 s (job stays queued, expiry applies) so out-of-paper does not burn 3 attempts in seconds — easy to change
+- 2026-10-12T07:00:40+00:00: decided server closes a device connection silent for 60 s; protocol violations release the job and close the connection; title <= 200 chars; expires_in <= 7 days — easy to change

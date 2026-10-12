@@ -32,3 +32,4 @@ Operator request: merge the parallel design-system stream into this branch so th
 ## Decisions
 
 - 2026-10-12T06:38:10+00:00: Agreed with design-system session: src/ticket_templates.py — open_render_page(browser)->Page, render_template(page, payload, *, max_height_dots=4000)->Image('1',384w), TemplateError(ValueError), template_names(). Server adds kind 'template'. Text-mode 1h stays raster; native text (render_text -> bytes) is a later operator decision. Keep 'receipt' kind until operator decides Tasks template replaces it.
+- 2026-10-12T06:47:00+00:00: Operator approved (via design-system session): native text kind 'text' later — render_text(payload)->body bytes only (I add INIT + ln(3)); preview/paper_mm from render_template of the same payload. Operator wants receipt kind kept alongside the Tasks template.
