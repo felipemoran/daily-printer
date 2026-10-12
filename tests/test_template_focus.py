@@ -1,9 +1,10 @@
 import copy
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+from tests.web_build import build_web
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -11,7 +12,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from ticket_templates import TemplateError, open_render_page, render_template  # noqa: E402
 
 FOCUS = json.loads((ROOT / "samples" / "templates" / "focus.json").read_text(encoding="utf-8"))
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 
 # The title is the first display element; the stub date comes after it.
 _TITLE_JS = """
@@ -38,8 +38,7 @@ _OVERFLOW_JS = """
 
 
 def setUpModule():
-    if HAS_WEB:
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+    build_web()
 
 
 def focus(**data):
@@ -50,7 +49,6 @@ def focus(**data):
     return payload
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class FocusTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

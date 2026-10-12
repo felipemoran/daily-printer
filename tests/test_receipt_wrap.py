@@ -1,13 +1,13 @@
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
 
+from tests.web_build import build_web
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 SAMPLE = json.loads((ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 EMAIL = "wwwwwwwwwwwwwwwwww@mmmmmmmmmmmmmmmmm.com"
 NO_WRAP = "#receipt, #receipt * { overflow-wrap: normal !important; }"
@@ -26,11 +26,9 @@ BOXES = """() => [...document.querySelectorAll('#receipt *')].map((el) => {
 
 
 def setUpModule():
-    if HAS_WEB:
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+    build_web()
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class ReceiptWrapTest(unittest.TestCase):
     def render(self, payload, css=None):
         from playwright.sync_api import sync_playwright

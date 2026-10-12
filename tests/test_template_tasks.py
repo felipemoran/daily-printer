@@ -3,6 +3,8 @@ import unittest
 from datetime import date, datetime
 from pathlib import Path
 
+from tests.web_build import build_web
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -11,7 +13,6 @@ from todoist_api_python.models import Due, Task  # noqa: E402
 from tasks_template import META_MAX, TASKS_MAX, TITLE_MAX, tasks_payload  # noqa: E402
 from todoist_client import TaskSections  # noqa: E402
 
-HAS_DIST = (ROOT / "web" / "dist" / "render.html").is_file()
 NOW = datetime(2026, 10, 12, 7, 30).astimezone()
 URL = "https://example.com/" + "a" * 200
 
@@ -77,10 +78,10 @@ class MappingTest(unittest.TestCase):
         self.assertEqual(data["more"], 1)
 
 
-@unittest.skipUnless(HAS_DIST, "needs web/dist: make web-build")
 class RenderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        build_web()
         from playwright.sync_api import sync_playwright
 
         from ticket_templates import open_render_page

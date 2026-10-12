@@ -1,9 +1,10 @@
 import copy
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+from tests.web_build import build_web
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -12,8 +13,6 @@ from ticket_templates import TemplateError, open_render_page, render_template  #
 
 SAMPLES = ROOT / "samples" / "templates"
 INCIDENT = json.loads((SAMPLES / "incident.json").read_text(encoding="utf-8"))
-TICKET = json.loads((SAMPLES / "ticket.json").read_text(encoding="utf-8"))
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 
 # Every field at its limit, in the widest glyph.
 WIDEST = {
@@ -31,8 +30,7 @@ OVERFLOW_JS = """() => {
 
 
 def setUpModule():
-    if HAS_WEB:
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+    build_web()
 
 
 def with_data(sample, **data):
@@ -41,7 +39,6 @@ def with_data(sample, **data):
     return payload
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class IncidentTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -57,17 +54,12 @@ class IncidentTest(unittest.TestCase):
         cls.playwright.stop()
 
     def test_blank_required_text_is_refused(self):
-        for sample, field, value in (
-            (INCIDENT, "severity", ""), (INCIDENT, "id", "#"), (INCIDENT, "ackBy", "  "),
-            (TICKET, "id", ""), (TICKET, "title", " "),
-        ):
+        for sample, field, value in ((INCIDENT, "severity", ""), (INCIDENT, "id", "#"), (INCIDENT, "ackBy", "  ")):
             with self.subTest(template=sample["template"], field=field), \
                     self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
                 render_template(self.page, with_data(sample, **{field: value}))
         with self.assertRaisesRegex(TemplateError, r"^data\.log\[0\]\.text: expected non-blank text$"):
             render_template(self.page, with_data(INCIDENT, log=[{"time": "13:52", "text": ""}]))
-        with self.assertRaisesRegex(TemplateError, r"^data\.status\.to: expected non-blank text$"):
-            render_template(self.page, with_data(TICKET, status={"from": "OPEN", "to": ""}))
 
     def test_sender_hash_is_not_doubled(self):
         bare = render_template(self.page, INCIDENT).tobytes()

@@ -9,6 +9,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from tests.web_build import build_web
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -16,7 +18,6 @@ from ticket_templates import TemplateError, check_envelope, open_render_page, re
 
 SAMPLES = sorted((ROOT / "samples" / "templates").glob("*.json"))
 TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
 NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
 SERVER_FAULT = "() => { throw Object.assign(new Error('database down'), { name: 'ServerFault' }); }"
@@ -30,11 +31,6 @@ KEEPS_GROWING = """() => {
   }, [height]);
   return window.React.createElement('div', { style: { height } });
 }"""
-
-
-def setUpModule():
-    if HAS_WEB:
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
 
 
 def ticket(**data):
@@ -76,10 +72,10 @@ class EnvelopeTest(unittest.TestCase):
             render_template(None, {"template": "nope", "schemaVersion": 1, "data": {}})
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class RenderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        build_web()
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
@@ -140,6 +136,14 @@ class RenderTest(unittest.TestCase):
                                    r"^data\.fields: expected at most 10 items$")
         self.assert_template_error(ticket(qr={"text": "https://x.io/a\u2192b"}),
                                    r"^data\.qr\.text: expected ASCII \(percent-encode the URL\)$")
+
+    def test_blank_required_text_is_refused(self):
+        for field, value in (("id", ""), ("title", " ")):
+            with self.subTest(field=field), \
+                    self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
+                render_template(self.page, ticket(**{field: value}))
+        with self.assertRaisesRegex(TemplateError, r"^data\.status\.to: expected non-blank text$"):
+            render_template(self.page, ticket(status={"from": "OPEN", "to": ""}))
 
     def test_component_that_throws_is_caught_by_the_error_boundary(self):
         with self.failing_transition():
@@ -336,9 +340,12 @@ class RenderTest(unittest.TestCase):
             page.evaluate("(original) => { window.Thermal.Transition = original; }", transition)
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class CliTest(unittest.TestCase):
     """print_template.py reports sender errors as one line, without a traceback."""
+
+    @classmethod
+    def setUpClass(cls):
+        build_web()
 
     def run_cli(self, payload, artifact_dir, *flags):
         path = Path(artifact_dir) / "payload.json"

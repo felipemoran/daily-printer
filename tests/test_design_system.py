@@ -1,9 +1,10 @@
 import importlib.util
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+from tests.web_build import build_web
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -63,13 +64,12 @@ class TokensCssTest(unittest.TestCase):
             sync.check_namespace('/* @ds-bundle: {"format":4,"namespace":"Other","components":[]} */')
 
 
-@unittest.skipUnless((ROOT / "web" / "node_modules").is_dir(), "needs web dependencies: make setup-web")
 class ThermalPagesTest(unittest.TestCase):
     """Pages built on the design system render through the print pipeline intact."""
 
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+        build_web()
 
     def test_ticket_template_renders_with_self_hosted_fonts_and_its_own_weights(self):
         from playwright.sync_api import sync_playwright

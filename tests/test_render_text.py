@@ -1,7 +1,8 @@
-import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+from tests.web_build import build_web
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -10,7 +11,6 @@ sys.path.insert(0, str(ROOT / "tests"))
 from test_template_build import DOM_LINES, SAMPLE, WORST, build  # noqa: E402
 from ticket_templates import TemplateError, open_render_page, render_template, render_text  # noqa: E402
 
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 START = b"\x1c." + b"\x1b3\x18" + b"\x1bt\x00"
 END = b"\x1b2"
 WRAPPERS = {"reverse": (b"\x1dB\x01", b"\x1dB\x00"), "double": (b"\x1d!\x11", b"\x1d!\x00")}
@@ -19,8 +19,7 @@ TEMPLATE_LINES = "(payload) => window.templateLines(payload)"
 
 
 def setUpModule():
-    if HAS_WEB:
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+    build_web()
 
 
 def decode(body: bytes):
@@ -39,7 +38,6 @@ def decode(body: bytes):
     return lines
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
 class RenderTextTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
