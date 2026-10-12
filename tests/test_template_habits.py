@@ -120,9 +120,9 @@ class HabitsTest(unittest.TestCase):
             (habits(), r"^data\.habits: expected at least 1 item$"),
             (habits(month=" "), r"^data\.month: expected non-blank text$"),
             (habits((" ", "1" * 30)), r"^data\.habits\[0\]\.name: expected non-blank text$"),
-            (habits(change={"points": 1, "vs": ""}), r"^data\.change\.vs: expected non-blank text$"),
-            (habits(change={"points": 1.5, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
-            (habits(change={"points": 101, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
+            (habits(("A", "1" * 30), change={"points": 1, "vs": ""}), r"^data\.change\.vs: expected non-blank text$"),
+            (habits(("A", "1" * 30), change={"points": 1.5, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
+            (habits(("A", "1" * 30), change={"points": 101, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, payload)

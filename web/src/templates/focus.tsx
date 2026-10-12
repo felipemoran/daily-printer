@@ -2,27 +2,16 @@
 import { use } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { limitedString, number, object, optional, TemplateDataError, type Parser } from './validate'
-
-const count = (min: number, max: number): Parser<number> => (value, path) => {
-  const n = number(value, path)
-  if (!Number.isInteger(n) || n < min || n > max) throw new TemplateDataError(`${path}: expected an integer from ${min} to ${max}`)
-  return n
-}
-
-const text = (max: number): Parser<string> => (value, path) => {
-  const s = limitedString(max)(value, path)
-  if (!s.trim()) throw new TemplateDataError(`${path}: expected non-empty text`)
-  return s
-}
+import { serverFault } from './faults'
+import { integer, object, optional, text } from './validate'
 
 const parse = object({
   id: optional(text(12)),
   title: text(60),
   startedAt: optional(text(10)),
   estimate: optional(text(10)),
-  pomodoros: optional(count(1, 12)),
-  noteLines: optional(count(1, 8)),
+  pomodoros: optional(integer(1, 12)),
+  noteLines: optional(integer(1, 8)),
   date: text(6),
 })
 
@@ -39,7 +28,7 @@ let facesLoading: Promise<void> | undefined
 const facesLoaded = () =>
   (facesLoading ??= Promise.all(FACES.map((face) => document.fonts.load(face))).then((loaded) => {
     const missing = FACES.filter((_, index) => !loaded[index].length)
-    if (missing.length) throw new Error(`fonts did not load: ${missing.join(', ')}`)
+    if (missing.length) throw serverFault(`font ${missing.join(', ')} did not load`)
   }))
 
 // Synchronous, so the committed layout is the measured one: no effect resizes the title later.

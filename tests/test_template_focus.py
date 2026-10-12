@@ -147,13 +147,13 @@ class FocusTest(unittest.TestCase):
 
     def test_bad_data_is_refused(self):
         for data, pattern in (
-            ({"pomodoros": 13}, r"data\.pomodoros: expected an integer from 1 to 12"),
-            ({"pomodoros": 0}, r"data\.pomodoros: expected an integer from 1 to 12"),
-            ({"pomodoros": 2.5}, r"data\.pomodoros: expected an integer from 1 to 12"),
-            ({"noteLines": 9}, r"data\.noteLines: expected an integer from 1 to 8"),
+            ({"pomodoros": 13}, r"data\.pomodoros: expected a whole number from 1 to 12"),
+            ({"pomodoros": 0}, r"data\.pomodoros: expected a whole number from 1 to 12"),
+            ({"pomodoros": 2.5}, r"data\.pomodoros: expected a whole number from 1 to 12"),
+            ({"noteLines": 9}, r"data\.noteLines: expected a whole number from 1 to 8"),
             ({"id": "W" * 13}, r"data\.id: expected at most 12 characters"),
             ({"title": "W" * 61}, r"data\.title: expected at most 60 characters"),
-            ({"title": "  "}, r"data\.title: expected non-empty text"),
+            ({"title": "  "}, r"data\.title: expected non-blank text"),
             ({"date": "01.10.26"}, r"data\.date: expected at most 6 characters"),
             ({"startedAt": "W" * 11}, r"data\.startedAt: expected at most 10 characters"),
             ({"done": True}, r"data\.done: unknown field"),

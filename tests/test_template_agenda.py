@@ -254,8 +254,8 @@ class AgendaTest(unittest.TestCase):
             (agenda(events=[event("09:00", "09:30")] * 13), r"^data\.events: expected at most 12 items$"),
             (agenda(dayStart=8, dayEnd=8), r"^data\.dayEnd: expected an hour after dayStart, at most 14 hours later$"),
             (agenda(dayStart=6, dayEnd=21), r"^data\.dayEnd: expected an hour after dayStart, at most 14 hours later$"),
-            (agenda(dayStart=8.5), r"^data\.dayStart: expected a whole hour from 0 to 23$"),
-            (agenda(dayEnd=25), r"^data\.dayEnd: expected a whole hour from 1 to 24$"),
+            (agenda(dayStart=8.5), r"^data\.dayStart: expected a whole number from 0 to 23$"),
+            (agenda(dayEnd=25), r"^data\.dayEnd: expected a whole number from 1 to 24$"),
         )
         for payload, pattern in cases:
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):

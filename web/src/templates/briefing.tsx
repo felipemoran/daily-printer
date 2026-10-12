@@ -1,18 +1,9 @@
 // Strip 1l of designs/receipt-set-1, on the "Morning briefing" pattern in design-system/README.md.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, number, object, optional, TemplateDataError, type Parser } from './validate'
-
-const integer = (min: number, max: number): Parser<number> => (value, path) => {
-  const result = number(value, path)
-  if (!Number.isInteger(result) || result < min || result > max) {
-    throw new TemplateDataError(`${path}: expected an integer from ${min} to ${max}`)
-  }
-  return result
-}
+import { array, integer, object, optional, text } from './validate'
 
 // Bounds keep every value inside its fixed-width cell: tests/test_template_briefing.py measures the extremes.
-const text = (max: number) => nonBlank(limitedString(max))
 const temperature = integer(-99, 199)
 const count = integer(0, 999)
 

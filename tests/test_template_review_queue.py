@@ -119,8 +119,8 @@ class ReviewQueueTest(unittest.TestCase):
             ([pr(title="x" * 65)], r"^data\.prs\[0\]\.title: expected at most 64 characters$"),
             ([pr(area="x" * 11)], r"^data\.prs\[0\]\.area: expected at most 10 characters$"),
             ([pr(number=10**12)], r"^data\.prs\[0\]\.number: expected a whole number from 0 to 999999999999$"),
-            ([pr(removed="4")], r"^data\.prs\[0\]\.removed: expected number$"),
-            ([pr(number=None)], r"^data\.prs\[0\]\.number: expected number$"),
+            ([pr(removed="4")], r"^data\.prs\[0\]\.removed: expected a whole number from 0 to 999999$"),
+            ([pr(number=None)], r"^data\.prs\[0\]\.number: expected a whole number from 0 to 999999999999$"),
             ([pr()] * 21, r"^data\.prs: expected at most 20 items$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):

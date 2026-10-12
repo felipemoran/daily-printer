@@ -1,9 +1,7 @@
 // Strip 1d of designs/receipt-set-1, on design-system/components/IncidentTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, object, optional, string, type Parser } from './validate'
-
-const text = (max: number) => nonBlank(limitedString(max))
+import { array, limitedString, object, optional, string, text, type Parser } from './validate'
 
 // The template prints the '#'; a sender's own '#' would print twice.
 const incidentId: Parser<string> = (value, path) => text(24)(string(value, path).replace(/^#/, ''), path)

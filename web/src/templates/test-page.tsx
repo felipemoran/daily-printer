@@ -1,11 +1,11 @@
 // Strip 1a of designs/receipt-set-1: a calibration print of the design system's strokes, tones and type.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { limitedString, nonBlank, object, optional } from './validate'
+import { object, optional, text } from './validate'
 
 const parse = object({
-  printer: optional(nonBlank(limitedString(24))),
-  printedAt: optional(nonBlank(limitedString(16))),
+  printer: optional(text(24)),
+  printedAt: optional(text(16)),
 })
 
 const ROW_HEIGHT = 36

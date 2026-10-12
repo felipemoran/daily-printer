@@ -1,7 +1,7 @@
 // Strip 1m of designs/receipt-set-1: #1 as the hero, the rest as bars against a printed quota line.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, number, object, TemplateDataError, type Parser } from './validate'
+import { array, number, object, TemplateDataError, text, type Parser } from './validate'
 
 const MAX_PEOPLE = 10
 const MAX_PCT = 1000
@@ -18,8 +18,6 @@ const QUOTA_X = LABEL_WIDTH + 12 + QUOTA_PX
 const fraction = (pct: number) => Math.min(pct >= 100 ? 1 : (QUOTA_PX - 1) / TRACK, (pct * 3) / 400)
 const QUOTA_LABEL_WIDTH = 60
 
-const amount = (max: number) => nonBlank(limitedString(max))
-
 const percent: Parser<number> = (value, path) => {
   const result = number(value, path)
   if (!(result >= 0 && result <= MAX_PCT)) throw new TemplateDataError(`${path}: expected a number from 0 to ${MAX_PCT}`)
@@ -27,17 +25,11 @@ const percent: Parser<number> = (value, path) => {
   return result + 0
 }
 
-const people: Parser<{ name: string; amount: string; pct: number }[]> = (value, path) => {
-  const result = array(object({ name: nonBlank(limitedString(24)), amount: amount(5), pct: percent }), MAX_PEOPLE)(value, path)
-  if (result.length === 0) throw new TemplateDataError(`${path}: expected at least 1 item`)
-  return result
-}
-
 const parse = object({
-  title: nonBlank(limitedString(24)),
-  status: nonBlank(limitedString(12)),
-  people,
-  total: object({ amount: amount(8), pct: percent }),
+  title: text(24),
+  status: text(12),
+  people: array(object({ name: text(24), amount: text(5), pct: percent }), MAX_PEOPLE, { min: 1 }),
+  total: object({ amount: text(8), pct: percent }),
 })
 
 // Floored: 99.6 must not claim the quota.

@@ -1,7 +1,7 @@
 // Strip 1j of designs/receipt-set-1: a month of habits, one CellGrid row per habit.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, object, optional, TemplateDataError, type Parser } from './validate'
+import { array, integer, limitedString, object, optional, TemplateDataError, text, type Parser } from './validate'
 
 const wrap = { overflowWrap: 'anywhere', minWidth: 0 } as const
 
@@ -12,24 +12,16 @@ const days: Parser<string> = (value, path) => {
   return text
 }
 
-const points: Parser<number> = (value, path) => {
-  if (!Number.isInteger(value) || Math.abs(value as number) > 100) {
-    throw new TemplateDataError(`${path}: expected a whole number from -100 to 100`)
-  }
-  return value as number
-}
-
 const fields = object({
-  month: nonBlank(limitedString(12)),
-  habits: array(object({ name: nonBlank(limitedString(32)), days }), 8),
-  change: optional(object({ points, vs: nonBlank(limitedString(10)) })),
+  month: text(12),
+  habits: array(object({ name: text(32), days }), 8, { min: 1 }),
+  change: optional(object({ points: integer(-100, 100), vs: text(10) })),
 })
 
 type Data = ReturnType<typeof fields>
 
 const parse: Parser<Data> = (value, path) => {
   const data = fields(value, path)
-  if (data.habits.length === 0) throw new TemplateDataError(`${path}.habits: expected at least 1 item`)
   const length = data.habits[0].days.length
   data.habits.forEach(({ days }, index) => {
     if (days.length !== length) {

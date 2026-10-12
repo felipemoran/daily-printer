@@ -2,7 +2,7 @@
 import T from '../thermal'
 import type { CellState } from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, number, object, optional, TemplateDataError, type Parser } from './validate'
+import { array, nonBlank, number, object, optional, TemplateDataError, text, type Parser } from './validate'
 
 // 51 + 24 * 11 + 23 * 3 = 384: the grid fills the paper on whole pixels.
 const LABEL_WIDTH = 51
@@ -36,17 +36,11 @@ const dayLabel: Parser<string> = (value, path) => {
 // Truncate, never round: 99.999 must not print as fully up. Math.floor(pct * 100) misreads 1.13 as 1.12.
 const percentText = (pct: number) => `${pct.toFixed(10).slice(0, -8)}%`
 
-const days: Parser<{ label: string; hours: CellState[] }[]> = (value, path) => {
-  const result = array(object({ label: nonBlank(dayLabel), hours }), 7)(value, path)
-  if (result.length === 0) throw new TemplateDataError(`${path}: expected at least 1 item`)
-  return result
-}
-
 const parse = object({
-  service: nonBlank(limitedString(60)),
+  service: text(60),
   uptimePct: percent,
-  days,
-  incidents: optional(array(object({ when: nonBlank(limitedString(9)), text: nonBlank(limitedString(80)) }), 6)),
+  days: array(object({ label: nonBlank(dayLabel), hours }), 7, { min: 1 }),
+  incidents: optional(array(object({ when: text(9), text: text(80) }), 6)),
 })
 
 const wrap = { overflowWrap: 'anywhere' } as const

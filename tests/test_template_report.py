@@ -143,7 +143,7 @@ class ReportTest(unittest.TestCase):
             ({"channels": [{"label": "A", "value": 1, "prev": 1}] * 9}, r"^data\.channels: expected at most 8 items$"),
             ({"kpis": [{"label": "A", "value": "1"}] * 5}, r"^data\.kpis: expected at most 4 items$"),
             ({"kpis": [{"label": "A", "value": "1234567"}]}, r"^data\.kpis\[0\]\.value: expected at most 6 characters$"),
-            ({"week": 54}, r"^data\.week: expected an integer from 1 to 53$"),
+            ({"week": 54}, r"^data\.week: expected a whole number from 1 to 53$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, report(**data))

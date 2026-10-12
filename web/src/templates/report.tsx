@@ -1,7 +1,7 @@
 // Strip 1e of designs/receipt-set-1, on design-system/components/ReportTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, boolean, limitedString, number, object, optional, string, TemplateDataError, type Parser } from './validate'
+import { array, boolean, integer, limitedString, number, object, optional, string, TemplateDataError, type Parser } from './validate'
 
 // Up to 1e12 every amount fits in 4 characters, as compact notation at worst ("1T").
 const MAX_AMOUNT = 1e12
@@ -13,14 +13,8 @@ const amount: Parser<number> = (value, path) => {
   return parsed + 0
 }
 
-const week: Parser<number> = (value, path) => {
-  const parsed = number(value, path)
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 53) throw new TemplateDataError(`${path}: expected an integer from 1 to 53`)
-  return parsed
-}
-
 const parse = object({
-  week,
+  week: integer(1, 53),
   range: string,
   title: string,
   kpis: array(object({ label: string, value: limitedString(6), note: optional(string), inverted: optional(boolean) }), 4),

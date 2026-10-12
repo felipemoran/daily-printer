@@ -39,10 +39,6 @@ SECTIONS = TaskSections(
 )
 
 
-def utf16_units(text):
-    return len(text.encode("utf-16-le")) // 2
-
-
 class MappingTest(unittest.TestCase):
     def test_maps_today_and_overdue(self):
         self.assertEqual(tasks_payload(SECTIONS, NOW), {
@@ -66,12 +62,14 @@ class MappingTest(unittest.TestCase):
     def test_no_tasks(self):
         self.assertEqual(tasks_payload(TaskSections(), NOW)["data"]["tasks"], [])
 
-    def test_clips_by_utf16_units(self):
-        # Each emoji is one code point but two UTF-16 units, as the template counts them.
-        row = tasks_payload(TaskSections(today=[task("🔥" * 100, labels=["🏷️" * 50])]), NOW)["data"]["tasks"][0]
-        self.assertLessEqual(utf16_units(row["title"]), TITLE_MAX)
-        self.assertLessEqual(utf16_units(row["meta"]), META_MAX)
-        self.assertTrue(row["title"].endswith("🔥…"))
+    def test_clips_by_code_points(self):
+        # The template counts code points: an emoji is one, though it takes two UTF-16 units.
+        row = tasks_payload(TaskSections(today=[task("🔥" * 200, labels=["🏷️" * 50])]), NOW)["data"]["tasks"][0]
+        self.assertEqual(row["title"], "🔥" * (TITLE_MAX - 1) + "…")
+        self.assertEqual(len(row["meta"]), META_MAX)
+        self.assertTrue(row["meta"].endswith("…"))
+        exact = tasks_payload(TaskSections(today=[task("🔥" * TITLE_MAX)]), NOW)["data"]["tasks"][0]
+        self.assertEqual(exact["title"], "🔥" * TITLE_MAX)
 
     def test_caps_tasks_and_counts_the_rest(self):
         data = tasks_payload(TaskSections(today=[task(f"t{n}") for n in range(TASKS_MAX + 1)]), NOW)["data"]

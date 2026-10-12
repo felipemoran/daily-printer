@@ -2,7 +2,8 @@
 import { use } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, nonBlank, number, object, optional, string, TemplateDataError, type Parser } from './validate'
+import { serverFault } from './faults'
+import { array, integer, object, optional, string, TemplateDataError, text, type Parser } from './validate'
 
 const HOUR = 56
 const MAX_HOURS = 14
@@ -26,17 +27,12 @@ const fail = (path: string, message: string): never => {
   throw new TemplateDataError(`${path}: ${message}`)
 }
 
-const integer = (min: number, max: number): Parser<number> => (value, path) => {
-  const result = number(value, path)
-  return Number.isInteger(result) && result >= min && result <= max ? result : fail(path, `expected a whole hour from ${min} to ${max}`)
-}
-
 // Minutes since midnight. 24:00 is accepted only where a day can end.
 const time = (allowMidnight: boolean): Parser<number> => (value, path) => {
-  const text = string(value, path)
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(text)
+  const clockText = string(value, path)
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(clockText)
   if (match) return Number(match[1]) * 60 + Number(match[2])
-  if (allowMidnight && text === '24:00') return 24 * 60
+  if (allowMidnight && clockText === '24:00') return 24 * 60
   return fail(path, `expected a time HH:MM from 00:00 to ${allowMidnight ? '24:00' : '23:59'}`)
 }
 
@@ -44,11 +40,11 @@ const kind: Parser<Kind> = (value, path) =>
   value === 'meeting' || value === 'focus' ? value : fail(path, 'expected "meeting" or "focus"')
 
 const shape = object({
-  date: nonBlank(limitedString(12)),
+  date: text(12),
   dayStart: integer(0, 23),
   dayEnd: integer(1, 24),
   now: optional(time(false)),
-  events: array(object({ start: time(false), end: time(true), title: nonBlank(limitedString(60)), kind }), 12),
+  events: array(object({ start: time(false), end: time(true), title: text(60), kind }), 12),
 })
 
 interface Event { start: number; end: number; title: string; kind: Kind; lane: 0 | 1; shared: boolean }
@@ -111,7 +107,7 @@ const duration = (minutes: number) => {
 let plexMono: Promise<void> | undefined
 const plexMonoLoaded = () =>
   (plexMono ??= document.fonts.load('700 16px "IBM Plex Mono"').then((faces) => {
-    if (!faces.length) throw new Error('the IBM Plex Mono bold face did not load')
+    if (!faces.length) throw serverFault('font 700 16px "IBM Plex Mono" did not load')
   }))
 
 // Synchronous, so the committed layout is the measured one. Emoji and CJK come from system faces,

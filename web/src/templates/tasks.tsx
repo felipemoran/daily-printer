@@ -1,13 +1,9 @@
 // Strip 1b of designs/receipt-set-1, on design-system/components/TasksTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, boolean, limitedString, number, object, optional, TemplateDataError, type Parser } from './validate'
+import { array, boolean, integer, limitedString, object, optional } from './validate'
 
-const count: Parser<number> = (value, path) => {
-  const n = number(value, path)
-  if (!Number.isInteger(n) || n < 0 || n > 9999) throw new TemplateDataError(`${path}: expected a whole number from 0 to 9999`)
-  return n
-}
+const count = integer(0, 9999)
 
 const parse = object({
   weekday: limitedString(9),

@@ -59,6 +59,7 @@ class TestPageTest(unittest.TestCase):
         cases = (
             (test_page(printer=" "), r"^data\.printer: expected non-blank text$"),
             (test_page(printer="W" * 25), r"^data\.printer: expected at most 24 characters$"),
+            (test_page(printer="🔥" * 25), r"^data\.printer: expected at most 24 characters$"),
             (test_page(printedAt=""), r"^data\.printedAt: expected non-blank text$"),
             (test_page(printedAt="W" * 17), r"^data\.printedAt: expected at most 16 characters$"),
             (test_page(printer=7), r"^data\.printer: expected string$"),
@@ -67,6 +68,14 @@ class TestPageTest(unittest.TestCase):
         for payload, pattern in cases:
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, payload)
+
+    def test_counts_characters_not_utf16_units(self):
+        render_template(self.page, test_page(printer="🔥" * 24))
+
+    def test_zero_width_text_is_blank(self):
+        for blank in ("\u200b", "\u200c", "\u200d", "\u2060", "\ufeff", " \u200b\u2060 "):
+            with self.subTest(ascii(blank)), self.assertRaisesRegex(TemplateError, r"^data\.printer: expected non-blank text$"):
+                render_template(self.page, test_page(printer=blank))
 
 
 if __name__ == "__main__":

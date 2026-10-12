@@ -1,17 +1,11 @@
 // Strip 1i of designs/receipt-set-1, on design-system/components/PullRequestTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, number, object, TemplateDataError, type Parser } from './validate'
+import { array, integer, limitedString, object } from './validate'
 
 // The maxima bound a row to 3 title lines and one line each for number and meta,
 // so 20 rows stay under the 4000-dot render cap.
-const whole = (max: number): Parser<number> => (value, path) => {
-  const result = number(value, path)
-  if (!Number.isSafeInteger(result) || result < 0 || result > max) {
-    throw new TemplateDataError(`${path}: expected a whole number from 0 to ${max}`)
-  }
-  return result
-}
+const whole = (max: number) => integer(0, max)
 
 const parse = object({
   prs: array(object({

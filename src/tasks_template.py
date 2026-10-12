@@ -10,7 +10,7 @@ from todoist_api_python.models import Task
 from task_formatter import strip_markdown_links
 from todoist_client import TaskSections
 
-# Mirror the caps in web/src/templates/tasks.tsx. Its limitedString counts UTF-16 code units.
+# Mirror the caps in web/src/templates/tasks.tsx. Its limitedString counts code points.
 TASKS_MAX = 30
 TITLE_MAX = 160
 META_MAX = 80
@@ -19,20 +19,8 @@ META_MAX = 80
 _PRIORITY_TAGS = {4: "P1", 3: "P2", 2: "P3"}
 
 
-def _units(char: str) -> int:
-    return 2 if ord(char) > 0xFFFF else 1
-
-
 def _clip(text: str, limit: int) -> str:
-    if sum(map(_units, text)) <= limit:
-        return text
-    kept, used = [], 0
-    for char in text:
-        if used + _units(char) > limit - 1:
-            break
-        kept.append(char)
-        used += _units(char)
-    return "".join(kept) + "…"
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def _due_date(task: Task) -> date | None:
