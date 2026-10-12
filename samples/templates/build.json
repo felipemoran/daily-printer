@@ -2,7 +2,9 @@
   "template": "build",
   "schemaVersion": 1,
   "data": {
+    "name": "NIGHTLY",
     "number": 1184,
+    "since": 1183,
     "branch": "main",
     "commit": "9f3c2ab",
     "start": "02:00",

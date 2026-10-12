@@ -31,7 +31,9 @@ WORST = {
     "template": "build",
     "schemaVersion": 1,
     "data": {
+        "name": "W" * 12,
         "number": 9007199254740991,
+        "since": 9007199254740991,
         "branch": "W" * 80,
         "commit": "W" * 80,
         "start": "W" * 40,
@@ -95,7 +97,7 @@ class BuildLinesTest(unittest.TestCase):
             "-" * 32,
             " 3 commits since #1183",
             "=" * 32,
-            "     ** ci.local/b/1184 **",
+            " ci.local/b/1184",
         ])
 
     def test_every_line_fits_its_columns(self):
@@ -117,9 +119,28 @@ class BuildLinesTest(unittest.TestCase):
         self.assertEqual(rows[2][:18], " a much longer s~ ")
 
     def test_long_values_truncate_with_the_marker(self):
-        result = texts(build(branch="feature/long-branch", commit="9f3c2ab0d1e2", url="https://ci.example.com/builds/1184"))
+        result = texts(build(branch="feature/long-branch", commit="9f3c2ab0d1e2"))
         self.assertEqual(result[3], " branch feature~ commit 9f3c2a~")
-        self.assertEqual(result[-1], " ** https://ci.example.com/~ **")
+
+    def test_long_urls_print_in_full(self):
+        url = "https://ci.example.com/" + "b" * 97
+        result = texts(build(url=url))
+        printed = result[result.index("=" * 32, 3) + 1:]
+        self.assertEqual(len(printed), 4)
+        self.assertEqual({line[0] for line in printed}, {" "})
+        self.assertEqual("".join(line[1:] for line in printed), url)
+
+    def test_since_prints_only_when_sent(self):
+        self.assertIn(" 3 commits since #1183", texts(SAMPLE))
+        payload = build(commits=1)
+        del payload["data"]["since"]
+        self.assertIn(" 1 commit", texts(payload))
+
+    def test_name_heads_the_title(self):
+        self.assertEqual(texts(build(name="Relé"))[1], "       RELE BUILD  #1184")
+        payload = copy.deepcopy(SAMPLE)
+        del payload["data"]["name"]
+        self.assertEqual(texts(payload)[1], "          BUILD  #1184")
 
     def test_long_failure_titles_wrap(self):
         title = "applies the coupon to every line item of a mixed cart"
@@ -153,6 +174,13 @@ class BuildLinesTest(unittest.TestCase):
         self.assertEqual(result[3], " branch cafe?vo~ commit 9f3c2ab")
         self.assertIn(" > a.spec" + " " * 17 + "? 500", result)
         self.assertIn('   "naive ?"', result)
+        self.assertEqual(texts(build(commit="🔥🚀🎉"))[3][-3:], "???")
+
+    def test_output_is_printable_ascii_or_bar_glyphs(self):
+        allowed = {chr(code) for code in range(0x20, 0x7F)} | {"█", "░"}
+        odd = build(name="Ünïcode", branch="🔥\x00\x1b", failures=[{"spec": "日本", "reason": "\u200b", "title": "e\u0301\n"}])
+        for payload in (WORST, odd):
+            self.assertLessEqual(set("".join(texts(payload))), allowed)
 
 
 def setUpModule():
@@ -199,6 +227,9 @@ class BuildRenderTest(unittest.TestCase):
             (build(suites=[{"name": "a", "seconds": 360000}]), r"^data\.suites\[0\]\.seconds: expected seconds from 0 to 359999$"),
             (build(number=0), r"^data\.number: expected a whole number from 1$"),
             (build(number=1.5), r"^data\.number: expected a whole number from 1$"),
+            (build(since=0), r"^data\.since: expected a whole number from 1$"),
+            (build(name="W" * 13), r"^data\.name: expected at most 12 characters$"),
+            (build(name=" "), r"^data\.name: expected non-blank text$"),
             (build(commits=-1), r"^data\.commits: expected a whole number from 0$"),
             (build(branch=" "), r"^data\.branch: expected non-blank text$"),
             (build(url="W" * 201), r"^data\.url: expected at most 200 characters$"),

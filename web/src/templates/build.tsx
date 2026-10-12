@@ -2,7 +2,7 @@
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { buildLines, type BuildReport } from './textmode-lines'
-import { array, limitedString, nonBlank, number, object, TemplateDataError, type Parser } from './validate'
+import { array, limitedString, nonBlank, number, object, optional, TemplateDataError, type Parser } from './validate'
 
 const text = (max: number) => nonBlank(limitedString(max))
 
@@ -25,7 +25,9 @@ const seconds: Parser<number> = (value, path) => {
 }
 
 const parse: Parser<BuildReport> = object({
+  name: optional(text(12)),
   number: count(1),
+  since: optional(count(1)),
   branch: text(80),
   commit: text(80),
   start: text(40),

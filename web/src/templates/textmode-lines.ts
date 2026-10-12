@@ -2,7 +2,9 @@
 // both print these lines, so they break in the same places. No imports: Node runs this file in tests.
 
 export interface BuildReport {
+  name?: string
   number: number
+  since?: number
   branch: string
   commit: string
   start: string
@@ -31,9 +33,9 @@ export const MORE = '~'
 
 const STATUS = { ok: '[ OK ]', fail: '[FAIL]', skip: '[SKIP]' }
 
-// Font A prints printable ASCII only; a control character would also break the line on the printer.
+// Output is printable ASCII plus the BAR glyphs; a control character would also break the line on the printer.
 const ascii = (text: string) =>
-  text.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[^\x20-\x7e]/g, '?').trim()
+  text.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[^\x20-\x7e]/gu, '?').trim()
 
 const fit = (text: string, width: number) => {
   const flat = ascii(text)
@@ -79,7 +81,7 @@ export function buildLines(report: BuildReport): Line[] {
 
   const text = [
     rule('='),
-    center(`NIGHTLY BUILD  #${report.number}`, COLUMNS),
+    center(`${report.name ? `${ascii(report.name).toUpperCase()} ` : ''}BUILD  #${report.number}`, COLUMNS),
     rule('='),
     ` ${left('branch', 6)} ${left(report.branch, 8)} ${left('commit', 6)} ${fit(report.commit, 7)}`,
     ` ${left('start', 6)} ${left(report.start, 8)} ${left('took', 6)} ${fit(report.duration, 7)}`,
@@ -99,9 +101,9 @@ export function buildLines(report: BuildReport): Line[] {
       ...wrap(`"${failure.title}"`, COLUMNS - 4).map((line) => `   ${line}`),
     ]),
     rule('-'),
-    ` ${fit(`${report.commits} ${report.commits === 1 ? 'commit' : 'commits'} since #${report.number - 1}`, COLUMNS - 2)}`,
+    ` ${fit(`${report.commits} ${report.commits === 1 ? 'commit' : 'commits'}${report.since ? ` since #${report.since}` : ''}`, COLUMNS - 2)}`,
     rule('='),
-    center(`** ${fit(report.url, COLUMNS - 8)} **`, COLUMNS),
+    ...wrap(report.url, COLUMNS - 2).map((line) => ` ${line}`),
   ]
   const lines: Line[] = [
     ...text.map((line) => ({ text: line })),
