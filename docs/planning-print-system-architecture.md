@@ -138,7 +138,7 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 
 | Method and path | Who | Does |
 |---|---|---|
-| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, writes the job's artifact folder, then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, writes the job's artifact folder (with the body as received, for all kinds but `image`), then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
 | `GET /api/jobs/{id}` | admin | Job with its events, and `artifacts`: the path of its artifact folder on the server, or null when the folder is missing |
 | `GET /api/jobs/{id}/image` | admin | `print.png` from the job's artifact folder. 404 when the folder has none. |

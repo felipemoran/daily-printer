@@ -33,7 +33,7 @@ SAMPLES = _TESTS.parent / "samples" / "templates"
 TICKET = json.loads((SAMPLES / "ticket.json").read_text(encoding="utf-8"))
 BUILD = json.loads((SAMPLES / "build.json").read_text(encoding="utf-8"))
 SPRINT = json.loads((SAMPLES / "sprint.json").read_text(encoding="utf-8"))
-PAGE_FILES = {"payload.json", "page.mhtml", "screenshot.png", "print.png", "job.escpos", "meta.json"}
+PAGE_FILES = {"request.json", "page.mhtml", "screenshot.png", "print.png", "job.escpos", "meta.json"}
 CASES = {
     "receipt": ("receipt", {"payload": SAMPLE_PAYLOAD}, PAGE_FILES),
     "template": ("template", {"payload": TICKET}, PAGE_FILES),
@@ -107,26 +107,34 @@ class IntakeTest(ArtifactTestCase):
                 if kind == "image":
                     self.assertEqual(self.file(job["id"], "source.png"), PHOTO)
 
-    async def test_payload_json_round_trips_the_input(self):
-        payload = {**TICKET, "data": {**TICKET["data"], "note": "Caf\u00e9 \u2713 \u2028 \"q\" \\ \U0001f5a8",
-                                      "ratio": 1.0, "big": 2**63, "small": 1e-300, "empty": {}, "list": [None, True]}}
-        job = await self.send("template", payload=payload)
-        stored = self.file(job["id"], "payload.json")
-        self.assertEqual(json.loads(stored), payload)
-        self.assertEqual(json.dumps(json.loads(stored), sort_keys=True), json.dumps(payload, sort_keys=True))
-
-    async def post_raw(self, body: bytes) -> tuple[int, object]:
+    async def post_raw(self, body: bytes, *, name: str = "receipt") -> tuple[int, object]:
         headers = {**self.admin, "Content-Type": "application/json"}
-        with mock.patch.object(http_api, "render", return_value=self.rendered["receipt"]):
+        with mock.patch.object(http_api, "render", return_value=self.rendered[name]):
             return await self.call("POST", "/api/jobs", headers, data=body)
+
+    async def test_request_json_is_the_request_body_byte_for_byte(self):
+        envelope = json.dumps(TICKET)[1:-1]
+        body = ('{ "printer" : "home",\n\t"kind":"template", "title": "Caf\u00e9 \u2713",\n'
+                '  "payload": {' + envelope + ', "note": "Caf\u00e9 \\u00e9 \\ud800 \\ud83d\\udda8",'
+                ' "big": 1e15, "huge": 1e400, "tiny": -0.0, "list": [ 1 , 2 ] } }\n').encode()
+        status, job = await self.post_raw(body, name="template")
+        self.assertEqual(status, 201, job)
+        self.assertEqual(self.file(job["id"], "request.json"), body)
+
+    async def test_a_receipt_with_a_lone_surrogate_renders_and_is_stored_as_sent(self):
+        payload = json.dumps(SAMPLE_PAYLOAD)
+        body = ('{"printer": "home", "kind": "receipt", "payload": ' + payload.replace(
+            '"blocks": [', '"note": "\\ud800", "blocks": [', 1) + "}").encode()
+        self.assertIn(b'"\\ud800"', body)
+        status, job = await self.call("POST", "/api/jobs", {**self.admin, "Content-Type": "application/json"}, data=body)
+        self.assertEqual(status, 201, job)
+        self.assertEqual(self.file(job["id"], "request.json"), body)
 
     async def test_a_deeply_nested_payload_is_stored_no_larger_than_its_request(self):
         body = json.dumps({"printer": "home", "kind": "receipt", "title": "deep", "payload": _nested(900)}).encode()
         status, job = await self.post_raw(body)
         self.assertEqual(status, 201, job)
-        stored = self.file(job["id"], "payload.json")
-        self.assertLessEqual(len(stored), len(body))
-        self.assertEqual(json.loads(stored), _nested(900))
+        self.assertEqual(self.file(job["id"], "request.json"), body)
 
     async def test_the_deepest_body_the_parser_accepts_is_stored_or_refused_cleanly(self):
         low, high, deepest = 1, 100_000, None

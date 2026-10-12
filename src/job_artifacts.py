@@ -45,15 +45,15 @@ def _source_name(image: bytes) -> str:
 
 
 def _json(value) -> bytes:
-    return json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode()
+    return json.dumps(value, separators=(",", ":"), allow_nan=False).encode()
 
 
-def job_files(kind: str, rendered: Rendered, *, payload: dict | None, image: bytes | None,
+def job_files(kind: str, rendered: Rendered, *, request: bytes | None, image: bytes | None, template: str | None,
               created_at: float) -> dict[str, bytes]:
-    """The files of a new job's folder, by name."""
+    """The files of a new job's folder, by name. ``request`` is the HTTP body as received."""
     files = {}
-    if payload is not None:
-        files["payload.json"] = _json(payload)
+    if request is not None:
+        files["request.json"] = request
     if image is not None:
         files[_source_name(image)] = image
     if rendered.mhtml is not None:
@@ -64,7 +64,7 @@ def job_files(kind: str, rendered: Rendered, *, payload: dict | None, image: byt
     files[ESCPOS] = rendered.escpos
     files[META] = _json({
         "kind": kind,
-        "template": payload.get("template") if kind in ("template", "text") else None,
+        "template": template,
         "created_at": created_at,
         "width": rendered.width,
         "height": rendered.height,

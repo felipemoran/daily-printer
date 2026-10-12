@@ -89,7 +89,7 @@ The server keeps every job as it was created, in `<directory of the database>/ar
 
 | File | What it is | Kinds |
 |---|---|---|
-| `payload.json` | The `payload` of the request, as compact JSON | receipt, template, text |
+| `request.json` | The HTTP request body, byte for byte as received: `printer`, `kind`, `title`, `expires_in` and `payload` | receipt, template, text |
 | `source.<ext>` | The uploaded file, byte for byte; `<ext>` from its format, e.g. `jpg` | image |
 | `page.mhtml` | The rendered page with its style sheets, images and web fonts, as Chromium's MHTML. For `text`, the preview page. Chrome opens it offline. | receipt, template, text |
 | `screenshot.png` | Chromium's capture of `#receipt`, before rotation and the 1-bit conversion. A landscape template's capture runs along the paper. | receipt, template, text |

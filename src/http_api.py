@@ -176,9 +176,16 @@ class _Api:
         return caller
 
     async def body(self, request: web.Request, *, optional: bool = False) -> dict:
+        return self.parse(await self.read(request), optional=optional)
+
+    @staticmethod
+    async def read(request: web.Request) -> bytes:
         if request.content_length is not None and request.content_length > MAX_BODY_BYTES:
             raise web.HTTPRequestEntityTooLarge(max_size=MAX_BODY_BYTES, actual_size=request.content_length)
-        raw = await request.read()
+        return await request.read()
+
+    @staticmethod
+    def parse(raw: bytes, *, optional: bool = False) -> dict:
         if not raw and optional:
             return {}
         try:
@@ -225,7 +232,8 @@ class _Api:
 
     async def post_job(self, request: web.Request) -> web.Response:
         caller = await self.caller(request)
-        body = await self.body(request)
+        raw = await self.read(request)
+        body = self.parse(raw)
         printer = self.printer(body.get("printer"))
         if caller.role is Role.WEB and not printer.public:
             raise ApiError(403, "this printer does not take jobs from the web form")
@@ -266,8 +274,9 @@ class _Api:
                 raise ApiError(500, "rendering failed on the server") from None
 
         now = time.time()
-        staged = await self.saving_artifacts(asyncio.to_thread(
-            lambda: self.artifacts.stage(job_files(kind, rendered, payload=payload, image=image, created_at=now))))
+        template = payload["template"] if kind in ("template", "text") else None
+        staged = await self.saving_artifacts(asyncio.to_thread(lambda: self.artifacts.stage(job_files(
+            kind, rendered, request=None if kind == "image" else raw, image=image, template=template, created_at=now))))
         try:
             job = self.queue.add(
                 printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,

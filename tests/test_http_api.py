@@ -99,8 +99,10 @@ def add_frozen_job(queue: JobQueue, database: Path, printer: str = "home", rende
     """A job and its artifact folder, as intake makes them. An image job's source is ``PHOTO``."""
     now = time.time() if now is None else now
     image = PHOTO if kind == "image" else None
+    request = None if kind == "image" else json.dumps({"printer": printer, "kind": kind, "payload": payload}).encode()
+    template = payload["template"] if kind in ("template", "text") else None
     staged = ArtifactStore(artifacts_root(database)).stage(
-        job_files(kind, rendered, payload=payload, image=image, created_at=now))
+        job_files(kind, rendered, request=request, image=image, template=template, created_at=now))
     return queue.add(printer, rendered.escpos, kind=kind, title=title, source=source, ingress=ingress,
                      width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
                      artifacts=staged, expires_in=expires_in, now=now)
