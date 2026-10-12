@@ -9,12 +9,13 @@ const parse = object({
   weekday: text(9),
   date: text(9),
   year: text(4),
+  // 8 rows at these caps fit one print in W, CJK and emoji.
   tasks: array(object({
-    title: text(160),
-    meta: optional(text(80)),
+    title: text(80),
+    meta: optional(text(40)),
     done: optional(boolean),
     priority: optional(text(6)),
-  }), 30),
+  }), 8),
   // Tasks the sender left out to stay under the cap.
   more: optional(count),
   doneYesterday: optional(count),

@@ -66,8 +66,8 @@ class MappingTest(unittest.TestCase):
     def test_clips_by_code_points(self):
         # The template counts code points: an emoji is one, though it takes two UTF-16 units.
         row = tasks_payload(TaskSections(today=[task("🔥" * 200, labels=["🏷️" * 50])]), NOW)["data"]["tasks"][0]
-        self.assertEqual(row["title"], "🔥" * (TITLE_MAX - 1) + "…")
-        self.assertEqual(len(row["meta"]), META_MAX)
+        self.assertEqual(row["title"], "🔥" * 79 + "…")
+        self.assertEqual(len(row["meta"]), 40)
         self.assertTrue(row["meta"].endswith("…"))
         exact = tasks_payload(TaskSections(today=[task("🔥" * TITLE_MAX)]), NOW)["data"]["tasks"][0]
         self.assertEqual(exact["title"], "🔥" * TITLE_MAX)
@@ -80,8 +80,9 @@ class MappingTest(unittest.TestCase):
 
     def test_caps_tasks_and_counts_the_rest(self):
         data = tasks_payload(TaskSections(today=[task(f"t{n}") for n in range(TASKS_MAX + 1)]), NOW)["data"]
-        self.assertEqual(len(data["tasks"]), TASKS_MAX)
+        self.assertEqual(len(data["tasks"]), 8)
         self.assertEqual(data["more"], 1)
+        self.assertNotIn("more", tasks_payload(TaskSections(today=[task("t")] * 8), NOW)["data"])
 
 
 class RenderTest(unittest.TestCase):
@@ -119,6 +120,21 @@ class RenderTest(unittest.TestCase):
         self.assertIn("+2 MORE IN TODOIST", text)
         self.assertIn("5\nOPEN", text)
 
+    def test_worst_case_fits_under_the_length_limit(self):
+        # The mapping fills the masthead from strftime, so it stays Latin.
+        for glyph in ("W", "\u6f22"):
+            with self.subTest(glyph):
+                payload = tasks_payload(TaskSections(), NOW)
+                payload["data"].update(
+                    weekday="W" * 9, date="W" * 9, year="W" * 4, printedAt="W" * 16, more=9999, doneYesterday=9999,
+                    tasks=[{"title": glyph * TITLE_MAX, "meta": glyph * META_MAX, "priority": glyph * 6, "done": index % 2 == 1}
+                           for index in range(TASKS_MAX)],
+                )
+                bitmap = self.render(payload)
+                self.assertIn("+9999 MORE IN TODOIST", self.page.inner_text("#receipt"))
+                self.assertEqual(bitmap.width, 384)
+                self.assertLess(bitmap.height, 4000)
+
     def test_unbroken_text_stays_on_the_paper(self):
         row = {"title": URL[:TITLE_MAX], "meta": URL[:META_MAX], "priority": "P1"}
         payload = tasks_payload(TaskSections(), NOW)
@@ -148,6 +164,20 @@ class RenderTest(unittest.TestCase):
                 with self.subTest(field=field, blank=blank), \
                         self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
                     self.render(payload)
+
+    def test_caps_match_the_template(self):
+        from ticket_templates import TemplateError
+
+        row = {"title": "t", "meta": "m"}
+        for data, message in (
+            ({"tasks": [row] * (TASKS_MAX + 1)}, rf"^data\.tasks: expected at most {TASKS_MAX} items$"),
+            ({"tasks": [{**row, "title": "t" * (TITLE_MAX + 1)}]}, rf"^data\.tasks\[0\]\.title: expected at most {TITLE_MAX} characters$"),
+            ({"tasks": [{**row, "meta": "m" * (META_MAX + 1)}]}, rf"^data\.tasks\[0\]\.meta: expected at most {META_MAX} characters$"),
+        ):
+            payload = tasks_payload(TaskSections(), NOW)
+            payload["data"].update(data)
+            with self.subTest(message), self.assertRaisesRegex(TemplateError, message):
+                self.render(payload)
 
     def test_placeholder_title_renders(self):
         self.render(tasks_payload(TaskSections(today=[task("[ ](https://example.com)")]), NOW))

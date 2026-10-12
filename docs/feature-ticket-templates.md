@@ -9,7 +9,7 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 | Template | Strip | Rules a sender would otherwise guess wrong |
 |---|---|---|
 | [`test-page`](../samples/templates/test-page.json) | 1a test page | All fields are optional. |
-| [`tasks`](../samples/templates/tasks.json) | 1b tasks | At most 30 tasks. `more` counts the tasks left out, and the OPEN tile adds it. Done tasks print after open ones. |
+| [`tasks`](../samples/templates/tasks.json) | 1b tasks | At most 8 tasks. `more` counts the tasks left out, and the OPEN tile adds it. Done tasks print after open ones. |
 | [`ticket`](../samples/templates/ticket.json) | 1c ticket update | `qr.text` is ASCII, at most 120 characters: percent-encode a URL. |
 | [`incident`](../samples/templates/incident.json) | 1d incident | The template prints the `#` before `id`, and drops a leading `#` that the sender sent. |
 | [`report`](../samples/templates/report.json) | 1e weekly report | Amounts are numbers from 0 to 1e12. Each prints in the most precise form that fits its cell, for example `12K`. An odd number of KPIs prints one per row. |

@@ -11,9 +11,9 @@ from task_formatter import strip_markdown_links
 from todoist_client import TaskSections
 
 # Mirror the caps in web/src/templates/tasks.tsx. Its validators count code points.
-TASKS_MAX = 30
-TITLE_MAX = 160
-META_MAX = 80
+TASKS_MAX = 8
+TITLE_MAX = 80
+META_MAX = 40
 
 # Todoist's API numbers priority backwards: 4 is the app's P1. P4 is the default and gets no tag.
 _PRIORITY_TAGS = {4: "P1", 3: "P2", 2: "P3"}
