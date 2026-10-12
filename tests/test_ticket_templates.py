@@ -203,10 +203,23 @@ class RenderTest(unittest.TestCase):
             self.assert_template_error(TICKET, r'^text does not fit: "123,456,789" is wider than its 52px cell$')
         with self.failing_transition(BOX % "{ style: { height: 24, overflow: 'hidden' } }, 'word '.repeat(100)"):
             self.assert_template_error(TICKET, r'^text does not fit: "word word .*" is taller than its 24px cell$')
+        with self.failing_transition(BOX % "{ style: { height: 40, lineHeight: '24px', whiteSpace: 'pre', overflow: 'hidden' } }, 'ONE\\nTWO'"):
+            self.assert_template_error(TICKET, r'^text does not fit: "ONE TWO" is taller than its 40px cell$')
+        with self.failing_transition(BOX % "{ style: { height: 0, overflow: 'hidden' } }, 'GONE'"):
+            self.assert_template_error(TICKET, r'^text does not fit: "GONE" is taller than its 0px cell$')
+
+    def test_text_mode_lines_that_fill_the_paper_fit(self):
+        text_mode = "() => window.React.createElement(window.Thermal.TextMode, { lines: %s })"
+        with self.failing_transition(text_mode % "['x'.repeat(32), { text: 'D'.repeat(16), double: true, reverse: true }]"):
+            render_template(self.page, TICKET)
+        with self.failing_transition(text_mode % "['ONE\\nTWO']"):
+            self.assert_template_error(TICKET, r'^text does not fit: "ONE TWO" is taller than its 24px cell$')
 
     def test_text_spilling_out_of_its_cell_fails(self):
+        with self.failing_transition(BOX % "{ style: { width: 52, whiteSpace: 'nowrap' } }, 'x'.repeat(10)"):
+            self.assert_template_error(TICKET, r'^text does not fit: "xxxxxxxxxx" is wider than its 52px cell$')
         with self.failing_transition(BOX % "{ style: { width: 52, whiteSpace: 'nowrap' } }, 'x'.repeat(60)"):
-            self.assert_template_error(TICKET, rf'^text does not fit: "{"x" * 39}\u2026" is wider than its 52px cell$')
+            self.assert_template_error(TICKET, rf'^content runs past the paper edge: "{"x" * 39}\u2026"$')
 
     def test_content_past_the_paper_edge_fails(self):
         with self.failing_transition(BOX % "{ style: { width: 420 } }, 'WIDE'"):
@@ -220,6 +233,9 @@ class RenderTest(unittest.TestCase):
             render_template(page, ticket(title="A title much wider than the paper " * 3, fields=None, comment=None, qr=None))
             with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "Assignee'):
                 render_template(page, TICKET)
+            with self.failing_transition(BOX % "{ style: { width: 60, height: 20 } }, 'word '.repeat(80)", page):
+                with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "word word '):
+                    render_template(page, SHORT_TICKET)
 
     @contextlib.contextmanager
     def landscape_page(self):
@@ -240,13 +256,14 @@ class RenderTest(unittest.TestCase):
             page.close()
 
     @contextlib.contextmanager
-    def failing_transition(self, component="() => { throw new Error('boom'); }"):
-        transition = self.page.evaluate_handle("() => window.Thermal.Transition")
-        self.page.evaluate(f"() => {{ window.Thermal.Transition = {component}; }}")
+    def failing_transition(self, component="() => { throw new Error('boom'); }", page=None):
+        page = page or self.page
+        transition = page.evaluate_handle("() => window.Thermal.Transition")
+        page.evaluate(f"() => {{ window.Thermal.Transition = {component}; }}")
         try:
             yield
         finally:
-            self.page.evaluate("(original) => { window.Thermal.Transition = original; }", transition)
+            page.evaluate("(original) => { window.Thermal.Transition = original; }", transition)
 
 
 @unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")

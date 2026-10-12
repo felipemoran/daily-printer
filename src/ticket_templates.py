@@ -66,19 +66,20 @@ _FIT_JS = """
     const flat = text.replace(/\\s+/g, ' ').trim();
     return flat.length > 40 ? `"${flat.slice(0, 39)}…"` : flat && `"${flat}"`;
   };
+  const outside = (low, high, tolerance) => low < start - tolerance || high > start + paper + tolerance;
+  // Glyph boxes overhang their line box by a few dots without clipping ink (TextMode: 1-2 dots).
+  const overhang = slack + 2;
   const name = (el) => quote(el.textContent) || (el.getAttribute('class') ? `<${el.localName} class="${el.getAttribute('class')}">` : `<${el.localName}>`);
   for (const el of receipt.querySelectorAll('*')) {
     const box = el.getBoundingClientRect();
-    if (!box.width || !box.height) continue;
-    const [low, high] = landscape ? [box.top, box.bottom] : [box.left, box.right];
-    if (low < start - slack || high > start + paper + slack) return `content runs past the paper edge: ${name(el)}`;
-    const { overflowX, overflowY, lineHeight } = getComputedStyle(el);
+    if (box.width && box.height && outside(...(landscape ? [box.top, box.bottom] : [box.left, box.right]), slack)) {
+      return `content runs past the paper edge: ${name(el)}`;
+    }
+    const { overflowX, overflowY } = getComputedStyle(el);
     if (overflowX !== 'visible' && el.scrollWidth > el.clientWidth + slack) {
       return `text does not fit: ${name(el)} is wider than its ${el.clientWidth}px cell`;
     }
-    // A glyph box taller than its line height (TextMode: 40px JetBrains Mono on 48px lines)
-    // overflows by a few dots without clipping ink; a clipped line overflows by a whole line.
-    if (overflowY !== 'visible' && el.scrollHeight > el.clientHeight + Math.max(slack, parseFloat(lineHeight) / 2 || 0)) {
+    if (overflowY !== 'visible' && el.scrollHeight > el.clientHeight + overhang) {
       return `text does not fit: ${name(el)} is taller than its ${el.clientHeight}px cell`;
     }
   }
@@ -88,6 +89,9 @@ _FIT_JS = """
     range.selectNodeContents(node);
     const text = range.getBoundingClientRect();
     if (!text.width) continue;
+    if (outside(...(landscape ? [text.top, text.bottom] : [text.left, text.right]), overhang)) {
+      return `content runs past the paper edge: ${quote(node.data)}`;
+    }
     let block = node.parentElement;
     while (block !== receipt && ['inline', 'contents'].includes(getComputedStyle(block).display)) block = block.parentElement;
     const left = block.getBoundingClientRect().left + block.clientLeft;
