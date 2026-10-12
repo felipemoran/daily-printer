@@ -20,14 +20,12 @@ from photo_dither import dither, prepare
 from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, to_bitmap
 from printer import DOTS_PER_MM, PRINT_WIDTH_DOTS
 from raster_capture import capture_receipt
-from ticket_templates import TemplateError, check_envelope, open_render_page, render_template, render_text
+from ticket_templates import TEXT_FEED, TemplateError, check_envelope, open_render_page, render_template, render_text
 
 KINDS = ("receipt", "image", "template", "text")
 MAX_HEIGHT_DOTS = 500 * DOTS_PER_MM
 MAX_SOURCE_PIXELS = 25_000_000
 DIST_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
-# What Dummy.ln(3) adds after a raster, without its code-page select.
-TEXT_FEED = b"\n" * 3
 
 _REJECT = "RENDER_JOB_REJECT:"
 # The app has no error boundary: a payload it cannot render unmounts the root,
@@ -140,9 +138,6 @@ def _template_render(payload: dict | None, *, text: bool) -> tuple[Image.Image, 
                 browser.close()
     except TemplateError as error:
         raise RenderError(str(error)) from None
-    # Playwright serializes the payload recursively; about 900 levels exhaust Python's stack.
-    except RecursionError:
-        raise RenderError("the payload is nested too deeply") from None
 
 
 def _image_bitmap(data: bytes | None) -> Image.Image:

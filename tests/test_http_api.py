@@ -386,6 +386,21 @@ class IntakeTest(ServerTestCase):
         self.assertEqual(body["error"], "rendering failed on the server")
         self.assertEqual(self.queue.jobs(), [])
 
+    async def test_payload_nested_150_deep_is_422_before_chromium_launches(self):
+        ticket = json.loads((_TESTS.parent / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
+        deep: dict = {}
+        for _ in range(150):
+            deep = {"x": deep}
+        payload = {**ticket, "data": {**ticket["data"], "deep": deep}}
+        for kind in ("template", "text"):
+            with self.subTest(kind), mock.patch("render_job.sync_playwright") as playwright:
+                job = {"printer": "home", "kind": kind, "payload": payload}
+                status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
+                self.assertEqual(status, 422, body)
+                self.assertEqual(body["error"], "payload: nested more than 32 levels deep")
+                playwright.assert_not_called()
+        self.assertEqual(self.queue.jobs(), [])
+
     async def test_body_over_10_mb_is_413(self):
         oversized = json.dumps(self.image_job(image="A" * (10 * 1024 * 1024))).encode()
         status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), data=io.BytesIO(oversized))

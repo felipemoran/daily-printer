@@ -19,7 +19,7 @@ import render_job  # noqa: E402
 from fake_printer import decode  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
 from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, TEXT_FEED, RenderError, escpos_from_png, render  # noqa: E402
-from ticket_templates import open_render_page, render_template, render_text  # noqa: E402
+from ticket_templates import MAX_DEPTH, open_render_page, render_template, render_text  # noqa: E402
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 SAMPLE_TASK = next(block for block in SAMPLE_PAYLOAD["blocks"] if block["type"] == "task")
@@ -179,10 +179,6 @@ class TemplateRenderErrorTest(unittest.TestCase):
         with self.assertRaisesRegex(RenderError, "^payload: expected object$"):
             render("template", payload=["not", "an", "object"])
 
-    def test_payload_nested_900_deep_is_a_render_error_not_a_recursion_error(self):
-        with self.assertRaisesRegex(RenderError, "^the payload is nested too deeply$"):
-            render("template", payload={**TICKET, "data": {**TICKET["data"], "deep": _nested(900)}})
-
     def test_render_taller_than_the_server_cap_is_a_render_error(self):
         # The ticket sample is far shorter than 4000 dots, so the test lowers the cap below it.
         with mock.patch.object(render_job, "MAX_HEIGHT_DOTS", 100):
@@ -195,6 +191,10 @@ class TemplateRenderErrorTest(unittest.TestCase):
             "70 KB payload": ({**TICKET, "data": {**TICKET["data"], "note": "x" * 70_000}},
                               r"^payload: \d+ bytes; the limit is 65536$"),
             "data not an object": ({**TICKET, "data": ["not", "a", "dict"]}, "^data: expected object$"),
+            # 150 levels hang page.evaluate; 900 levels exhaust Python's stack in Playwright's serializer.
+            **{f"nested {levels} deep": ({**TICKET, "data": {**TICKET["data"], "deep": _nested(levels)}},
+                                          f"^payload: nested more than {MAX_DEPTH} levels deep$")
+               for levels in (150, 900)},
         }
         for kind in ("template", "text"):
             for name, (payload, message) in cases.items():
