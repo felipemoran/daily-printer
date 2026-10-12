@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -216,8 +217,16 @@ def _call(page, name: str, payload):
     raise TemplateError(error)
 
 
-def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Image:
-    """``payload`` as a mode "1" bitmap, ``PRINT_WIDTH_DOTS`` wide. Raises TemplateError for sender faults."""
+@dataclass(frozen=True)
+class Capture:
+    """The ``#receipt`` screenshot as Chromium returned it: across the paper, or along it when ``landscape``."""
+
+    png: bytes
+    landscape: bool
+
+
+def capture_template(page, payload, *, max_height_dots: int = 4000) -> Capture:
+    """Render ``payload`` and screenshot it. Raises TemplateError for sender faults."""
     _call(page, "renderTemplate", payload)
     if _CAPTURE["prepare_js"]:
         page.evaluate(_CAPTURE["prepare_js"])
@@ -238,10 +247,17 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     # A screenshot can resize the viewport and reflow the page, but it keeps the clip it measured
     # first: the print then ends in a band of page canvas or loses its end.
     _check_unchanged(length, _length(page, landscape), "then")
-    image = Image.open(io.BytesIO(page.locator("#receipt").screenshot(timeout=SCREENSHOT_TIMEOUT_MS)))
+    png = page.locator("#receipt").screenshot(timeout=SCREENSHOT_TIMEOUT_MS)
+    image = Image.open(io.BytesIO(png))
     _check_unchanged(length, image.width if landscape else image.height, "captured")
     _check_unchanged(length, _length(page, landscape), "then")
-    if landscape:
+    return Capture(png, landscape)
+
+
+def bitmap_from_capture(capture: Capture) -> Image.Image:
+    """The capture as a mode "1" bitmap, ``PRINT_WIDTH_DOTS`` wide."""
+    image = Image.open(io.BytesIO(capture.png))
+    if capture.landscape:
         image = image.transpose(Image.Transpose.ROTATE_270)
     if image.width != PRINT_WIDTH_DOTS:
         raise RuntimeError(f"#receipt captured {image.width} dots across the paper, not {PRINT_WIDTH_DOTS}")
@@ -249,6 +265,11 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     if bitmap.mode != "1":
         raise RuntimeError(f'to_bitmap returned mode "{bitmap.mode}", not "1"')
     return bitmap
+
+
+def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Image:
+    """``payload`` as a mode "1" bitmap, ``PRINT_WIDTH_DOTS`` wide. Raises TemplateError for sender faults."""
+    return bitmap_from_capture(capture_template(page, payload, max_height_dots=max_height_dots))
 
 
 # PC437, the ESC/POS power-on default, and its bytes for the bar glyphs. Unverified on the MPT-II
