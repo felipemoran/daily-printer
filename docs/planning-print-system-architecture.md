@@ -16,12 +16,16 @@ Decided 2026-10-12. Nothing in this document is built yet.
 senders: CLI, cron, web form, Telegram bot
         |  HTTPS
         v
-print.<zone> (Cloudflare Tunnel, no open router ports)
+sender hostname (Cloudflare Access login)
+        |
+        v
+Cloudflare Tunnel (no open router ports)
         |
         v
 server: Intel Mac at home
   intake -> queue -> render (Chromium kept running) -> dither -> ESC/POS bytes
         ^
+        |  Cloudflare Tunnel, device hostname
         |  WebSocket, opened by the device
         |
 printer devices: Mac (Apple silicon, Intel), Raspberry Pi 2/3, ESP32-S3
@@ -33,7 +37,7 @@ receipt printer
 | Decision | Choice |
 |---|---|
 | Server | The dedicated Intel Mac at home runs intake, queue, rendering and device connections, in Python. |
-| Public access | Cloudflare Tunnel gives the server a public hostname. Devices, senders and the work computer all use it. |
+| Public access | Cloudflare Tunnel gives the server two public hostnames: one for senders, one for devices. |
 | Tailscale | Only for your own admin access. Devices do not need it: the work computer is on the work tailnet. |
 | What a device receives | ESC/POS bytes. The server holds each printer's settings. |
 | Who opens the connection | The device opens a WebSocket to the server and keeps it open. |
@@ -63,7 +67,8 @@ These rules go into device firmware, so they are expensive to change later.
 ## Senders
 
 - Telegram: the bot asks Telegram for new messages (long polling), so it needs no public endpoint.
-- Web form: served through the tunnel.
+- Web form: behind Cloudflare Access. A sender logs in with a one-time PIN sent by email. Allowed: a list of email addresses, and the office email domain. The server reads the sender's email from the Access token.
+- Devices use the second hostname, without Access, and log in with their own tokens.
 - WhatsApp: not planned. It needs a public webhook and a Meta business account setup.
 - Public intake needs at least a size limit and a rate limit.
 - Several users, each with a printer, sending to each other: possible later. A friend's printer is one more device with a token. Drop this if it starts to cost complexity.
@@ -83,5 +88,4 @@ These rules go into device firmware, so they are expensive to change later.
 
 ## Open
 
-- How outside senders authenticate.
-- The public hostname. `print.<zone>` is the working name.
+- The public hostnames. `print.<zone>` is the working name for senders.
