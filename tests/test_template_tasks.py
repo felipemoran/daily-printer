@@ -1,89 +1,128 @@
-import subprocess
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from tasks_template import TITLE_MAX, tasks_payload  # noqa: E402
+from todoist_api_python.models import Due, Task  # noqa: E402
 
-HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
-NOW = datetime(2026, 10, 12, 7, 30)
+from tasks_template import META_MAX, TASKS_MAX, TITLE_MAX, tasks_payload  # noqa: E402
+from todoist_client import TaskSections  # noqa: E402
 
-# The shape gather() returns: web/src/receiptPayload.ts, schemaVersion 2.
-RECEIPT = {
-    "schemaVersion": 2,
-    "generatedAt": "2026-10-12T05:30:00Z",
-    "blocks": [
-        {"type": "receipt_header", "date": "Monday, Oct 12"},
-        {"type": "section_header", "title": "TODAY — Mon Oct 12"},
-        {"type": "task", "content": "Review Q4 roadmap draft", "time": "2:30 PM", "labels": ["planning"]},
-        {"type": "task", "content": "Stand-up", "time": "9 AM"},
-        {"type": "task", "content": "Book flights for offsite"},
-        {"type": "section_header", "title": "OVERDUE", "count": 2},
-        {"type": "task", "content": "Send invoice", "time": "Oct 9", "relative": "3 days ago", "labels": ["finance"]},
-        {"type": "task", "content": "Water plants", "time": "Oct 11", "relative": "yesterday"},
-        {"type": "section_header", "title": "UPCOMING"},
-        {"type": "day_header", "title": "Tue Oct 13"},
-        {"type": "task", "content": "Dentist", "time": "10 AM", "relative": "tomorrow"},
-        {"type": "receipt_footer", "text": "abc · def"},
+HAS_DIST = (ROOT / "web" / "dist" / "render.html").is_file()
+NOW = datetime(2026, 10, 12, 7, 30).astimezone()
+URL = "https://example.com/" + "a" * 200
+
+
+def task(content, due=None, priority=1, labels=None):
+    return Task(
+        id="1", content=content, description="", project_id="p", section_id=None, parent_id=None,
+        labels=labels, priority=priority, due=Due(date=due, string="") if due else None, deadline=None,
+        duration=None, is_collapsed=False, order=1, assignee_id=None, assigner_id=None, completed_at=None,
+        creator_id="u", created_at=NOW, updated_at=NOW,
+    )
+
+
+SECTIONS = TaskSections(
+    today=[
+        task("Review Q4 roadmap draft", datetime(2026, 10, 12, 14, 30).astimezone(), 4, ["planning"]),
+        task("Read [the spec](https://example.com/spec)", date(2026, 10, 12), 3),
+        task("Book flights for offsite"),
     ],
-}
+    overdue=[
+        task("Send invoice", date(2026, 10, 9), 1, ["finance"]),
+        task("Water plants", datetime(2026, 10, 11, 18, 0).astimezone()),
+    ],
+    upcoming=[task("Dentist", date(2026, 10, 13))],
+)
+
+
+def utf16_units(text):
+    return len(text.encode("utf-16-le")) // 2
 
 
 class MappingTest(unittest.TestCase):
     def test_maps_today_and_overdue(self):
-        payload = tasks_payload(RECEIPT, NOW)
-        self.assertEqual(payload["template"], "tasks")
-        self.assertEqual(payload["schemaVersion"], 1)
-        self.assertEqual(payload["data"], {
-            "weekday": "MON",
-            "date": "12 OCT",
-            "year": "2026",
-            "tasks": [
-                {"title": "Review Q4 roadmap draft", "meta": "14:30 · planning"},
-                {"title": "Stand-up", "meta": "09:00"},
-                {"title": "Book flights for offsite"},
-                {"title": "Send invoice", "meta": "overdue · 3 days ago · finance"},
-                {"title": "Water plants", "meta": "overdue · yesterday"},
-            ],
-            "printedAt": "07:30",
+        self.assertEqual(tasks_payload(SECTIONS, NOW), {
+            "template": "tasks",
+            "schemaVersion": 1,
+            "data": {
+                "weekday": "MON",
+                "date": "12 OCT",
+                "year": "2026",
+                "tasks": [
+                    {"title": "Review Q4 roadmap draft", "meta": "14:30 · planning", "priority": "P1"},
+                    {"title": "Read the spec", "priority": "P2"},
+                    {"title": "Book flights for offsite"},
+                    {"title": "Send invoice", "meta": "OVERDUE 3D · finance"},
+                    {"title": "Water plants", "meta": "OVERDUE 1D"},
+                ],
+                "printedAt": "07:30",
+            },
         })
 
     def test_no_tasks(self):
-        payload = tasks_payload({"schemaVersion": 2, "blocks": []}, NOW)
-        self.assertEqual(payload["data"]["tasks"], [])
+        self.assertEqual(tasks_payload(TaskSections(), NOW)["data"]["tasks"], [])
 
-    def test_long_title_is_clipped(self):
-        receipt = {"blocks": [{"type": "section_header", "title": "TODAY — Mon Oct 12"},
-                              {"type": "task", "content": "x" * 500}]}
-        title = tasks_payload(receipt, NOW)["data"]["tasks"][0]["title"]
-        self.assertEqual(len(title), TITLE_MAX)
-        self.assertTrue(title.endswith("…"))
+    def test_clips_by_utf16_units(self):
+        # Each emoji is one code point but two UTF-16 units, as the template counts them.
+        row = tasks_payload(TaskSections(today=[task("🔥" * 100, labels=["🏷️" * 50])]), NOW)["data"]["tasks"][0]
+        self.assertLessEqual(utf16_units(row["title"]), TITLE_MAX)
+        self.assertLessEqual(utf16_units(row["meta"]), META_MAX)
+        self.assertTrue(row["title"].endswith("🔥…"))
+
+    def test_caps_tasks_and_counts_the_rest(self):
+        data = tasks_payload(TaskSections(today=[task(f"t{n}") for n in range(TASKS_MAX + 1)]), NOW)["data"]
+        self.assertEqual(len(data["tasks"]), TASKS_MAX)
+        self.assertEqual(data["more"], 1)
 
 
-@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
+@unittest.skipUnless(HAS_DIST, "needs web/dist: make web-build")
 class RenderTest(unittest.TestCase):
-    """The mapped payload passes the template's parse and renders."""
-
-    def test_mapped_payload_renders(self):
+    @classmethod
+    def setUpClass(cls):
         from playwright.sync_api import sync_playwright
 
-        from ticket_templates import open_render_page, render_template
+        from ticket_templates import open_render_page
 
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                bitmap = render_template(open_render_page(browser), tasks_payload(RECEIPT, NOW))
-            finally:
-                browser.close()
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.page = open_render_page(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+
+    def render(self, payload):
+        from ticket_templates import render_template
+
+        return render_template(self.page, payload)
+
+    def test_mapped_payload_renders(self):
+        bitmap = self.render(tasks_payload(SECTIONS, NOW))
         self.assertEqual(bitmap.width, 384)
-        self.assertGreater(bitmap.height, 500)
-        self.assertLess(bitmap.histogram()[0], bitmap.width * bitmap.height)
-        self.assertGreater(bitmap.histogram()[0], 0)
+        self.assertTrue(0 < bitmap.histogram()[0] < bitmap.width * bitmap.height)
+
+    def test_more_counts_in_open(self):
+        payload = tasks_payload(TaskSections(today=[task(f"t{n}") for n in range(TASKS_MAX + 2)]), NOW)
+        payload["data"]["tasks"] = payload["data"]["tasks"][:3]
+        self.render(payload)
+        text = self.page.inner_text("#receipt")
+        self.assertIn("+2 MORE IN TODOIST", text)
+        self.assertIn("5\nOPEN", text)
+
+    def test_unbroken_text_stays_on_the_paper(self):
+        row = {"title": URL[:TITLE_MAX], "meta": URL[:META_MAX], "priority": "P1"}
+        payload = tasks_payload(TaskSections(), NOW)
+        payload["data"]["tasks"] = [row]
+        self.render(payload)
+        overflow = self.page.evaluate("""() => [...document.querySelectorAll('#receipt *')]
+            .filter((el) => el.scrollWidth > el.clientWidth || el.getBoundingClientRect().right > 384)
+            .map((el) => el.className || el.tagName)""")
+        self.assertEqual(overflow, [])
 
 
 if __name__ == "__main__":

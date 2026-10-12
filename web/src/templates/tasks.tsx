@@ -19,6 +19,8 @@ const parse = object({
     done: optional(boolean),
     priority: optional(limitedString(6)),
   }), 30),
+  // Tasks the sender left out to stay under the cap.
+  more: optional(count),
   doneYesterday: optional(count),
   printedAt: limitedString(16),
 })
@@ -28,7 +30,7 @@ export default defineTemplate({
   parse,
   Component: ({ data }) => {
     const open = data.tasks.filter((task) => !task.done)
-    const tiles = [{ label: 'OPEN', value: String(open.length) }]
+    const tiles = [{ label: 'OPEN', value: String(open.length + (data.more ?? 0)) }]
     if (data.doneYesterday !== undefined) tiles.push({ label: 'DONE YESTERDAY', value: String(data.doneYesterday) })
     return (
       <>
@@ -36,9 +38,12 @@ export default defineTemplate({
           title="TASKS"
           aside={[data.weekday, <span key="date" style={{ fontSize: 22 }}>{data.date}</span>, data.year]}
         />
-        {[...open, ...data.tasks.filter((task) => task.done)].map((task, index) => (
-          <T.TaskRow key={index} title={task.title} meta={task.meta} done={task.done} tag={task.priority} />
-        ))}
+        <div style={{ overflowWrap: 'anywhere' }}>
+          {[...open, ...data.tasks.filter((task) => task.done)].map((task, index) => (
+            <T.TaskRow key={index} title={task.title} meta={task.meta} done={task.done} tag={task.priority} />
+          ))}
+        </div>
+        {data.more ? <div className="label" style={{ marginTop: 'var(--space-3)' }}>+{data.more} MORE IN TODOIST</div> : null}
         <div style={{ height: 'var(--space-7)' }} />
         <T.StatTiles columns={tiles.length as 1 | 2} valueFirst items={tiles} />
         <div className="rp-foot">printed {data.printedAt} · tear &amp; stick</div>

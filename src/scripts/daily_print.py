@@ -86,40 +86,6 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _print_template(receipt: dict, artifact_dir: Path, no_print: bool) -> None:
-    from playwright.sync_api import sync_playwright
-
-    from tasks_template import tasks_payload
-    from ticket_templates import TemplateError, open_render_page, render_template
-
-    payload = tasks_payload(receipt, datetime.now().astimezone())
-    (artifact_dir / "tasks.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print("Rendering tasks template…", flush=True)
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                bitmap = render_template(open_render_page(browser), payload)
-            finally:
-                browser.close()
-    except (TemplateError, RuntimeError) as e:
-        sys.exit(f"ERROR: template render failed: {e}")
-    bitmap.save(artifact_dir / "tasks.png")
-    if no_print:
-        print(f"Done (skipped print). Artifacts: {artifact_dir}")
-        return
-    print("Printing…", flush=True)
-    try:
-        with open_printer() as p:
-            p.image(bitmap, center=False)
-            p.ln(3)
-    except SystemExit:
-        raise
-    except Exception as e:
-        sys.exit(f"ERROR: print failed: {e}")
-    print(f"Printed. Artifacts: {artifact_dir}")
-
-
 def main() -> None:
     from dotenv import load_dotenv
 
@@ -130,8 +96,14 @@ def main() -> None:
     # ---- 1. Gather ----------------------------------------------------------
     print("Gathering data…", flush=True)
     try:
-        from gather import gather
-        payload = gather()
+        if args.template:
+            from task_formatter import sections_to_payload
+            from todoist_client import get_task_sections
+            sections = get_task_sections()
+            payload = sections_to_payload(sections)
+        else:
+            from gather import gather
+            payload = gather()
     except Exception as e:
         print(f"ERROR: gather failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -169,14 +141,19 @@ def main() -> None:
     )
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.template:
-        _print_template(payload, artifact_dir, args.no_print)
-        return
-
     payload_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     artifact_payload = artifact_dir / "payload.json"
     artifact_payload.write_text(payload_text, encoding="utf-8")
     (dist_dir / "payload.json").write_text(payload_text, encoding="utf-8")
+
+    if args.template:
+        from print_template import render_and_print
+        from tasks_template import tasks_payload
+
+        template_payload = tasks_payload(sections, datetime.now().astimezone())
+        (artifact_dir / "tasks.json").write_text(json.dumps(template_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        render_and_print(template_payload, artifact_dir, args.no_print)
+        return
 
     # ---- 4. Screenshot ------------------------------------------------------
     print("Rendering receipt…", flush=True)

@@ -34,18 +34,8 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    args = _parse_args()
-    try:
-        payload = json.loads(args.payload_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        sys.exit(f"ERROR: cannot read {args.payload_json}: {error}")
-    if not args.no_build:
-        try:
-            build_web(_PROJECT_ROOT / "web")
-        except RuntimeError as error:
-            sys.exit(f"ERROR: {error}")
-
+def render_and_print(payload: dict, artifact_dir: Path, no_print: bool) -> None:
+    """Render ``payload`` from the built web/dist, save ``<template>.png`` in ``artifact_dir``, then print. Exits with a one-line error."""
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
@@ -59,13 +49,12 @@ def main() -> None:
         hint = " Run: uv run playwright install chromium" if "Executable doesn't exist" in error.message else ""
         sys.exit(f"ERROR: browser failed: {error.message.splitlines()[0]}{hint}")
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"template-{stamp}").resolve()
+    artifact_dir = artifact_dir.resolve()
     artifact_dir.mkdir(parents=True, exist_ok=True)
     out_png = artifact_dir / f"{payload['template']}.png"
     bitmap.save(out_png)
     print(f"Rendered {bitmap.width}x{bitmap.height}: {out_png}")
-    if args.no_print:
+    if no_print:
         return
 
     try:
@@ -77,6 +66,22 @@ def main() -> None:
     except Exception as error:
         sys.exit(f"ERROR: print failed: {error}")
     print("Printed.")
+
+
+def main() -> None:
+    args = _parse_args()
+    try:
+        payload = json.loads(args.payload_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        sys.exit(f"ERROR: cannot read {args.payload_json}: {error}")
+    if not args.no_build:
+        try:
+            build_web(_PROJECT_ROOT / "web")
+        except RuntimeError as error:
+            sys.exit(f"ERROR: {error}")
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    render_and_print(payload, args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"template-{stamp}", args.no_print)
 
 
 if __name__ == "__main__":
