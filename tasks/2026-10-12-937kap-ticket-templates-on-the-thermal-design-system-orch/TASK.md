@@ -32,6 +32,7 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T08:08:05+00:00: Final template gate on nrlvsnow: 187 tests green twice; 14 templates render (sprint 384 wide); daily receipt OK. Sent to the print-system session as a stable point.
 - 2026-10-12T08:13:14+00:00: Retro: repeated the live-@ foot-gun (verify/integration merge parented on @). Caught before any write; froze it with jj new. Retro fix: never pass @ as a merge parent; jj new a described child first.
 - 2026-10-12T08:28:10+00:00: Print-system session asks how to land. Proposed (a): my chain as its own draft PR to main first, theirs after. Needs the operator's decision and SSH approval to push; staging locally meanwhile.
+- 2026-10-12T08:34:36+00:00: Final gate on mvmknm: 207 tests green twice, 0 skips; 14 templates; --text job 860 bytes (ESC @ + 855-byte body + 3 LF). Final review: no blockers, 5 should-fix (early-wave conventions, duplicate parsers/font helper, test skips/visibility); fix round in tpl-final. Two scope requests filed as drafts.
 
 ## Decisions
 
@@ -57,3 +58,4 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T07:46:46+00:00: decided: 1h text mode truncates long values with '~' in fixed columns (documented), keeps empty-section headers (FAILURES (0)) as uptime does, prints 'since #N' only when the sender sends it, and takes the build name (e.g. NIGHTLY) as optional data — easy to change
 - 2026-10-12T07:47:44+00:00: Bug class from 1g review, propagated: never decide text fit with a character-width MODEL; measure the rendered text after fonts load (focus.tsx pattern). A model that under-counts turns a valid payload into a refused print under the fit guard.
 - 2026-10-12T08:04:27+00:00: Contract between the cleanup tasks: a template's server-side failure (e.g. a font that did not load) throws an Error with name 'ServerFault'; render-main rejects with the prefix 'server fault: '; render_template raises RuntimeError (not TemplateError) for that prefix.
+- 2026-10-12T08:48:06+00:00: decided: the tasks template prints at most 8 tasks (+N MORE IN TODOIST), so ANY valid payload fits one print (emoji worst case 3935 dots). Alternative for the operator: ~20 tasks with a loud refusal on pathological days. One constant in tasks.tsx + src/tasks_template.py — easy to change

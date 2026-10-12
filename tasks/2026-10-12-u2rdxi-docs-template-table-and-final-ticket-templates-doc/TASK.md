@@ -28,5 +28,6 @@ docs/feature-ticket-templates.md 'Design source' table lists only ticket. Add ev
 
 - 2026-10-12T07:42:04+00:00: Also: delete 'No template uses it yet' (landscape) now that sprint uses it; state that leaderboard people are in rank order.
 - 2026-10-12T08:22:27+00:00: Built upvspq (feature-ticket-templates.md rewritten; design-system issues section; README/AGENTS rows). Found: report (range, title, KPI label), review-queue (title, area) and tasks still accept blank visible strings.
+- 2026-10-12T08:29:35+00:00: Integrated upvspq in mvmknm. Remaining: one sentence (every template refuses blank visible strings) after the final review.
 
 ## Decisions
