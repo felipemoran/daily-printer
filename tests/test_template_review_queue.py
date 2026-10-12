@@ -124,6 +124,13 @@ class ReviewQueueTest(unittest.TestCase):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, queue(prs))
 
+    def test_blank_text_is_refused(self):
+        for blank in ("", " \t"):
+            for field in ("title", "area"):
+                with self.subTest(field=field, blank=blank), \
+                        self.assertRaisesRegex(TemplateError, rf"^data\.prs\[0\]\.{field}: expected non-blank text$"):
+                    render_template(self.page, queue([pr(**{field: blank})]))
+
 
 if __name__ == "__main__":
     unittest.main()

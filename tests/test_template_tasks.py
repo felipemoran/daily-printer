@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from todoist_api_python.models import Due, Task  # noqa: E402
 
-from tasks_template import META_MAX, TASKS_MAX, TITLE_MAX, tasks_payload  # noqa: E402
+from tasks_template import META_MAX, TASKS_MAX, TITLE_MAX, UNTITLED, tasks_payload  # noqa: E402
 from todoist_client import TaskSections  # noqa: E402
 
 NOW = datetime(2026, 10, 12, 7, 30).astimezone()
@@ -72,6 +72,12 @@ class MappingTest(unittest.TestCase):
         exact = tasks_payload(TaskSections(today=[task("🔥" * TITLE_MAX)]), NOW)["data"]["tasks"][0]
         self.assertEqual(exact["title"], "🔥" * TITLE_MAX)
 
+    def test_blank_title_gets_a_placeholder(self):
+        for content in ("", "   ", "[ ](https://example.com)", "\u200b"):
+            with self.subTest(content=content):
+                row = tasks_payload(TaskSections(today=[task(content)]), NOW)["data"]["tasks"][0]
+                self.assertEqual(row["title"], UNTITLED)
+
     def test_caps_tasks_and_counts_the_rest(self):
         data = tasks_payload(TaskSections(today=[task(f"t{n}") for n in range(TASKS_MAX + 1)]), NOW)["data"]
         self.assertEqual(len(data["tasks"]), TASKS_MAX)
@@ -122,6 +128,30 @@ class RenderTest(unittest.TestCase):
             .filter((el) => el.scrollWidth > el.clientWidth || el.getBoundingClientRect().right > 384)
             .map((el) => el.className || el.tagName)""")
         self.assertEqual(overflow, [])
+
+    def test_blank_text_is_refused(self):
+        from ticket_templates import TemplateError
+
+        row = {"title": "t", "meta": "m", "priority": "P1"}
+        for blank in ("", " \t"):
+            for data, field in (
+                ({"weekday": blank}, "weekday"),
+                ({"date": blank}, "date"),
+                ({"year": blank}, "year"),
+                ({"printedAt": blank}, "printedAt"),
+                ({"tasks": [{**row, "title": blank}]}, r"tasks\[0\]\.title"),
+                ({"tasks": [{**row, "meta": blank}]}, r"tasks\[0\]\.meta"),
+                ({"tasks": [{**row, "priority": blank}]}, r"tasks\[0\]\.priority"),
+            ):
+                payload = tasks_payload(SECTIONS, NOW)
+                payload["data"].update(data)
+                with self.subTest(field=field, blank=blank), \
+                        self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
+                    self.render(payload)
+
+    def test_placeholder_title_renders(self):
+        self.render(tasks_payload(TaskSections(today=[task("[ ](https://example.com)")]), NOW))
+        self.assertIn(UNTITLED, self.page.inner_text("#receipt"))
 
 
 if __name__ == "__main__":

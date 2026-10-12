@@ -1,15 +1,15 @@
 // Strip 1i of designs/receipt-set-1, on design-system/components/PullRequestTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, integer, limitedString, object } from './validate'
+import { array, integer, object, text } from './validate'
 
 // The maxima bound a row to 3 title lines and one line each for number and meta,
 // so 20 rows stay under the 4000-dot render cap.
 const parse = object({
   prs: array(object({
     number: integer(0, 999_999_999_999),
-    title: limitedString(64),
-    area: limitedString(10),
+    title: text(64),
+    area: text(10),
     added: integer(0, 999_999),
     removed: integer(0, 999_999),
     ageDays: integer(0, 9999),

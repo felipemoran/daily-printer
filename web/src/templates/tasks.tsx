@@ -1,24 +1,24 @@
 // Strip 1b of designs/receipt-set-1, on design-system/components/TasksTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, boolean, integer, limitedString, object, optional } from './validate'
+import { array, boolean, integer, object, optional, text } from './validate'
 
 const count = integer(0, 9999)
 
 const parse = object({
-  weekday: limitedString(9),
-  date: limitedString(9),
-  year: limitedString(4),
+  weekday: text(9),
+  date: text(9),
+  year: text(4),
   tasks: array(object({
-    title: limitedString(160),
-    meta: optional(limitedString(80)),
+    title: text(160),
+    meta: optional(text(80)),
     done: optional(boolean),
-    priority: optional(limitedString(6)),
+    priority: optional(text(6)),
   }), 30),
   // Tasks the sender left out to stay under the cap.
   more: optional(count),
   doneYesterday: optional(count),
-  printedAt: limitedString(16),
+  printedAt: text(16),
 })
 
 export default defineTemplate({

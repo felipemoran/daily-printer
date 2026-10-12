@@ -146,6 +146,22 @@ class ReportTest(unittest.TestCase):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, report(**data))
 
+    def test_blank_text_is_refused(self):
+        kpi = {"label": "A", "value": "1", "note": "n"}
+        for blank in ("", " \t"):
+            for data, field in (
+                ({"range": blank}, "range"),
+                ({"title": blank}, "title"),
+                ({"kpis": [{**kpi, "label": blank}]}, r"kpis\[0\]\.label"),
+                ({"kpis": [{**kpi, "value": blank}]}, r"kpis\[0\]\.value"),
+                ({"kpis": [{**kpi, "note": blank}]}, r"kpis\[0\]\.note"),
+                ({"channels": [{"label": blank, "value": 1, "prev": 1}]}, r"channels\[0\]\.label"),
+                ({"days": [{"label": blank, "value": 1}]}, r"days\[0\]\.label"),
+            ):
+                with self.subTest(field=field, blank=blank), \
+                        self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
+                    render_template(self.page, report(**data))
+
 
 if __name__ == "__main__":
     unittest.main()

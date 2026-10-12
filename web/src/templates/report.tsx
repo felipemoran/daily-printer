@@ -1,7 +1,7 @@
 // Strip 1e of designs/receipt-set-1, on design-system/components/ReportTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, boolean, integer, limitedString, number, object, optional, string, TemplateDataError, type Parser } from './validate'
+import { array, boolean, integer, nonBlank, number, object, optional, string, TemplateDataError, text, type Parser } from './validate'
 
 // Up to 1e12 every amount fits in 4 characters, as compact notation at worst ("1T").
 const MAX_AMOUNT = 1e12
@@ -15,11 +15,11 @@ const amount: Parser<number> = (value, path) => {
 
 const parse = object({
   week: integer(1, 53),
-  range: string,
-  title: string,
-  kpis: array(object({ label: string, value: limitedString(6), note: optional(string), inverted: optional(boolean) }), 4),
-  channels: array(object({ label: limitedString(7), value: amount, prev: amount }), 8),
-  days: array(object({ label: limitedString(4), value: amount }), 7),
+  range: nonBlank(string),
+  title: nonBlank(string),
+  kpis: array(object({ label: nonBlank(string), value: text(6), note: optional(nonBlank(string)), inverted: optional(boolean) }), 4),
+  channels: array(object({ label: text(7), value: amount, prev: amount }), 8),
+  days: array(object({ label: text(4), value: amount }), 7),
 })
 
 // Plex Mono 16px is 9.6px a glyph: 5 fit the 52px BarList value cell, 4 the 46px column of 7 days.

@@ -10,13 +10,17 @@ from todoist_api_python.models import Task
 from task_formatter import strip_markdown_links
 from todoist_client import TaskSections
 
-# Mirror the caps in web/src/templates/tasks.tsx. Its limitedString counts code points.
+# Mirror the caps in web/src/templates/tasks.tsx. Its validators count code points.
 TASKS_MAX = 30
 TITLE_MAX = 160
 META_MAX = 80
 
 # Todoist's API numbers priority backwards: 4 is the app's P1. P4 is the default and gets no tag.
 _PRIORITY_TAGS = {4: "P1", 3: "P2", 2: "P3"}
+
+# The template refuses a title that is blank once these go (nonBlank in web/src/templates/validate.ts).
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff"))
+UNTITLED = "(untitled)"
 
 
 def _clip(text: str, limit: int) -> str:
@@ -39,7 +43,10 @@ def _row(task: Task, today: date | None) -> dict[str, Any]:
     elif task.due is not None and isinstance(task.due.date, datetime):
         parts.append(task.due.date.astimezone().strftime("%H:%M"))
     parts += task.labels or []
-    row: dict[str, Any] = {"title": _clip(strip_markdown_links(task.content), TITLE_MAX)}
+    title = strip_markdown_links(task.content)
+    if not title.translate(_ZERO_WIDTH).strip():
+        title = UNTITLED
+    row: dict[str, Any] = {"title": _clip(title, TITLE_MAX)}
     if parts:
         row["meta"] = _clip(" · ".join(parts), META_MAX)
     if task.priority in _PRIORITY_TAGS:
