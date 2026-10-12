@@ -17,6 +17,13 @@ FRACTIONAL_BOXES_JS = """() => [...document.querySelectorAll('#receipt :not(span
   const r = element.getBoundingClientRect();
   return [r.x, r.y, r.width, r.height].every(Number.isInteger) ? [] : [element.outerHTML.slice(0, 80)];
 })"""
+# A design-system cell clips with overflow:hidden; a clipped value prints wrong while the render succeeds.
+OVERFLOWING_JS = """() => {
+  const right = document.querySelector('#receipt').getBoundingClientRect().right;
+  return [...document.querySelectorAll('#receipt, #receipt *')].flatMap((element) =>
+    element.scrollWidth > element.clientWidth || element.getBoundingClientRect().right > right
+      ? [element.outerHTML.slice(0, 80)] : []);
+}"""
 
 
 def setUpModule():
@@ -71,6 +78,19 @@ class ReviewQueueTest(unittest.TestCase):
     def test_oldest_is_the_largest_age_in_any_order(self):
         self.assertIn("3 WAITING ON YOU · OLDEST 9D", self.render_lines(queue([pr(1, 1), pr(2, 9), pr(3, 0)])))
 
+    def test_rows_print_oldest_first_and_stable_for_ties(self):
+        lines = self.render_lines(queue([pr(1, 0), pr(2, 5), pr(3, 0), pr(4, 2)]))
+        numbers = [line for line in lines if line.startswith("#")]
+        self.assertEqual(numbers, ["#2", "#4", "#1", "#3"])
+
+    def test_widest_values_fit_unclipped(self):
+        widest = pr(999_999_999_999, 9999, title="x" * 80, area="a" * 60, added=9_999_999, removed=9_999_999)
+        lines = self.render_lines(queue([widest, pr(2, 1000, added=1_234_567, removed=7_654_321)] + [pr(3)] * 23))
+        self.assertIn("#999999999999", lines)
+        self.assertIn("STALE 1000D", lines)
+        self.assertIn("25 WAITING ON YOU · OLDEST 9999D", lines)
+        self.assertEqual(self.page.evaluate(OVERFLOWING_JS), [])
+
     def test_empty_queue_says_so(self):
         lines = self.render_lines(queue([]))
         self.assertIn("0 WAITING ON YOU", lines)
@@ -79,11 +99,14 @@ class ReviewQueueTest(unittest.TestCase):
 
     def test_invalid_data_names_the_field_path(self):
         for prs, pattern in (
-            ([pr(age_days=1.5)], r"^data\.prs\[0\]\.ageDays: expected a whole number >= 0$"),
-            ([pr(added=-1)], r"^data\.prs\[0\]\.added: expected a whole number >= 0$"),
+            ([pr(age_days=1.5)], r"^data\.prs\[0\]\.ageDays: expected a whole number from 0 to 9999$"),
+            ([pr(age_days=10_000)], r"^data\.prs\[0\]\.ageDays: expected a whole number from 0 to 9999$"),
+            ([pr(added=-1)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 9007199254740991$"),
+            ([pr(added=1e21)], r"^data\.prs\[0\]\.added: expected a whole number from 0 to 9007199254740991$"),
+            ([pr(number=10**12)], r"^data\.prs\[0\]\.number: expected a whole number from 0 to 999999999999$"),
             ([pr(removed="4")], r"^data\.prs\[0\]\.removed: expected number$"),
             ([pr(number=None)], r"^data\.prs\[0\]\.number: expected number$"),
-            ([pr()] * 11, r"^data\.prs: expected at most 10 items$"),
+            ([pr()] * 26, r"^data\.prs: expected at most 25 items$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, queue(prs))

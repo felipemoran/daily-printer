@@ -3,14 +3,24 @@ import T from '../thermal'
 import { defineTemplate } from './define'
 import { array, number, object, string, TemplateDataError, type Parser } from './validate'
 
-const count: Parser<number> = (value, path) => {
+// The maxima keep the number row on one line: "#999999999999" beside "STALE 9999D".
+const whole = (max: number): Parser<number> => (value, path) => {
   const result = number(value, path)
-  if (!Number.isInteger(result) || result < 0) throw new TemplateDataError(`${path}: expected a whole number >= 0`)
+  if (!Number.isSafeInteger(result) || result < 0 || result > max) {
+    throw new TemplateDataError(`${path}: expected a whole number from 0 to ${max}`)
+  }
   return result
 }
 
 const parse = object({
-  prs: array(object({ number: count, title: string, area: string, added: count, removed: count, ageDays: count }), 10),
+  prs: array(object({
+    number: whole(999_999_999_999),
+    title: string,
+    area: string,
+    added: whole(Number.MAX_SAFE_INTEGER),
+    removed: whole(Number.MAX_SAFE_INTEGER),
+    ageDays: whole(9999),
+  }), 25),
 })
 
 const STALE_AFTER_DAYS = 2
@@ -28,7 +38,7 @@ export default defineTemplate({
       </div>
       <T.Rule weight="bar" style={{ margin: 'var(--space-5) 0 0' }} />
       {prs.length ? null : <div className="body" style={{ padding: 'var(--space-4) 0' }}>NOTHING TO REVIEW</div>}
-      {prs.map((pr, index) => (
+      {prs.toSorted((a, b) => b.ageDays - a.ageDays).map((pr, index) => (
         <div key={index}>
           <div style={{ padding: 'var(--space-4) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
