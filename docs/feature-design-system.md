@@ -10,7 +10,7 @@ Thermal is the design system for prints. Its source of truth is the Claude Desig
 | `web/src/thermal/index.ts` | Runs the mirrored `bundle.js` and exports its components, typed: `import T from './thermal'`. |
 | `web/src/thermal/generated/` | Written by the sync script: `tokens.css` (variables and type classes from `tokens.json`), `bundle.css` (without the Google Fonts import) and `thermal.d.ts` (component props). |
 | `web/public/fonts/` | Self-hosted Archivo, IBM Plex Mono and JetBrains Mono, so renders work offline. Declared in `web/src/fonts.css`. |
-| `web/thermal.html` | Example page: `TicketTemplate` ported from the artifact. |
+| `web/src/templates/` | Print templates built from the components: `docs/feature-ticket-templates.md`. |
 | `web/preview.html` | Runs any mirrored `preview.html` unchanged: `preview.html?c=<Component>`. |
 
 ## Sync from Claude Design
@@ -48,11 +48,8 @@ Keep class names and inline styles as they are. `print` makes `Paper` render the
 
 ## Print
 
-```bash
-cd web && npm run build
-uv run src/scripts/page_print.py --page web/dist/thermal.html --no-print
-```
+Port a print as a template and print it with `make template PAYLOAD=<payload.json>` (`docs/feature-ticket-templates.md`).
 
-Every other step of the print profile applies, with one exception: automatic weight skips pages whose `#receipt` has the `rp-paper` class, so the design system's own weights reach the paper.
+The whole print profile applies, with one exception: automatic weight skips pages whose `#receipt` has the `rp-paper` class, so the design system's own weights reach the paper.
 
 Glyphs outside the Latin subsets (`→ ▲ ✓ █`) fall back to a system font.

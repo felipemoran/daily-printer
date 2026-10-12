@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&family=Schibsted+Grotesk:wght@400..900&family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400..800;1,6..72,400..800&family=Silkscreen:wght@400;700&family=Courier+Prime:wght@400;700&family=Big+Shoulders+Display:wght@700..900&display=swap">
+
+<style>body{margin:0;background:#d8d5cf}a{color:#1c1b19}a:hover{color:#000}</style>
+</helmet>
+<svg width="0" height="0" style="position:absolute">
+
+<filter id="bleedLight"><feMorphology operator="erode" radius="0.6"></feMorphology><feGaussianBlur stdDeviation="0.35"></feGaussianBlur></filter>
+<filter id="bleedHeavy"><feMorphology operator="erode" radius="1.1"></feMorphology><feGaussianBlur stdDeviation="0.6"></feGaussianBlur></filter>
+</svg>
+<section style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'IBM Plex Mono',monospace;color:#1c1b19">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:900px">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:56px;line-height:1">Thermal receipt explorations</div>
+<div style="font-size:15px;line-height:1.5;color:#4a4740;text-wrap:pretty">58 mm paper · 48 mm printable · 203 dpi → 384 dots wide. Each strip below is drawn at 1 CSS px = 1 dot, pure #000 / #fff only. Use the Bleed tweak to preview dot gain.</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
+
+<div id="1a" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1a</span><span style="font-weight:700">Test page — what survives the medium</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Calibrate first. Print this, then pick your minimums: stroke weight, dither cell size, smallest legible type, and whether reversed (white-on-black) text holds up.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:69px;line-height:.88">TEST PAGE</div>
+<div style="margin-top:10px;font-weight:700">58MM · 384 DOTS · 8/MM</div>
+<div style="border-top:8px solid #000;margin:24px 0 20px"></div>
+<div style="font-weight:700;letter-spacing:3px;margin-bottom:8px">LINE WEIGHT</div>
+<div style="display:flex;align-items:center;gap:16px;height:36px"><span style="width:64px">1px</span><span style="flex:1;height:1px;background:#000"></span><span style="width:84px;text-align:right">FAINT</span></div>
+<div style="display:flex;align-items:center;gap:16px;height:36px"><span style="width:64px">2px</span><span style="flex:1;height:2px;background:#000"></span><span style="width:84px;text-align:right">OK</span></div>
+<div style="display:flex;align-items:center;gap:16px;height:36px"><span style="width:64px">3px</span><span style="flex:1;height:3px;background:#000"></span><span style="width:84px;text-align:right">GOOD</span></div>
+<div style="display:flex;align-items:center;gap:16px;height:36px"><span style="width:64px">4px</span><span style="flex:1;height:4px;background:#000"></span><span style="width:84px;text-align:right">BOLD</span></div>
+<div style="display:flex;align-items:center;gap:16px;height:36px"><span style="width:64px">8px</span><span style="flex:1;height:8px;background:#000"></span><span style="width:84px;text-align:right">RULE</span></div>
+<div style="border-top:3px solid #000;margin:20px 0"></div>
+<div style="font-weight:700;letter-spacing:3px;margin-bottom:12px">FILLS (NO GREY — ONLY DOTS)</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 12px;font-size:16px;line-height:1.25">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;background:#000"></div><div>SOLID</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/2px 2px"></div><div>1PX CHECK<br>→ goes solid</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/4px 4px"></div><div>2PX CHECK<br>≈ 65% dark</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/8px 8px"></div><div>4PX CHECK<br>reads 50%</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:conic-gradient(from 270deg at 2px 2px,#000 25%,#fff 0) 0 0/4px 4px"></div><div>DOT 2/4<br>≈ 35%</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:conic-gradient(from 270deg at 2px 2px,#000 25%,#fff 0) 0 0/6px 6px"></div><div>DOT 2/6<br>≈ 15%</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:repeating-linear-gradient(90deg,#000 0 3px,#fff 3px 7px)"></div><div>V-STRIPE<br>3 on / 4 off</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:80px;border:3px solid #000;background:repeating-linear-gradient(0deg,#000 0 2px,#fff 2px 8px)"></div><div>H-STRIPE<br>2 on / 6 off</div></div>
+</div>
+<div style="border-top:3px solid #000;margin:24px 0 16px"></div>
+<div style="font-weight:700;letter-spacing:3px;margin-bottom:8px">TYPE SIZE</div>
+<div style="font-size:14px;line-height:1.5">14px — Ticket OPS-2481 resolved 8:41</div>
+<div style="font-size:16px;line-height:1.5">18px — Ticket OPS-2481 resolved</div>
+<div style="font-size:18px;line-height:1.5">22px — Ticket OPS-2481 res</div>
+<div style="font-size:21px;line-height:1.5;font-weight:700">28px — OPS-2481 done</div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1.1">64 CONDENSED</div>
+<div style="border-top:3px solid #000;margin:16px 0 16px"></div>
+<div style="font-weight:700;letter-spacing:3px;margin-bottom:10px">REVERSE</div>
+<div style="background:#000;color:#fff;padding:10px 14px;font-weight:400">400 weight · fills in</div>
+<div style="background:#000;color:#fff;padding:10px 14px;font-weight:700;margin-top:8px">700 weight · holds open</div>
+<div style="margin-top:28px;font-size:16px;line-height:1.5">MIN STROKE 2PX · MIN TEXT 18PX<br>DOT CELLS ≥ 2PX · REVERSE = BOLD</div>
+</div>
+</div>
+
+<div id="1b" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1b</span><span style="font-weight:700">Daily task list</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Printed each morning. Hollow boxes are meant to be ticked with a pen — the paper becomes the interface. Done items print struck and filled.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="display:flex;justify-content:space-between;align-items:flex-end">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:87px;line-height:.82">TASKS</div>
+<div style="text-align:right;font-weight:700;line-height:1.15"><div>THU</div><div style="font-size:22px">01 OCT</div><div>2026</div></div>
+</div>
+<div style="border-top:8px solid #000;margin:20px 0 4px"></div>
+<sc-for list="{{ tasks }}" as="task" hint-placeholder-count="6">
+<div style="display:flex;gap:18px;padding:16px 0;border-bottom:2px dashed #000;align-items:flex-start">
+<sc-if value="{{ task.open }}" hint-placeholder-val="{{ true }}"><div style="flex:none;width:30px;height:30px;border:4px solid #000;margin-top:2px"></div></sc-if>
+<sc-if value="{{ task.done }}" hint-placeholder-val="{{ false }}"><div style="flex:none;width:38px;height:38px;background:#000;margin-top:2px;color:#fff;font-weight:700;font-size:20px;line-height:38px;text-align:center">✓</div></sc-if>
+<div style="flex:1;display:flex;flex-direction:column;gap:4px">
+<sc-if value="{{ task.open }}" hint-placeholder-val="{{ true }}"><div style="font-size:20px;font-weight:700;line-height:1.2">{{ task.t }}</div></sc-if>
+<sc-if value="{{ task.done }}" hint-placeholder-val="{{ false }}"><div style="font-size:20px;font-weight:500;line-height:1.2;text-decoration:line-through;text-decoration-thickness:3px">{{ task.t }}</div></sc-if>
+<div style="font-size:16px">{{ task.meta }}</div>
+</div>
+<sc-if value="{{ task.pri }}" hint-placeholder-val="{{ false }}"><div style="flex:none;background:#000;color:#fff;font-weight:700;font-size:16px;padding:2px 8px">P1</div></sc-if>
+</div>
+</sc-for>
+<div style="display:grid;grid-template-columns:1fr 1fr;border:4px solid #000;margin-top:28px">
+<div style="padding:12px 16px;border-right:4px solid #000"><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:48px;line-height:1">5</div><div style="font-size:16px;font-weight:700">OPEN</div></div>
+<div style="padding:12px 16px"><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:48px;line-height:1">2</div><div style="font-size:16px;font-weight:700">DONE YESTERDAY</div></div>
+</div>
+<div style="margin-top:20px;font-size:16px;text-align:center">printed 07:30 · tear &amp; stick</div>
+</div>
+</div>
+
+<div id="1c" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1c</span><span style="font-weight:700">Ticket status update</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Event-driven print. The ID is the hero, the transition is shown as hollow → solid boxes, fields use dashed leaders like a store receipt. QR slot links back to the ticket.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="background:#000;color:#fff;display:flex;justify-content:space-between;padding:10px 16px;font-weight:700;letter-spacing:3px"><span>TICKET UPDATE</span><span>14:08</span></div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:92px;line-height:.9;margin-top:20px;letter-spacing:-1px">OPS-2481</div>
+<div style="font-size:21px;font-weight:700;line-height:1.25;margin-top:12px;text-wrap:pretty">Payment webhook retries exceed limit on EU cluster</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:28px">
+<div style="flex:1;border:4px solid #000;padding:14px 8px;text-align:center;font-weight:700">IN REVIEW</div>
+<div style="font-size:26px;font-weight:700">→</div>
+<div style="flex:1;background:#000;color:#fff;padding:18px 8px;text-align:center;font-weight:700">RESOLVED</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:28px">
+<div style="display:flex;align-items:baseline"><span>Assignee</span><span style="flex:1;border-bottom:2px dashed #000;margin:0 10px"></span><span style="font-weight:700">M. Okafor</span></div>
+<div style="display:flex;align-items:baseline"><span>Priority</span><span style="flex:1;border-bottom:2px dashed #000;margin:0 10px"></span><span style="font-weight:700">HIGH</span></div>
+<div style="display:flex;align-items:baseline"><span>Reporter</span><span style="flex:1;border-bottom:2px dashed #000;margin:0 10px"></span><span style="font-weight:700">S. Lindqvist</span></div>
+<div style="display:flex;align-items:baseline"><span>Time spent</span><span style="flex:1;border-bottom:2px dashed #000;margin:0 10px"></span><span style="font-weight:700">3h 20m</span></div>
+<div style="display:flex;align-items:baseline"><span>Opened</span><span style="flex:1;border-bottom:2px dashed #000;margin:0 10px"></span><span style="font-weight:700">2d ago</span></div>
+</div>
+<div style="border-top:3px solid #000;margin:28px 0 8px"></div>
+<div style="font-family:'Archivo';font-weight:900;font-size:63px;line-height:.8;height:52px">“</div>
+<div style="font-size:18px;line-height:1.45;text-wrap:pretty">Raised retry cap to 8 and added jitter. Backlog drained in 11 min. Monitoring overnight.</div>
+<div style="font-size:16px;margin-top:8px;font-weight:700">— M. Okafor</div>
+<div style="border-top:3px solid #000;margin:28px 0 20px"></div>
+<div style="display:flex;gap:20px;align-items:center">
+<div style="flex:none;width:120px;height:120px;border:4px solid #000;background:conic-gradient(from 270deg at 2px 2px,#000 25%,#fff 0) 0 0/6px 6px;display:flex;align-items:center;justify-content:center"><span style="background:#fff;padding:4px 8px;font-size:16px;font-weight:700">QR</span></div>
+<div style="font-size:16px;line-height:1.5">Scan to open ticket<br>3 watchers notified<br>Next: auto-close in 48h</div>
+</div>
+</div>
+</div>
+
+<div id="1d" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1d</span><span style="font-weight:700">Incident alert</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Maximum ink = maximum urgency. Hazard tape bands and a huge reversed severity block are readable across a room. Burns lots of paper heat — reserve for real alarms.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="height:40px;background:repeating-linear-gradient(-45deg,#000 0 14px,#fff 14px 28px)"></div>
+<div style="background:#000;color:#fff;display:flex;align-items:flex-end;gap:20px;padding:12px 20px 20px;margin-top:12px">
+<div style="display:flex;flex-direction:column"><span style="font-weight:700;font-size:26px;letter-spacing:4px">SEV</span><span style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:172px;line-height:.78">1</span></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:4px;font-weight:700;padding-bottom:8px"><span style="font-size:23px">INCIDENT</span><span>#INC-0937</span><span>OPENED 13:52</span></div>
+</div>
+<div style="font-family:'Archivo';font-stretch:75%;font-weight:900;font-size:42px;line-height:1;margin-top:24px">checkout-api</div>
+<div style="font-weight:700;margin-top:6px">error rate 38% · p99 4.2s</div>
+<div style="border-top:4px solid #000;margin:24px 0 16px"></div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:16px"><span style="font-weight:700;width:76px">13:52</span><span style="flex:1">Alert fired: 5xx &gt; 20%</span></div>
+<div style="display:flex;gap:16px"><span style="font-weight:700;width:76px">13:55</span><span style="flex:1">Paged on-call: R. Chen</span></div>
+<div style="display:flex;gap:16px"><span style="font-weight:700;width:76px">13:58</span><span style="flex:1">Escalated to secondary</span></div>
+<div style="display:flex;gap:16px"><span style="font-weight:700;width:76px">14:01</span><span style="flex:1">Deploy #8812 suspected</span></div>
+</div>
+<div style="border:6px solid #000;margin-top:28px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+<span style="font-weight:700;line-height:1.2">ACK<br>REQUIRED BY</span>
+<span style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:63px;line-height:.9">14:07</span>
+</div>
+<div style="height:40px;background:repeating-linear-gradient(-45deg,#000 0 14px,#fff 14px 28px);margin-top:28px"></div>
+</div>
+</div>
+
+<div id="1e" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1e</span><span style="font-weight:700">Weekly data report</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Two "colors" for comparison: solid = this week, 4px checker = last week. KPI tiles in a heavy ruled grid; columns get value labels since there's no axis gridline subtlety available.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:79px;line-height:.85">WEEK 40</div>
+<div style="font-weight:700;margin-top:10px">28 SEP – 04 OCT · SUPPORT</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;border:4px solid #000;margin-top:24px">
+<div style="padding:12px 16px;border-right:4px solid #000;border-bottom:4px solid #000"><div style="font-size:16px;font-weight:700">TICKETS IN</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:50px;line-height:1">1,284</div><div style="font-size:16px">▲ 12% vs wk 39</div></div>
+<div style="padding:12px 16px;border-bottom:4px solid #000"><div style="font-size:16px;font-weight:700">RESOLVED</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:50px;line-height:1">1,197</div><div style="font-size:16px">▲ 8%</div></div>
+<div style="padding:12px 16px;border-right:4px solid #000"><div style="font-size:16px;font-weight:700">FIRST REPLY</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:50px;line-height:1">42m</div><div style="font-size:16px">▼ 9m faster</div></div>
+<div style="padding:12px 16px;background:#000;color:#fff"><div style="font-size:16px;font-weight:700">CSAT</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:50px;line-height:1">94%</div><div style="font-size:16px;font-weight:700">BEST SINCE MAY</div></div>
+</div>
+<div style="font-weight:700;letter-spacing:3px;margin:32px 0 12px">BY CHANNEL</div>
+<sc-for list="{{ channels }}" as="ch" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:76px 1fr 52px;gap:6px 12px;align-items:center;margin-bottom:14px">
+<span style="font-size:16px;font-weight:700">{{ ch.l }}</span>
+<div style="display:flex;flex-direction:column;gap:4px"><div style="height:22px;background:#000;width:{{ ch.w }}"></div><div style="height:12px;border:2px solid #000;box-sizing:border-box;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/8px 8px;width:{{ ch.pw }}"></div></div>
+<span style="font-size:16px;font-weight:700;text-align:right">{{ ch.v }}</span>
+</div>
+</sc-for>
+<div style="display:flex;gap:24px;font-size:16px;align-items:center"><span style="display:flex;gap:8px;align-items:center"><span style="width:24px;height:16px;background:#000"></span>WK 40</span><span style="display:flex;gap:8px;align-items:center"><span style="width:24px;height:16px;border:2px solid #000;box-sizing:border-box;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/8px 8px"></span>WK 39</span></div>
+<div style="font-weight:700;letter-spacing:3px;margin:32px 0 12px">DAILY VOLUME</div>
+<div style="display:flex;align-items:flex-end;gap:10px;height:220px;border-bottom:4px solid #000">
+<sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end"><span style="font-size:16px;font-weight:700">{{ d.v }}</span><div style="width:100%;background:#000;height:{{ d.h }}px"></div></div>
+</sc-for>
+</div>
+<div style="display:flex;gap:10px;margin-top:6px">
+<sc-for list="{{ week }}" as="d" hint-placeholder-count="7"><span style="flex:1;text-align:center;font-size:16px;font-weight:700">{{ d.d }}</span></sc-for>
+</div>
+</div>
+</div>
+
+<div id="1f" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1f</span><span style="font-weight:700">Uptime heatmap</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">168 hourly cells in a 3-state encoding: hollow (ok), dithered (degraded), solid (down). Three states is about the limit before patterns become indistinguishable at this cell size.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="font-weight:700;letter-spacing:3px">API GATEWAY · EU-WEST</div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:99px;line-height:.85;margin-top:8px">99.42%</div>
+<div style="font-weight:700">UPTIME · LAST 7 DAYS</div>
+<div style="border-top:4px solid #000;margin:24px 0 16px"></div>
+<div style="display:flex;padding-left:44px;font-size:16px;font-weight:700"><span style="flex:1">00</span><span style="flex:1">06</span><span style="flex:1">12</span><span style="flex:1">18</span></div>
+<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+<sc-for list="{{ uptime }}" as="row" hint-placeholder-count="7">
+<div style="display:flex;align-items:center">
+<span style="width:44px;font-size:16px;font-weight:700">{{ row.d }}</span>
+<div style="display:flex;gap:3px">
+<sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="24">
+<sc-if value="{{ c.ok }}" hint-placeholder-val="{{ true }}"><div style="width:11px;height:22px;box-sizing:border-box;border:2px solid #000"></div></sc-if>
+<sc-if value="{{ c.deg }}" hint-placeholder-val="{{ false }}"><div style="width:11px;height:22px;box-sizing:border-box;border:2px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/4px 4px"></div></sc-if>
+<sc-if value="{{ c.down }}" hint-placeholder-val="{{ false }}"><div style="width:11px;height:22px;background:#000"></div></sc-if>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:24px;font-size:16px;margin-top:16px;font-weight:700">
+<span style="display:flex;gap:8px;align-items:center"><span style="width:18px;height:18px;border:2px solid #000;box-sizing:border-box"></span>OK</span>
+<span style="display:flex;gap:8px;align-items:center"><span style="width:18px;height:18px;border:2px solid #000;box-sizing:border-box;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/4px 4px"></span>DEGRADED</span>
+<span style="display:flex;gap:8px;align-items:center"><span style="width:18px;height:18px;background:#000"></span>DOWN</span>
+</div>
+<div style="border-top:3px solid #000;margin:24px 0 12px"></div>
+<div style="font-weight:700;letter-spacing:3px;margin-bottom:8px">INCIDENTS (3)</div>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:17px">
+<div style="display:flex;gap:12px"><span style="font-weight:700;width:120px">TUE 14h</span><span>TLS cert rotation · 62m</span></div>
+<div style="display:flex;gap:12px"><span style="font-weight:700;width:120px">THU 03h</span><span>DB failover · degraded</span></div>
+<div style="display:flex;gap:12px"><span style="font-weight:700;width:120px">SAT 20h</span><span>Region outage · 2h 40m</span></div>
+</div>
+</div>
+</div>
+
+<div id="1g" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1g</span><span style="font-weight:700">Day agenda — time to scale</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Receipt length is free, so time can map to physical length (1 hour = 7 mm). Meetings hollow, focus blocks dithered, the current one reversed, plus a printed "now" line.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="display:flex;justify-content:space-between;align-items:flex-end">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:73px;line-height:.85">AGENDA</div>
+<div style="text-align:right;font-weight:700;line-height:1.2">THU 01 OCT<br>5 EVENTS</div>
+</div>
+<div style="border-top:8px solid #000;margin:20px 0 24px"></div>
+<div style="position:relative;height:560px">
+<div style="position:absolute;left:0;right:0;top:0;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:-14px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">08</div>
+<div style="position:absolute;left:0;right:0;top:112px;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:98px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">10</div>
+<div style="position:absolute;left:0;right:0;top:224px;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:210px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">12</div>
+<div style="position:absolute;left:0;right:0;top:336px;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:322px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">14</div>
+<div style="position:absolute;left:0;right:0;top:448px;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:434px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">16</div>
+<div style="position:absolute;left:0;right:0;top:560px;border-top:2px dashed #000"></div>
+<div style="position:absolute;left:0;top:546px;font-size:16px;font-weight:700;background:#fff;padding-right:6px">18</div>
+<div style="position:absolute;left:36px;right:0;top:56px;height:28px;box-sizing:border-box;border:3px solid #000;background:#fff;padding:0 10px;font-size:16px;font-weight:700;line-height:22px">09:00 Standup</div>
+<div style="position:absolute;left:36px;right:0;top:112px;height:112px;box-sizing:border-box;border:3px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/8px 8px;padding:10px"><span style="background:#fff;padding:2px 8px;font-size:17px;font-weight:700">10:00 FOCUS · billing migration</span></div>
+<div style="position:absolute;left:36px;right:0;top:252px;height:42px;box-sizing:border-box;border:3px solid #000;background:#fff;padding:6px 10px;font-size:16px;font-weight:700">12:30 Lunch w/ Dana</div>
+<div style="position:absolute;left:36px;right:0;top:336px;height:56px;box-sizing:border-box;background:#000;color:#fff;padding:8px 12px;font-size:17px;font-weight:700;display:flex;justify-content:space-between"><span>14:00 Design review</span><span>NOW</span></div>
+<div style="position:absolute;left:36px;right:0;top:448px;height:42px;box-sizing:border-box;border:3px solid #000;background:#fff;padding:6px 10px;font-size:16px;font-weight:700">16:00 1:1 Priya</div>
+<div style="position:absolute;left:28px;right:-8px;top:372px;height:6px;background:#000"></div>
+<div style="position:absolute;left:28px;top:362px;width:6px;height:26px;background:#000"></div>
+</div>
+<div style="margin-top:36px;display:flex;justify-content:space-between;font-weight:700"><span>BUSY 4h 45m</span><span>FREE 5h 15m</span></div>
+</div>
+</div>
+
+<div id="1h" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1h</span><span style="font-weight:700">Text mode — 32 columns</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">What the printer can do natively without rasterizing: fixed 32-col font, double-size and reverse modes, ASCII rules, block-character bars. Fastest to print and trivial to generate. ░ is fine detail — expect it to smudge.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'JetBrains Mono',monospace;font-size:20px;line-height:1.3;font-weight:400;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<sc-for list="{{ textTop }}" as="ln" hint-placeholder-count="12"><div style="white-space:pre;overflow:hidden;height:26px">{{ ln }}</div></sc-for>
+<div style="background:#000;color:#fff;font-weight:700;font-size:26px;line-height:1.3;text-align:center;margin:12px 0">BUILD FAILED</div>
+<sc-for list="{{ textBottom }}" as="ln" hint-placeholder-count="12"><div style="white-space:pre;overflow:hidden;height:26px">{{ ln }}</div></sc-for>
+</div>
+</div>
+
+<div id="1i" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1i</span><span style="font-weight:700">Code review queue</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Diff size as five squares (solid = added, dithered = removed) — a glanceable glyph without needing colour. Stale items get a reversed tag.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:66px;line-height:.85">REVIEW<br>QUEUE</div>
+<div style="font-weight:700;margin-top:12px">6 WAITING ON YOU · OLDEST 4D</div>
+<div style="border-top:8px solid #000;margin:20px 0 0"></div>
+<sc-for list="{{ prs }}" as="pr" hint-placeholder-count="6">
+<div style="padding:16px 0;border-bottom:2px dashed #000;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-weight:700;font-size:20px">{{ pr.n }}</span>
+<sc-if value="{{ pr.stale }}" hint-placeholder-val="{{ false }}"><span style="background:#000;color:#fff;font-weight:700;font-size:16px;padding:2px 8px;letter-spacing:2px">STALE {{ pr.age }}</span></sc-if>
+<sc-if value="{{ pr.fresh }}" hint-placeholder-val="{{ true }}"><span style="font-weight:700;font-size:16px;border:2px solid #000;padding:0 8px">{{ pr.age }}</span></sc-if>
+</div>
+<div style="font-size:18px;font-weight:700;line-height:1.25">{{ pr.t }}</div>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:16px">
+<span>{{ pr.m }}</span>
+<div style="display:flex;gap:4px">
+<sc-for list="{{ pr.sq }}" as="s" hint-placeholder-count="5">
+<sc-if value="{{ s.add }}" hint-placeholder-val="{{ true }}"><div style="width:16px;height:16px;background:#000"></div></sc-if>
+<sc-if value="{{ s.del }}" hint-placeholder-val="{{ false }}"><div style="width:16px;height:16px;box-sizing:border-box;border:2px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/4px 4px"></div></sc-if>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div id="1j" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1j</span><span style="font-weight:700">Monthly habit log</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Dense small-multiples: 5 habits × 30 days. Fixed-width paper suits calendar grids well — 30 cells of 10 px with ~2.8 px gutters fills 384 dots.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:74px;line-height:.85">SEPTEMBER</div>
+<div style="font-weight:700;margin-top:10px">HABIT LOG · 30 DAYS</div>
+<div style="border-top:8px solid #000;margin:20px 0 20px"></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:8px"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span></div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<sc-for list="{{ habits }}" as="h" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;font-weight:700;font-size:17px"><span>{{ h.n }}</span><span>{{ h.count }}/30</span></div>
+<div style="display:flex;justify-content:space-between">
+<sc-for list="{{ h.cells }}" as="c" hint-placeholder-count="30">
+<sc-if value="{{ c.done }}" hint-placeholder-val="{{ true }}"><div style="width:10px;height:20px;background:#000"></div></sc-if>
+<sc-if value="{{ c.miss }}" hint-placeholder-val="{{ false }}"><div style="width:10px;height:20px;box-sizing:border-box;border:2px solid #000"></div></sc-if>
+<sc-if value="{{ c.skip }}" hint-placeholder-val="{{ false }}"><div style="width:10px;height:20px;box-sizing:border-box;border:2px solid #000;background:conic-gradient(from 270deg at 2px 2px,#000 25%,#fff 0) 0 0/4px 4px"></div></sc-if>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="border-top:3px solid #000;margin:28px 0 16px"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div><div style="font-size:16px;font-weight:700">BEST STREAK</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1">11 days</div><div style="font-size:16px">Read 20 min</div></div>
+<div><div style="font-size:16px;font-weight:700">COMPLETION</div><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1">71%</div><div style="font-size:16px">▲ 6 pts vs Aug</div></div>
+</div>
+</div>
+</div>
+
+<div id="1k" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1k</span><span style="font-weight:700">Banner mode — sideways sprint board</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Rotate the raster 90° and the receipt becomes a 384-dot-tall banner of any length — wide layouts like a kanban board become possible. Pin it horizontally on a wall.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="position:relative;width:384px;height:1240px;overflow:hidden">
+<div style="position:absolute;left:384px;top:0;width:1240px;height:384px;transform-origin:0 0;transform:rotate(90deg);display:flex;gap:20px;box-sizing:border-box">
+<div style="flex:none;width:150px;background:#000;color:#fff;padding:16px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:.9">SPRINT 24</div>
+<div style="font-size:16px;font-weight:700;line-height:1.4">DAY 6 / 10<br>16 ITEMS<br>01 OCT</div>
+</div>
+<sc-for list="{{ board }}" as="col" hint-placeholder-count="4">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:6px solid #000;padding-bottom:4px"><span style="font-family:'Archivo';font-stretch:75%;font-weight:900;font-size:25px">{{ col.name }}</span><span style="font-weight:700">{{ col.count }}</span></div>
+<sc-for list="{{ col.cards }}" as="card" hint-placeholder-count="3">
+<div style="border:3px solid #000;padding:8px 10px;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:700">{{ card.id }}</span><span style="font-size:16px;line-height:1.2;font-weight:700">{{ card.t }}</span></div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+
+<div id="1l" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1l</span><span style="font-weight:700">Morning briefing</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">A newspaper-for-one: big typographic weather instead of icons, counts row, and a heavy-ruled "one thing" box. Pure type — no imagery needed.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="text-align:center;font-weight:700;letter-spacing:6px">GOOD MORNING</div>
+<div style="border-top:9px double #000;margin:12px 0 8px"></div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:90px;line-height:.9;text-align:center">THURSDAY</div>
+<div style="text-align:center;font-weight:700;margin-top:4px">1 OCTOBER 2026 · WEEK 40</div>
+<div style="border-top:9px double #000;margin:12px 0 24px"></div>
+<div style="display:flex;gap:24px;align-items:center">
+<div style="font-family:'Archivo';font-stretch:75%;font-weight:900;font-size:132px;line-height:.8;letter-spacing:-4px">14°</div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:21px;font-weight:700">Overcast</span><span>H 17° · L 9°</span><span>Rain 60% after 15:00</span><span style="font-weight:700">→ take a jacket</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);border:4px solid #000;margin-top:28px">
+<div style="padding:10px 14px;border-right:4px solid #000"><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1">5</div><div style="font-size:16px;font-weight:700">MEETINGS</div></div>
+<div style="padding:10px 14px;border-right:4px solid #000"><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1">7</div><div style="font-size:16px;font-weight:700">TASKS</div></div>
+<div style="padding:10px 14px"><div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:42px;line-height:1">2</div><div style="font-size:16px;font-weight:700">DEADLINES</div></div>
+</div>
+<div style="font-weight:700;letter-spacing:3px;margin:28px 0 8px">FIRST UP</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:16px"><span style="font-weight:700">09:00</span><span>Standup</span></div>
+<div style="display:flex;gap:16px"><span style="font-weight:700">10:00</span><span>Focus block · 2h</span></div>
+<div style="display:flex;gap:16px"><span style="font-weight:700">14:00</span><span>Design review</span></div>
+</div>
+<div style="border:6px solid #000;padding:16px 18px;margin-top:28px">
+<div style="font-size:16px;font-weight:700;letter-spacing:3px">THE ONE THING</div>
+<div style="font-size:22px;font-weight:700;line-height:1.25;margin-top:6px;text-wrap:pretty">Ship the billing migration PR before lunch.</div>
+</div>
+</div>
+</div>
+
+<div id="1m" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1m</span><span style="font-weight:700">Leaderboard vs. quota</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">Hierarchy through scale: #1 gets a hero slot, the rest a compact bar list. A printed quota line crosses every bar; above-quota bars are solid, below are dithered.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="background:#000;color:#fff;padding:10px 16px;font-weight:700;letter-spacing:3px;display:flex;justify-content:space-between"><span>Q3 SALES</span><span>FINAL</span></div>
+<div style="display:flex;gap:20px;align-items:flex-end;margin-top:24px">
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:132px;line-height:.78">01</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:4px"><span style="font-size:22px;font-weight:700">N. Haddad</span><span style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:48px;line-height:1">$412K</span><span style="font-weight:700">137% OF QUOTA</span></div>
+</div>
+<div style="border-top:8px solid #000;margin:24px 0 20px"></div>
+<div style="display:flex;justify-content:flex-end;font-size:14px;font-weight:700;padding-right:66px;margin-bottom:4px"><span style="margin-right:calc(25% - 34px)">QUOTA</span></div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ leaders }}" as="l" hint-placeholder-count="7">
+<div style="display:grid;grid-template-columns:28px 104px 1fr 56px;gap:10px;align-items:center;font-size:16px">
+<span style="font-weight:700">{{ l.r }}</span><span style="font-weight:700;white-space:nowrap;overflow:hidden">{{ l.n }}</span>
+<div style="position:relative;height:24px">
+<sc-if value="{{ l.over }}" hint-placeholder-val="{{ true }}"><div style="height:24px;background:#000;width:{{ l.w }}"></div></sc-if>
+<sc-if value="{{ l.under }}" hint-placeholder-val="{{ false }}"><div style="height:24px;box-sizing:border-box;border:2px solid #000;background:conic-gradient(#000 25%,#fff 0 50%,#000 0 75%,#fff 0) 0 0/8px 8px;width:{{ l.w }}"></div></sc-if>
+<div style="position:absolute;left:75%;top:-6px;bottom:-6px;width:4px;background:#000;margin-left:-2px"></div>
+</div>
+<span style="font-weight:700;text-align:right">{{ l.v }}</span>
+</div>
+</sc-for>
+</div>
+<div style="border-top:3px solid #000;margin:24px 0 12px"></div>
+<div style="display:flex;justify-content:space-between;font-weight:700"><span>TEAM TOTAL</span><span>$2.31M · 104%</span></div>
+</div>
+</div>
+
+<div id="1n" style="width:448px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;align-items:center;font-size:14px"><span style="background:#1c1b19;color:#fff;padding:2px 8px;font-weight:700">1n</span><span style="font-weight:700">Focus ticket — physical artifact</span></div>
+<sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;color:#4a4740;text-wrap:pretty">One task, printed huge, to tape to your monitor. Pomodoro boxes and ruled lines invite pen marks; a tear-off stub at the bottom is kept as a done-log.</div></sc-if>
+<div style="width:448px;box-sizing:border-box;padding:32px 32px 56px;background:#fff;color:#000;font-family:'IBM Plex Mono',monospace;font-size:18px;line-height:1.36;font-weight:500;box-shadow:0 18px 40px -18px rgba(40,35,25,.35);filter:{{ paperFilter }}">
+<div style="display:flex;justify-content:space-between;font-weight:700;letter-spacing:3px"><span>NOW WORKING ON</span><span>BIL-118</span></div>
+<div style="border-top:8px solid #000;margin:14px 0 18px"></div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:79px;line-height:.86;text-wrap:balance">SHIP BILLING MIGRATION</div>
+<div style="font-weight:700;margin-top:16px">started 10:02 · estimate 2h</div>
+<div style="font-weight:700;letter-spacing:3px;margin:32px 0 12px">POMODOROS</div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
+<div style="aspect-ratio:1;border:4px solid #000"></div><div style="aspect-ratio:1;border:4px solid #000"></div><div style="aspect-ratio:1;border:4px solid #000"></div><div style="aspect-ratio:1;border:4px solid #000"></div><div style="aspect-ratio:1;border:4px solid #000"></div><div style="aspect-ratio:1;border:4px solid #000"></div>
+</div>
+<div style="font-weight:700;letter-spacing:3px;margin:32px 0 0">NOTES</div>
+<div style="height:52px;border-bottom:2px solid #000"></div>
+<div style="height:52px;border-bottom:2px solid #000"></div>
+<div style="height:52px;border-bottom:2px solid #000"></div>
+<div style="height:52px;border-bottom:2px solid #000"></div>
+<div style="display:flex;align-items:center;gap:12px;margin:40px 0 24px;font-size:16px;font-weight:700"><span style="flex:1;border-top:4px dashed #000"></span><span>TEAR</span><span style="flex:1;border-top:4px dashed #000"></span></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:16px;font-weight:700">BIL-118</span><span style="font-size:18px;font-weight:700">Ship billing migration</span><span style="font-size:16px">done at ______  ◯ ◯ ◯</span></div>
+<div style="font-family:'Archivo';font-stretch:62%;font-weight:900;font-size:37px;line-height:1">01.10</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;dither&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;bleed&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;None&quot;,&quot;Light&quot;,&quot;Heavy&quot;],&quot;default&quot;:&quot;None&quot;,&quot;tsType&quot;:&quot;'None'|'Light'|'Heavy'&quot;},&quot;showNotes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const b = this.props.bleed ?? 'None';
+    const paperFilter = b === 'Light' ? 'url(#bleedLight)' : b === 'Heavy' ? 'url(#bleedHeavy)' : 'none';
+    const tk = (t, meta, pri, done) => ({ t, meta, pri, done, open: !done });
+    const tasks = [
+      tk('Review Q4 roadmap draft', 'planning · due 12:00', true, false),
+      tk('Reply to Dana re: vendor contract', 'email · 10 min', false, false),
+      tk('Fix flaky checkout test', 'eng · BIL-121', true, false),
+      tk('Book flights for offsite', 'personal', false, false),
+      tk('Update on-call rota', 'ops · due Fri', false, false),
+      tk('Send invoice #2026-114', 'finance', false, true),
+      tk('Merge pricing copy PR', 'web · #476', false, true),
+    ];
+    const bad = { TUE: { 14: 'down', 15: 'deg' }, WED: { 9: 'deg' }, THU: { 3: 'deg', 4: 'deg' }, SAT: { 20: 'down', 21: 'down', 22: 'deg' } };
+    const uptime = ['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d => ({ d, cells: Array.from({ length: 24 }, (_, h) => { const s = (bad[d] || {})[h] || 'ok'; return { ok: s === 'ok', deg: s === 'deg', down: s === 'down' }; }) }));
+    const channels = [
+      { l: 'EMAIL', v: '512', w: '100%', pw: '84%' },
+      { l: 'CHAT', v: '398', w: '78%', pw: '62%' },
+      { l: 'PHONE', v: '214', w: '42%', pw: '50%' },
+      { l: 'SOCIAL', v: '160', w: '31%', pw: '28%' },
+    ];
+    const week = [['MON',232],['TUE',261],['WED',204],['THU',198],['FRI',176],['SAT',112],['SUN',101]].map(([d, v]) => ({ d, v, h: Math.round(v / 261 * 180) }));
+    const sq = (a, d) => { const n = Math.max(1, Math.min(4, Math.round(5 * a / (a + d)))); return Array.from({ length: 5 }, (_, i) => ({ add: i < n, del: i >= n })); };
+    const pr = (n, t, area, a, d, age, days) => ({ n, t, m: `${area} · +${a} −${d}`, age, stale: days > 2, fresh: days <= 2, sq: sq(a, d) });
+    const prs = [
+      pr('#482', 'Retry webhooks with exponential backoff', 'api', 312, 48, '4D', 4),
+      pr('#479', 'Remove legacy invoice renderer', 'billing', 22, 940, '3D', 3),
+      pr('#488', 'Add CSV export to reports', 'web', 401, 120, '1D', 1),
+      pr('#490', 'Bump TLS lib to 3.2', 'infra', 14, 12, '6H', 0),
+      pr('#491', 'Onboarding checklist copy', 'web', 88, 61, '3H', 0),
+      pr('#492', 'Queue worker memory leak', 'worker', 37, 9, '1H', 0),
+    ];
+    const hs = [
+      ['Read 20 min', '111011111111111011001111111110'],
+      ['Run / walk', '10-10-10-1100-10-10-1-0-10-110'],
+      ['No phone after 22h', '110011101100111011101100111011'],
+      ['Write 300 words', '011001100110111001100011011100'],
+      ['Stretch', '111111101111110111111011111011'],
+    ];
+    const habits = hs.map(([n, s]) => ({ n, count: [...s].filter(c => c === '1').length, cells: [...s].map(c => ({ done: c === '1', miss: c === '0', skip: c === '-' })) }));
+    const c = (id, t) => ({ id, t });
+    const board = [
+      { name: 'BACKLOG', count: 4, cards: [c('BIL-130','Proration edge cases'), c('WEB-77','Dark mode tokens'), c('OPS-12','Rotate API keys'), c('WEB-80','Footer links audit')] },
+      { name: 'DOING', count: 3, cards: [c('BIL-118','Billing migration'), c('BIL-121','Flaky checkout test'), c('WEB-74','CSV export')] },
+      { name: 'REVIEW', count: 2, cards: [c('API-482','Webhook backoff'), c('BIL-479','Legacy renderer')] },
+      { name: 'DONE', count: 6, cards: [c('WEB-70','Pricing copy'), c('OPS-9','On-call rota'), c('API-460','Rate limits'), c('BIL-110','Invoice PDFs')] },
+    ];
+    const ld = (r, n, v, pct) => ({ r, n, v, w: Math.min(100, pct * 0.75) + '%', over: pct >= 100, under: pct < 100 });
+    const leaders = [
+      ld('02', 'J. Alvarez', '$356K', 118), ld('03', 'K. Osei', '$331K', 110), ld('04', 'P. Ruiz', '$298K', 99),
+      ld('05', 'L. Brandt', '$270K', 90), ld('06', 'T. Nakamura', '$244K', 81), ld('07', 'A. Fofana', '$198K', 66),
+    ];
+    const textTop = [
+      '================================',
+      '     NIGHTLY BUILD  #1184',
+      '================================',
+      ' branch main   commit 9f3c2ab',
+      ' start 02:00   took   14m22s',
+      '--------------------------------',
+      ' STAGE            TIME  STATUS',
+      ' lint             0:41  [ OK ]',
+      ' unit tests       6:12  [ OK ]',
+      ' integration      5:03  [FAIL]',
+      ' build images     -:--  [SKIP]',
+      '--------------------------------',
+    ];
+    const textBottom = [
+      '--------------------------------',
+      ' SUITE DURATION',
+      ' api    ████████████░░░░  4:12',
+      ' web    ███████░░░░░░░░░  2:20',
+      ' worker ████░░░░░░░░░░░░  1:15',
+      ' e2e    ████████████████  5:03',
+      '--------------------------------',
+      ' FAILURES (2)',
+      ' > checkout.spec      TIMEOUT',
+      '   "applies coupon"',
+      ' > refunds.spec       HTTP 500',
+      '   "partial refund"',
+      '--------------------------------',
+      ' 3 commits since #1183',
+      '================================',
+      '   ** ci.local/b/1184 **',
+    ];
+    const dith = this.props.dither ?? true;
+    const paperFilter2 = [paperFilter !== 'none' ? paperFilter : '', dith ? 'url(#dither)' : ''].filter(Boolean).join(' ');
+    const paperFilter2Full = (paperFilter2 ? paperFilter2 + ' ' : '') + 'drop-shadow(0 10px 14px rgba(40,35,25,.28))';
+    const load = [12,8,6,5,5,7,14,30,52,64,70,72,68,66,70,74,78,86,94,100,88,64,40,22];
+    const heat = load.map(v => { const g = Math.round(255 - v / 100 * 255); return { c: `rgb(${g},${g},${g})` }; });
+    const bw = [3,2,1,2,4,1,1,3,2,2,1,4,3,1,2,1,1,2,3,4,1,2,2,1,3,1,4,2,1,1,2,3,1,2,4,1,3,2,1,2,2,1,3,1,2,4,1,2,3,1,1,2,4,2,1,3,2,1,2,3];
+    let tot = 0; const barcode = [];
+    for (let i = 0; tot < 376; i++) { const w = bw[i % bw.length] * 2; barcode.push({ w, c: i % 2 ? '#fff' : '#000' }); tot += w; }
+    const isoRow = (l, v, open, shape) => { const n = Math.round(v / 20), o = Math.round(open / 20); return { l, v: `${v} · ${open} open`, marks: Array.from({ length: n }, (_, i) => ({ circle: shape === 'c', square: shape === 's', diamond: shape === 'd', bar: shape === 'b', bg: i >= n - o ? '#fff' : '#000' })) }; };
+    const iso = [isoRow('Email', 512, 80, 'c'), isoRow('Chat', 398, 20, 's'), isoRow('Phone', 214, 40, 'd'), isoRow('Social', 160, 60, 'b')];
+    const items = [
+      { n: 'DEEP WORK', h: '14.0 h', q: '7 × focus block @ 2h' },
+      { n: 'CODE REVIEW', h: '5.5 h', q: '11 × PR @ 30m' },
+      { n: 'STANDUP', h: '2.5 h', q: '5 × @ 30m' },
+      { n: 'SUPPORT ROTA', h: '4.0 h', q: '1 × shift' },
+      { n: 'ADMIN / EMAIL', h: '3.5 h', q: 'misc.' },
+      { n: 'LUNCH W/ DANA', h: '1.0 h', q: '1 × @ 1h' },
+      { n: 'CONTEXT SWITCH', h: '1.0 h', q: '23 × @ ~3m' },
+    ];
+    return { paperFilter2: paperFilter2Full, heat, barcode, iso, items, paperFilter, showNotes: this.props.showNotes ?? true, tasks, uptime, channels, week, prs, habits, board, leaders, textTop, textBottom };
+  }
+}
+</script>
+</body>
+</html>

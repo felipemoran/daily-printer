@@ -15,7 +15,6 @@ With --photo, the page needs one <img data-photo src="photo.png"> inside a
 Examples:
   uv run src/scripts/page_print.py --page samples/ui-elements
   uv run src/scripts/page_print.py --page web/dist --legacy
-  uv run src/scripts/page_print.py --page web/dist/thermal.html
   uv run src/scripts/page_print.py --page "web/dist/preview.html?c=TestTones"
   uv run src/scripts/page_print.py --photo data/me.jpg --dither photo
 """

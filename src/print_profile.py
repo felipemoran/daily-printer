@@ -160,8 +160,12 @@ def capture_options(profile: PrintProfile) -> dict:
 
 
 def load_gray(screenshot: Path) -> Image.Image:
+    return to_gray(Image.open(screenshot))
+
+
+def to_gray(image: Image.Image) -> Image.Image:
     """Screenshot as grayscale, alpha flattened on white, ``PRINT_WIDTH_DOTS`` wide."""
-    image = Image.open(screenshot).convert("RGBA")
+    image = image.convert("RGBA")
     flat = Image.new("RGBA", image.size, (255, 255, 255, 255))
     gray = Image.alpha_composite(flat, image).convert("L")
     if gray.width != PRINT_WIDTH_DOTS:

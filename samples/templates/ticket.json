@@ -1,0 +1,22 @@
+{
+  "template": "ticket",
+  "schemaVersion": 1,
+  "data": {
+    "kind": "TICKET UPDATE",
+    "time": "14:08",
+    "id": "OPS-2481",
+    "title": "Payment webhook retries exceed limit on EU cluster",
+    "status": { "from": "IN REVIEW", "to": "RESOLVED" },
+    "fields": [
+      { "label": "Assignee", "value": "M. Okafor" },
+      { "label": "Priority", "value": "HIGH" },
+      { "label": "Reporter", "value": "S. Lindqvist" },
+      { "label": "Time spent", "value": "3h 20m" },
+      { "label": "Opened", "value": "2d ago" }
+    ],
+    "comment": {
+      "text": "Raised retry cap to 8 and added jitter. Backlog drained in 11 min. Monitoring overnight.",
+      "author": "M. Okafor"
+    }
+  }
+}

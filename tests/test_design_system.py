@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import subprocess
 import sys
 import unittest
@@ -70,15 +71,17 @@ class ThermalPagesTest(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
 
-    def test_example_renders_with_self_hosted_fonts_and_its_own_weights(self):
+    def test_ticket_template_renders_with_self_hosted_fonts_and_its_own_weights(self):
         from playwright.sync_api import sync_playwright
-        from raster_capture import static_server
+        from ticket_templates import ORIGIN, open_render_page
+        payload = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
         requests = []
-        with static_server(ROOT / "web" / "dist") as port, sync_playwright() as p:
+        with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page(viewport={"width": 384, "height": 720})
+            page = open_render_page(browser)
             page.on("request", lambda request: requests.append(request.url))
-            page.goto(f"http://127.0.0.1:{port}/thermal.html", wait_until="networkidle")
+            page.reload(wait_until="load")
+            page.evaluate("(payload) => window.renderTemplate(payload)", payload)
             page.evaluate(print_profile.capture_options(print_profile.DEFAULT_PROFILE)["prepare_js"])
             result = page.evaluate("""async () => {
               await document.fonts.ready;
@@ -95,7 +98,8 @@ class ThermalPagesTest(unittest.TestCase):
         self.assertEqual((result["width"], result["displayWeight"]), (384, "900"))
         for face in ("Archivo 400 900", "IBM Plex Mono 500", "IBM Plex Mono 700"):
             self.assertIn(face, result["loaded"])
-        self.assertEqual([url for url in requests if not url.startswith(f"http://127.0.0.1:{port}/")], [])
+        self.assertIn(f"{ORIGIN}/render.html", requests)
+        self.assertEqual([url for url in requests if not url.startswith(f"{ORIGIN}/")], [])
 
     def test_every_test_strip_renders_a_printable_receipt(self):
         from playwright.sync_api import sync_playwright
