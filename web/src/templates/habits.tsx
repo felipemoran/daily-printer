@@ -1,7 +1,7 @@
 // Strip 1j of designs/receipt-set-1: a month of habits, one CellGrid row per habit.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, object, optional, TemplateDataError, type Parser } from './validate'
+import { array, limitedString, nonBlank, object, optional, TemplateDataError, type Parser } from './validate'
 
 const wrap = { overflowWrap: 'anywhere', minWidth: 0 } as const
 
@@ -20,16 +20,17 @@ const points: Parser<number> = (value, path) => {
 }
 
 const fields = object({
-  month: limitedString(12),
-  habits: array(object({ name: limitedString(32), days }), 8),
-  change: optional(object({ points, vs: limitedString(10) })),
+  month: nonBlank(limitedString(12)),
+  habits: array(object({ name: nonBlank(limitedString(32)), days }), 8),
+  change: optional(object({ points, vs: nonBlank(limitedString(10)) })),
 })
 
 type Data = ReturnType<typeof fields>
 
 const parse: Parser<Data> = (value, path) => {
   const data = fields(value, path)
-  const length = data.habits[0]?.days.length
+  if (data.habits.length === 0) throw new TemplateDataError(`${path}.habits: expected at least 1 item`)
+  const length = data.habits[0].days.length
   data.habits.forEach(({ days }, index) => {
     if (days.length !== length) {
       throw new TemplateDataError(`${path}.habits[${index}].days: expected ${length} days, like habits[0]`)
@@ -42,12 +43,13 @@ const longestRun = (days: string) => Math.max(0, ...days.split(/[0-]/).map((run)
 const count = (days: string, mark: string) => days.split(mark).length - 1
 
 // Skipped days count neither for nor against completion; the longest run of done days wins, first habit on ties.
+// Floored, so 100% means every counted day is done.
 const summarize = (habits: Data['habits']) => {
   const best = habits.reduce<{ name?: string; run: number }>(
     (top, { name, days }) => (longestRun(days) > top.run ? { name, run: longestRun(days) } : top), { run: 0 })
   const done = habits.reduce((sum, { days }) => sum + count(days, '1'), 0)
   const counted = habits.reduce((sum, { days }) => sum + days.length - count(days, '-'), 0)
-  return { best, completion: counted ? Math.round((100 * done) / counted) : null }
+  return { best, completion: counted ? Math.floor((100 * done) / counted) : null }
 }
 
 const change = ({ points, vs }: NonNullable<Data['change']>) =>
@@ -59,29 +61,25 @@ export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => {
-    const length = data.habits[0]?.days.length
+    const length = data.habits[0].days.length
     const { best, completion } = summarize(data.habits)
     return (
       <>
-        <T.Masthead title={<span style={wrap}>{data.month}</span>} sub={length ? `HABIT LOG · ${length} DAYS` : 'HABIT LOG'} />
-        {length ? (
-          <>
-            <div style={{ height: 'var(--space-4)' }} />
-            <T.CellGrid
-              labelWidth={0}
-              spread
-              cellWidth={10}
-              cellHeight={20}
-              rowGap={20}
-              ticks={ticks(length)}
-              rows={data.habits.map(({ name, days }) => ({
-                label: <span style={wrap}>{name}</span>,
-                right: `${count(days, '1')}/${length}`,
-                cells: days,
-              }))}
-            />
-          </>
-        ) : null}
+        <T.Masthead title={<span style={wrap}>{data.month}</span>} sub={`HABIT LOG · ${length} DAYS`} />
+        <div style={{ height: 'var(--space-4)' }} />
+        <T.CellGrid
+          labelWidth={0}
+          spread
+          cellWidth={10}
+          cellHeight={20}
+          rowGap={20}
+          ticks={ticks(length)}
+          rows={data.habits.map(({ name, days }) => ({
+            label: <span style={wrap}>{name}</span>,
+            right: `${count(days, '1')}/${length}`,
+            cells: days,
+          }))}
+        />
         <T.Rule weight="rule" style={{ margin: 'var(--space-7) 0 var(--space-4)' }} />
         <T.StatTiles
           columns={2}

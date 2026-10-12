@@ -69,7 +69,7 @@ class HabitsTest(unittest.TestCase):
         self.assertEqual(view["sub"], "HABIT LOG · 30 DAYS")
         self.assertEqual([label[-5:] for label in view["labels"]], ["25/30", "11/30", "20/30", "16/30", "26/30"])
         # 98 done of 141 days that are not skipped: 69.5%.
-        self.assertEqual(view["tiles"], [["BEST STREAK", "11 days", "Read 20 min"], ["COMPLETION", "70%", "▲ 6 pts vs Aug"]])
+        self.assertEqual(view["tiles"], [["BEST STREAK", "11 days", "Read 20 min"], ["COMPLETION", "69%", "▲ 6 pts vs Aug"]])
         self.assertEqual(view["overflowing"], [])
 
     def test_streak_ties_go_to_the_first_habit_and_skips_break_a_run(self):
@@ -86,11 +86,10 @@ class HabitsTest(unittest.TestCase):
         view = self.read(habits(("A", "-" * 30), change=None))
         self.assertEqual(view["tiles"], [["BEST STREAK", "0 days"], ["COMPLETION", "—"]])
 
-    def test_no_habits_still_renders(self):
-        view = self.read(habits(change={"points": 0, "vs": "Aug"}))
-        self.assertEqual(view["sub"], "HABIT LOG")
-        self.assertEqual((view["labels"], view["rows"]), ([], []))
-        self.assertEqual(view["tiles"], [["BEST STREAK", "0 days"], ["COMPLETION", "—", "0 pts vs Aug"]])
+    def test_completion_is_floored(self):
+        rows = [("A", "1" * 31)] * 7 + [("B", "1" * 30 + "0")]
+        self.assertEqual(self.read(habits(*rows))["tiles"][1][1], "99%")
+        self.assertEqual(self.read(habits(("A", "1" * 30 + "-")))["tiles"][1][1], "100%")
 
     def test_month_lengths_fill_the_width_on_whole_pixels(self):
         for length in (28, 31):
@@ -118,6 +117,10 @@ class HabitsTest(unittest.TestCase):
             (habits(*[("A", "1" * 30)] * 9), r"^data\.habits: expected at most 8 items$"),
             (habits(("A" * 33, "1" * 30)), r"^data\.habits\[0\]\.name: expected at most 32 characters$"),
             (habits(month="M" * 13), r"^data\.month: expected at most 12 characters$"),
+            (habits(), r"^data\.habits: expected at least 1 item$"),
+            (habits(month=" "), r"^data\.month: expected non-blank text$"),
+            (habits((" ", "1" * 30)), r"^data\.habits\[0\]\.name: expected non-blank text$"),
+            (habits(change={"points": 1, "vs": ""}), r"^data\.change\.vs: expected non-blank text$"),
             (habits(change={"points": 1.5, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
             (habits(change={"points": 101, "vs": "Aug"}), r"^data\.change\.points: expected a whole number from -100 to 100$"),
         ):
