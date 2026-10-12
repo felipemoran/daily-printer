@@ -1,0 +1,20 @@
+{
+  "template": "tasks",
+  "schemaVersion": 1,
+  "data": {
+    "weekday": "THU",
+    "date": "01 OCT",
+    "year": "2026",
+    "tasks": [
+      { "title": "Review Q4 roadmap draft", "meta": "planning · due 12:00", "priority": "P1" },
+      { "title": "Reply to Dana re: vendor contract", "meta": "email · 10 min" },
+      { "title": "Fix flaky checkout test", "meta": "eng · BIL-121", "priority": "P1" },
+      { "title": "Book flights for offsite", "meta": "personal" },
+      { "title": "Update on-call rota", "meta": "ops · due Fri" },
+      { "title": "Send invoice #2026-114", "meta": "finance", "done": true },
+      { "title": "Merge pricing copy PR", "meta": "web · #476", "done": true }
+    ],
+    "doneYesterday": 2,
+    "printedAt": "07:30"
+  }
+}

@@ -1,0 +1,48 @@
+// Strip 1b of designs/receipt-set-1, on design-system/components/TasksTemplate.
+import T from '../thermal'
+import { defineTemplate } from './define'
+import { array, boolean, limitedString, number, object, optional, TemplateDataError, type Parser } from './validate'
+
+const count: Parser<number> = (value, path) => {
+  const n = number(value, path)
+  if (!Number.isInteger(n) || n < 0 || n > 9999) throw new TemplateDataError(`${path}: expected a whole number from 0 to 9999`)
+  return n
+}
+
+const parse = object({
+  weekday: limitedString(9),
+  date: limitedString(9),
+  year: limitedString(4),
+  tasks: array(object({
+    title: limitedString(160),
+    meta: optional(limitedString(80)),
+    done: optional(boolean),
+    priority: optional(limitedString(6)),
+  }), 30),
+  doneYesterday: optional(count),
+  printedAt: limitedString(16),
+})
+
+export default defineTemplate({
+  schemaVersion: 1,
+  parse,
+  Component: ({ data }) => {
+    const open = data.tasks.filter((task) => !task.done)
+    const tiles = [{ label: 'OPEN', value: String(open.length) }]
+    if (data.doneYesterday !== undefined) tiles.push({ label: 'DONE YESTERDAY', value: String(data.doneYesterday) })
+    return (
+      <>
+        <T.Masthead
+          title="TASKS"
+          aside={[data.weekday, <span key="date" style={{ fontSize: 22 }}>{data.date}</span>, data.year]}
+        />
+        {[...open, ...data.tasks.filter((task) => task.done)].map((task, index) => (
+          <T.TaskRow key={index} title={task.title} meta={task.meta} done={task.done} tag={task.priority} />
+        ))}
+        <div style={{ height: 'var(--space-7)' }} />
+        <T.StatTiles columns={tiles.length as 1 | 2} valueFirst items={tiles} />
+        <div className="rp-foot">printed {data.printedAt} · tear &amp; stick</div>
+      </>
+    )
+  },
+})

@@ -17,6 +17,7 @@ Usage:
   uv run src/scripts/daily_print.py             # gather → render → print
   uv run src/scripts/daily_print.py --no-print  # gather → render (skip printer)
   uv run src/scripts/daily_print.py --no-build  # skip npm build (faster if UI unchanged)
+  uv run src/scripts/daily_print.py --template  # print today's tasks on the `tasks` template
 """
 
 from __future__ import annotations
@@ -62,6 +63,11 @@ def _parse_args() -> argparse.Namespace:
         help="Directory for artifacts (default: artifacts/<utc-timestamp>)",
     )
     p.add_argument(
+        "--template",
+        action="store_true",
+        help="print today's and overdue tasks on the `tasks` template instead of the receipt",
+    )
+    p.add_argument(
         "--legacy",
         action="store_true",
         help="pre-2026-10 raster: anti-aliased text, threshold, no erosion",
@@ -78,6 +84,40 @@ def _parse_args() -> argparse.Namespace:
         default=DEFAULT_MAX_HEIGHT_PX,
     )
     return p.parse_args()
+
+
+def _print_template(receipt: dict, artifact_dir: Path, no_print: bool) -> None:
+    from playwright.sync_api import sync_playwright
+
+    from tasks_template import tasks_payload
+    from ticket_templates import TemplateError, open_render_page, render_template
+
+    payload = tasks_payload(receipt, datetime.now().astimezone())
+    (artifact_dir / "tasks.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print("Rendering tasks template…", flush=True)
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                bitmap = render_template(open_render_page(browser), payload)
+            finally:
+                browser.close()
+    except (TemplateError, RuntimeError) as e:
+        sys.exit(f"ERROR: template render failed: {e}")
+    bitmap.save(artifact_dir / "tasks.png")
+    if no_print:
+        print(f"Done (skipped print). Artifacts: {artifact_dir}")
+        return
+    print("Printing…", flush=True)
+    try:
+        with open_printer() as p:
+            p.image(bitmap, center=False)
+            p.ln(3)
+    except SystemExit:
+        raise
+    except Exception as e:
+        sys.exit(f"ERROR: print failed: {e}")
+    print(f"Printed. Artifacts: {artifact_dir}")
 
 
 def main() -> None:
@@ -128,6 +168,10 @@ def main() -> None:
         else (_PROJECT_ROOT / "artifacts" / stamp).resolve()
     )
     artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.template:
+        _print_template(payload, artifact_dir, args.no_print)
+        return
 
     payload_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     artifact_payload = artifact_dir / "payload.json"
