@@ -3,6 +3,7 @@
 | Document | What it’s for |
 |----------|----------------|
 | [`planning-phase-01-printer-research.md`](planning-phase-01-printer-research.md) | Printer hardware, ESC/POS, USB/BLE basics |
+| [`planning-print-system-architecture.md`](planning-print-system-architecture.md) | Design: home server, device protocol, job lifecycle, senders |
 | [`planning-react-headless-raster-print.md`](planning-react-headless-raster-print.md) | Design: JSON → Vite/React → screenshot → raster print |
 | [`feature-receipt-print-cli.md`](feature-receipt-print-cli.md) | **`receipt_print.py`**: run, flags, artifacts, quirks |
 | [`feature-photo-print.md`](feature-photo-print.md) | **`photo_print.py`**: dither and print photos |
