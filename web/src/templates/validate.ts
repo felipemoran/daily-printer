@@ -22,7 +22,7 @@ export const nonBlank = (parse: Parser<string>): Parser<string> => (value, path)
   return text.trim() === '' ? fail(path, 'non-blank text') : text
 }
 
-export const optional =<T>(parse: Parser<T>): Parser<T | undefined> => (value, path) =>
+export const optional = <T>(parse: Parser<T>): Parser<T | undefined> => (value, path) =>
   value === undefined || value === null ? undefined : parse(value, path)
 
 // max bounds the render time: the page cannot stop a render it has started.
