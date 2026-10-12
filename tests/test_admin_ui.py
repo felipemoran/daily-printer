@@ -21,8 +21,9 @@ from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SE
 ADMIN_DIR = _TESTS.parent / "src" / "static" / "admin"
 RECEIPT = render("receipt", payload=SAMPLE_PAYLOAD)
 HOSTILE = '<img src=x onerror="document.title=\'pwned\'">'
-CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; "
-       "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; "
+       "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+FONT_URLS = re.findall(r'url\("(/admin/[^"]+)"\)', (ADMIN_DIR / "admin.css").read_text(encoding="utf-8"))
 
 
 class AdminPageRouteTest(HubTestCase):
@@ -46,10 +47,26 @@ class AdminPageRouteTest(HubTestCase):
                 status, _ = await self.call("GET", "/admin/" + name)
                 self.assertEqual(status, 404)
 
+    async def test_every_font_the_css_names_is_served_as_woff2_and_nothing_else_in_fonts_is(self):
+        self.assertEqual(len(FONT_URLS), 2)
+        for url in FONT_URLS:
+            with self.subTest(url=url):
+                response = await self.client.get(url)
+                self.assertEqual((response.status, response.content_type, response.charset), (200, "font/woff2", None))
+                self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+                self.assertEqual(await response.read(), (ADMIN_DIR / url.removeprefix("/admin/")).read_bytes())
+        for name in ("fonts/geist/OFL.txt", "fonts/geist/SOURCE.txt", "fonts/geist/", "fonts/Geist-Variable.woff2",
+                     "fonts/geist/..%2F..%2F..%2Fhttp_api.py",
+                     "admin.css/", "/admin.css"):
+            with self.subTest(name=name):
+                status, _ = await self.call("GET", "/admin/" + name)
+                self.assertEqual(status, 404)
+
     def test_the_page_references_nothing_outside_its_own_origin_and_never_uses_inner_html(self):
         for name in ("index.html", "admin.css", "admin.js"):
             with self.subTest(name=name):
                 text = (ADMIN_DIR / name).read_text(encoding="utf-8")
+                text = re.sub(r'url\("/admin/fonts/[a-z]+/[A-Za-z-]+\.woff2"\)', "", text)
                 self.assertNotRegex(text, r"(?i)https?:|//[a-z0-9.-]+\.[a-z]{2}|@import|\burl\(")
                 self.assertNotRegex(text, r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(")
         html = (ADMIN_DIR / "index.html").read_text(encoding="utf-8")
@@ -147,6 +164,20 @@ class AdminBrowserCase(HubTestCase):
     @staticmethod
     def ticket(page, job):
         return page.locator("#track li.ticket").filter(has=page.locator(f'a[href="#/job/{job.id}"]'))
+
+
+class AdminFontsTest(AdminBrowserCase):
+    seeded = False
+
+    async def test_geist_and_geist_mono_load_from_the_server_under_the_csp(self):
+        page = await self.open(ready="#rail-empty")
+        await page.evaluate("document.fonts.ready")
+        loaded = await page.evaluate("[...document.fonts].filter(f => f.status === 'loaded').map(f => f.family)")
+        self.assertEqual(sorted(loaded), ["Geist", "Geist Mono"])
+        self.assertTrue(await page.evaluate("document.fonts.check('16px Geist')"))
+        self.assertTrue(await page.evaluate("document.fonts.check('16px \"Geist Mono\"')"))
+        fonts = [request.url.removeprefix(self.origin) for request in self.requests if request.resource_type == "font"]
+        self.assertEqual(sorted(fonts), sorted(FONT_URLS))
 
 
 class AdminAuthTest(AdminBrowserCase):

@@ -1,0 +1,1 @@
+geist 1.7.2 from https://registry.npmjs.org/geist/-/geist-1.7.2.tgz: dist/fonts/geist-sans/Geist-Variable.woff2, dist/fonts/geist-mono/GeistMono-Variable.woff2, LICENSE.txt (as OFL.txt)

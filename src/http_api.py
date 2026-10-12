@@ -392,7 +392,8 @@ class _Api:
         if asset is None:
             raise ApiError(404, "Not Found")
         body, content_type = asset
-        return web.Response(body=body, content_type=content_type, charset="utf-8", headers={
+        charset = "utf-8" if content_type.startswith("text/") else None
+        return web.Response(body=body, content_type=content_type, charset=charset, headers={
             "X-Content-Type-Options": "nosniff", "Cache-Control": "no-cache",
         })
 
@@ -420,11 +421,13 @@ _ADMIN_DIR = Path(__file__).resolve().parent / "static" / "admin"
 _ADMIN_ASSETS = {
     "admin.css": ((_ADMIN_DIR / "admin.css").read_bytes(), "text/css"),
     "admin.js": ((_ADMIN_DIR / "admin.js").read_bytes(), "text/javascript"),
+    **{font.relative_to(_ADMIN_DIR).as_posix(): (font.read_bytes(), "font/woff2")
+       for font in _ADMIN_DIR.glob("fonts/*/*.woff2")},
 }
 _ADMIN_PAGE = (_ADMIN_DIR / "index.html").read_bytes()
 _ADMIN_PAGE_CSP = (
-    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; "
-    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; "
+    "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
 SERVER_VERSION = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 
@@ -465,7 +468,7 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/me", api.me)
     app.router.add_get("/", api.index)
     app.router.add_get("/admin", api.admin_page)
-    app.router.add_get("/admin/{name}", api.admin_asset)
+    app.router.add_get("/admin/{name:.+}", api.admin_asset)
     app.router.add_get("/api/clients", api.clients)
     app.router.add_get("/api/server", api.server)
 

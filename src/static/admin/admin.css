@@ -1,3 +1,19 @@
+/* Geist and Geist Mono: files, OFL.txt and SOURCE.txt in fonts/geist/ */
+@font-face {
+  font-family: "Geist";
+  src: url("/admin/fonts/geist/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/admin/fonts/geist/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #f6f4f1;
   --surf: #ffffff;
@@ -13,8 +29,8 @@
   --down: #b4361e;
   --head: #3d7fd6;
   --shadow: rgba(60, 45, 30, 0.22);
-  --sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Geist", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --gutter: 16px;
   color-scheme: light;
 }
