@@ -1,7 +1,7 @@
 // Strip 1l of designs/receipt-set-1, on the "Morning briefing" pattern in design-system/README.md.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, limitedString, number, object, optional, TemplateDataError, type Parser } from './validate'
+import { array, limitedString, nonBlank, number, object, optional, TemplateDataError, type Parser } from './validate'
 
 const integer = (min: number, max: number): Parser<number> => (value, path) => {
   const result = number(value, path)
@@ -12,23 +12,24 @@ const integer = (min: number, max: number): Parser<number> => (value, path) => {
 }
 
 // Bounds keep every value inside its fixed-width cell: tests/test_template_briefing.py measures the extremes.
+const text = (max: number) => nonBlank(limitedString(max))
 const temperature = integer(-99, 199)
 const count = integer(0, 999)
 
 const parse = object({
-  weekday: limitedString(12),
-  dateLine: limitedString(40),
+  weekday: text(12),
+  dateLine: text(40),
   weather: optional(object({
     temp: temperature,
-    condition: limitedString(24),
+    condition: text(24),
     high: temperature,
     low: temperature,
-    note: optional(limitedString(40)),
-    advice: optional(limitedString(40)),
+    note: optional(text(40)),
+    advice: optional(text(40)),
   })),
   counts: object({ meetings: count, tasks: count, deadlines: count }),
-  firstUp: optional(array(object({ time: limitedString(5), title: limitedString(60) }), 3)),
-  oneThing: optional(limitedString(140)),
+  firstUp: optional(array(object({ time: text(5), title: text(60) }), 3)),
+  oneThing: optional(text(140)),
 })
 
 const degrees = (value: number) => `${value < 0 ? '−' : ''}${Math.abs(value)}°`

@@ -114,6 +114,17 @@ class BriefingTest(unittest.TestCase):
             ({"weather": {**SAMPLE["data"]["weather"], "low": -100}},
              r"^data\.weather\.low: expected an integer from -99 to 199$"),
             ({"firstUp": SAMPLE["data"]["firstUp"] * 2}, r"^data\.firstUp: expected at most 3 items$"),
+            ({"weekday": ""}, r"^data\.weekday: expected non-blank text$"),
+            ({"dateLine": " "}, r"^data\.dateLine: expected non-blank text$"),
+            ({"weather": {**SAMPLE["data"]["weather"], "condition": "\t"}},
+             r"^data\.weather\.condition: expected non-blank text$"),
+            ({"firstUp": [{"time": "", "title": "Standup"}]}, r"^data\.firstUp\[0\]\.time: expected non-blank text$"),
+            ({"firstUp": [{"time": "09:00", "title": "  "}]}, r"^data\.firstUp\[0\]\.title: expected non-blank text$"),
+            # Optional text may be absent, never blank: a blank would print an empty Callout or a bare arrow.
+            ({"oneThing": "   "}, r"^data\.oneThing: expected non-blank text$"),
+            ({"weather": {**SAMPLE["data"]["weather"], "advice": " "}},
+             r"^data\.weather\.advice: expected non-blank text$"),
+            ({"weather": {**SAMPLE["data"]["weather"], "note": ""}}, r"^data\.weather\.note: expected non-blank text$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, briefing(**data))
