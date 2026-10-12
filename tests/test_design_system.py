@@ -63,11 +63,14 @@ class TokensCssTest(unittest.TestCase):
 
 
 @unittest.skipUnless((ROOT / "web" / "node_modules").is_dir(), "needs web dependencies: make setup-web")
-class ThermalExampleTest(unittest.TestCase):
-    """web/thermal.html renders through the print pipeline with the design system intact."""
+class ThermalPagesTest(unittest.TestCase):
+    """Pages built on the design system render through the print pipeline intact."""
+
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
 
     def test_example_renders_with_self_hosted_fonts_and_its_own_weights(self):
-        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
         from playwright.sync_api import sync_playwright
         from raster_capture import static_server
         requests = []
@@ -93,6 +96,22 @@ class ThermalExampleTest(unittest.TestCase):
         for face in ("Archivo 400 900", "IBM Plex Mono 500", "IBM Plex Mono 700"):
             self.assertIn(face, result["loaded"])
         self.assertEqual([url for url in requests if not url.startswith(f"http://127.0.0.1:{port}/")], [])
+
+    def test_every_test_strip_renders_a_printable_receipt(self):
+        from playwright.sync_api import sync_playwright
+        from raster_capture import static_server
+        strips = sorted(path.parent.name for path in (ROOT / "design-system" / "components").glob("Test*/preview.html"))
+        self.assertTrue(strips)
+        with static_server(ROOT / "web" / "dist") as port, sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 384, "height": 720})
+            for name in strips:
+                with self.subTest(name):
+                    page.goto(f"http://127.0.0.1:{port}/preview.html?c={name}", wait_until="networkidle")
+                    receipt = page.locator("#receipt")
+                    self.assertEqual(receipt.bounding_box()["width"], 384)
+                    self.assertIn("TEST ·", receipt.inner_text())
+            browser.close()
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ export default defineConfig({
   server: { fs: { allow: ['..'] } },
   build: {
     rollupOptions: {
-      input: { main: 'index.html', thermal: 'thermal.html' },
+      input: { main: 'index.html', thermal: 'thermal.html', preview: 'preview.html' },
     },
   },
 })

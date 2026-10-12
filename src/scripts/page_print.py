@@ -16,6 +16,7 @@ Examples:
   uv run src/scripts/page_print.py --page samples/ui-elements
   uv run src/scripts/page_print.py --page web/dist --legacy
   uv run src/scripts/page_print.py --page web/dist/thermal.html
+  uv run src/scripts/page_print.py --page "web/dist/preview.html?c=TestTones"
   uv run src/scripts/page_print.py --photo data/me.jpg --dither photo
 """
 
@@ -62,7 +63,7 @@ def _parse_args() -> argparse.Namespace:
         "--page",
         type=Path,
         default=DEFAULT_PAGE,
-        help="directory with index.html, or an HTML file served with its folder (default: samples/photo-page)",
+        help="directory with index.html, or an HTML file (query allowed) served with its folder (default: samples/photo-page)",
     )
     parser.add_argument("--legacy", action="store_true", help="start from the pre-2026-10 profile")
     parser.add_argument(
@@ -204,13 +205,13 @@ def profile_from_args(args: argparse.Namespace) -> PrintProfile:
 
 
 def _site_entry(page: Path) -> tuple[Path, str]:
-    """The folder to serve and the HTML file to open in it."""
-    return (page.parent, page.name) if page.suffix == ".html" else (page, "index.html")
+    """The folder to serve and the page to open in it (an HTML file name, with its query if any)."""
+    return (page.parent, page.name) if page.name.partition("?")[0].endswith(".html") else (page, "index.html")
 
 
 def _build_site(page_dir: Path, entry: str, site_dir: Path, font_file: Path | None) -> None:
-    if not (page_dir / entry).is_file():
-        sys.exit(f"ERROR: no {entry} in {page_dir}")
+    if not (page_dir / entry.partition("?")[0]).is_file():
+        sys.exit(f"ERROR: no {entry.partition('?')[0]} in {page_dir}")
     shutil.copytree(page_dir, site_dir, dirs_exist_ok=True)
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
     if font_file:

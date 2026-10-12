@@ -190,6 +190,13 @@ class LegacyAntiAliasingTest(unittest.TestCase):
 
 
 class PagePrintCliTest(unittest.TestCase):
+    def test_page_may_be_a_folder_or_an_html_file_with_a_query(self):
+        self.assertEqual(page_print._site_entry(Path("/site")), (Path("/site"), "index.html"))
+        self.assertEqual(page_print._site_entry(Path("/site/thermal.html")), (Path("/site"), "thermal.html"))
+        self.assertEqual(
+            page_print._site_entry(Path("/site/preview.html?c=TestTones")), (Path("/site"), "preview.html?c=TestTones")
+        )
+
     def test_photo_mode_on_sample_page_is_pixel_exact(self):
         out = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, out)

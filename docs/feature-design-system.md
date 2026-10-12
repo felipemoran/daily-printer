@@ -11,6 +11,7 @@ Thermal is the design system for prints. Its source of truth is the Claude Desig
 | `web/src/thermal/generated/` | Written by the sync script: `tokens.css` (variables and type classes from `tokens.json`), `bundle.css` (without the Google Fonts import) and `thermal.d.ts` (component props). |
 | `web/public/fonts/` | Self-hosted Archivo, IBM Plex Mono and JetBrains Mono, so renders work offline. Declared in `web/src/fonts.css`. |
 | `web/thermal.html` | Example page: `TicketTemplate` ported from the artifact. |
+| `web/preview.html` | Runs any mirrored `preview.html` unchanged: `preview.html?c=<Component>`. |
 
 ## Sync from Claude Design
 
@@ -21,6 +22,17 @@ Thermal is the design system for prints. Its source of truth is the Claude Desig
 The sync stops with an error when the artifact has more than one colour theme, lists font files in `tokens.json`, or renames the bundle's `Thermal` namespace. Each one needs a code change here first.
 
 `tests/test_design_system.py` fails when the generated files no longer match the mirror. Fix: `make design-sync` without `SRC`.
+
+## Print a preview as is
+
+`web/preview.html?c=<Component>` runs that component's preview script from `design-system/` without a port. It prints only previews that use `<Paper print>`: today, the `Test*` strips.
+
+```bash
+cd web && npm run build
+uv run src/scripts/page_print.py --page "web/dist/preview.html?c=TestTones"
+```
+
+The strips answer the open checks in `design-system/verify.md`; each strip's `README.md` says what to look for. Settle the results in Claude Design, then sync.
 
 ## Port a design
 

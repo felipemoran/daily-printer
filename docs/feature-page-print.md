@@ -8,7 +8,7 @@ Settings come from `print_profile.DEFAULT_PROFILE`, the same profile `daily_prin
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--page DIR` or `FILE.html` | `samples/photo-page` | Folder to render, or one HTML file served with its folder; `web/dist` renders the receipt app, `web/dist/thermal.html` the Thermal example |
+| `--page DIR` or `FILE.html[?query]` | `samples/photo-page` | Folder to render, or one HTML file served with its folder; `web/dist` renders the receipt app, `web/dist/preview.html?c=TestTones` a design-system preview |
 | `--dither page/photo/none` | `page` | Dither the whole render; only the `--photo`; or threshold at 200 |
 | `--method` | `atkinson` | Dithering method; `all` prints one page per method |
 | `--anti-aliased-text` | off | Keep text anti-aliasing (default: aliased 1-bit glyphs) |
