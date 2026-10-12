@@ -1,0 +1,93 @@
+import copy
+import json
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from ticket_templates import TemplateError, open_render_page, render_template  # noqa: E402
+
+SAMPLE = json.loads((ROOT / "samples" / "templates" / "review-queue.json").read_text(encoding="utf-8"))
+HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
+# Spans are text runs and T.Tag, whose width follows the glyph advance and is fractional.
+FRACTIONAL_BOXES_JS = """() => [...document.querySelectorAll('#receipt :not(span, br)')].flatMap((element) => {
+  const r = element.getBoundingClientRect();
+  return [r.x, r.y, r.width, r.height].every(Number.isInteger) ? [] : [element.outerHTML.slice(0, 80)];
+})"""
+
+
+def setUpModule():
+    if HAS_WEB:
+        subprocess.run(["npm", "run", "build"], cwd=ROOT / "web", check=True, capture_output=True)
+
+
+def pr(number=1, age_days=0, **fields):
+    return {"number": number, "title": "Fix it", "area": "api", "added": 3, "removed": 1, "ageDays": age_days, **fields}
+
+
+def queue(prs):
+    payload = copy.deepcopy(SAMPLE)
+    payload["data"]["prs"] = prs
+    return payload
+
+
+@unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
+class ReviewQueueTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from playwright.sync_api import sync_playwright
+
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.page = open_render_page(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+
+    def render_lines(self, payload):
+        image = render_template(self.page, payload)
+        self.assertIsNotNone(image.convert("L").point(lambda value: 255 - value).getbbox(), "blank render")
+        return self.page.evaluate("document.querySelector('#receipt').innerText").split("\n")
+
+    def test_sample_lists_every_pr_on_whole_pixels(self):
+        lines = self.render_lines(SAMPLE)
+        self.assertIn("6 WAITING ON YOU · OLDEST 4D", lines)
+        self.assertIn("api · +312 −48", lines)
+        self.assertEqual(lines.count("#492"), 1)
+        self.assertEqual(self.page.evaluate(FRACTIONAL_BOXES_JS), [])
+
+    def test_stale_starts_after_two_days(self):
+        lines = self.render_lines(queue([pr(1, 2), pr(2, 3)]))
+        self.assertIn("2D", lines)
+        self.assertIn("STALE 3D", lines)
+        self.assertNotIn("STALE 2D", lines)
+        self.assertIn("2 WAITING ON YOU · OLDEST 3D", lines)
+
+    def test_oldest_is_the_largest_age_in_any_order(self):
+        self.assertIn("3 WAITING ON YOU · OLDEST 9D", self.render_lines(queue([pr(1, 1), pr(2, 9), pr(3, 0)])))
+
+    def test_empty_queue_says_so(self):
+        lines = self.render_lines(queue([]))
+        self.assertIn("0 WAITING ON YOU", lines)
+        self.assertIn("NOTHING TO REVIEW", lines)
+        self.assertFalse(any("OLDEST" in line for line in lines))
+
+    def test_invalid_data_names_the_field_path(self):
+        for prs, pattern in (
+            ([pr(age_days=1.5)], r"^data\.prs\[0\]\.ageDays: expected a whole number >= 0$"),
+            ([pr(added=-1)], r"^data\.prs\[0\]\.added: expected a whole number >= 0$"),
+            ([pr(removed="4")], r"^data\.prs\[0\]\.removed: expected number$"),
+            ([pr(number=None)], r"^data\.prs\[0\]\.number: expected number$"),
+            ([pr()] * 11, r"^data\.prs: expected at most 10 items$"),
+        ):
+            with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
+                render_template(self.page, queue(prs))
+
+
+if __name__ == "__main__":
+    unittest.main()
