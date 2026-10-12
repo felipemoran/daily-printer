@@ -55,10 +55,11 @@ These rules go into device firmware, so they are expensive to change later.
 
 ## Job lifecycle
 
-- The writer of a job sets its expiry; the default is 1 hour. A job not confirmed before its expiry is dropped.
-- The server sends an unconfirmed job again when the device reconnects. It stops after 3 attempts in total and marks the job failed. A duplicate print is possible when a device dies between printing and confirming.
-- Manual controls, in the CLI and in the admin web page at `/admin`: list queued jobs, cancel one job, clear a printer's queue.
-- The queue survives a server restart.
+- The writer of a job sets its expiry; the default is 1 hour. No timer expires jobs. Before the queue takes, lists, cancels, clears, moves or reprints jobs, it marks the queued jobs past their expiry as expired, with the expiry time as the event time. An expired job keeps its record; the server clears only its ESC/POS bytes.
+- A job in sending does not expire. If the device confirms it after its expiry, the job is printed. If its delivery fails after its expiry, the job is expired, or failed on its third attempt.
+- When a delivery ends without a `printed` reply (for example a lost connection, no reply within 120 s, or a device error), the server puts the job back in the queue at once. After a reply timeout or a device error, that printer pauses for 60 s. The server stops after 3 attempts in total and marks the job failed. A duplicate print is possible when a device dies between printing and confirming.
+- Manual controls, in the CLI and in the admin web page at `/admin`: list queued jobs, cancel one job, clear a printer's queue. Cancel and clear also take a job in sending, but the device can still print it. If the device then confirms it, the job is printed, with the detail "after the cancel" on its `printed` event. If the device reports an error, the job stays cancelled.
+- The queue survives a server restart. At start, the server releases each job that a stopped server left in sending.
 
 ## Devices
 
@@ -142,7 +143,7 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
 | `GET /api/jobs/{id}` | admin | Job with its events, and `artifacts`: the path of its artifact folder on the server, or null when the folder is missing |
 | `GET /api/jobs/{id}/image` | admin | `print.png` from the job's artifact folder. 404 when the folder has none. |
-| `POST /api/jobs/{id}/cancel` | admin | Cancel |
+| `POST /api/jobs/{id}/cancel` | admin | Cancel a queued or sending job. 409 when the job is in a final state. |
 | `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job of the same kind that sends the original's `job.escpos`, recorded with the admin as `source`. Its artifact folder is a copy of the original's, with `reprint_of` in `meta.json`. 409 when the original is still queued or sending, or has no artifact folder. |
 | `POST /api/printers/{id}/clear` | admin | Cancel every queued and sending job of the printer |
 | `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
@@ -160,9 +161,9 @@ Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credent
 
 ### Job record
 
-`id`, `printer`, `kind`, `title`, `source`, `ingress`, `status`, `attempts`, `created_at`, `expires_at`, `render_ms`, `width` and `height` (dots), `paper_mm` (height / 8; the printer has 8 dots per mm), `size_bytes` (ESC/POS), `frames`, `sent_at`, `printed_at`.
+`id`, `printer`, `kind`, `title`, `source`, `ingress`, `status`, `attempts`, `created_at`, `expires_at`, `render_ms`, `width` and `height` (dots), `paper_mm` (height / 8; the printer has 8 dots per mm), `size_bytes` (ESC/POS), `frames`, `sent_at`, `printed_at`. Each query computes `paper_mm`; the database does not store it.
 
-The ESC/POS bytes in SQLite are dropped when the job reaches a final state. The artifact folder keeps a copy.
+The server clears the ESC/POS bytes in SQLite when the job reaches a final state. The artifact folder keeps a copy.
 
 Events (`job_id`, `at`, `event`, `detail`): `received`, `rendered`, `sending`, `sent`, `printed`, `released`, `failed`, `expired`, `cancelled`, `moved`, `reprinted`.
 
@@ -183,9 +184,21 @@ A crash after the rename and before the commit leaves a folder that no job names
 
 A job without a folder has a 404 for its image and a 409 for a reprint. Jobs created before artifact folders have none. No database from that time exists: the server was not deployed before this change. A folder deleted by hand has the same result.
 
+SQLite settings, set on each start:
+
+- WAL journal mode. A reader, for example a `sqlite3` shell, does not block the server's writes.
+- A busy timeout of 10 s, for a write by another program. The wait blocks the server's event loop, so it stays far below the 60 s device receive timeout.
+- Foreign keys on: an event for a missing job is refused.
+- `PRAGMA user_version` holds the schema version. A new database gets the current version. A database at an older version gets each step in `_MIGRATIONS` (`src/job_queue.py`) from its version up, in one transaction. Version 0 is the schema from before versioning; its step drops the unused `png` column. The server refuses to start on a database with a newer version.
+
+Backups: in WAL mode the database is three files, `<name>`, `<name>-wal` and `<name>-shm`. The main file alone can miss committed writes. While the server runs, copy it with `sqlite3 <database> ".backup <copy>"`. Or stop the server, then copy all three files. Copy the `artifacts` folder too.
+
 ### Printer state
 
-From the config: `id`, `name`, `place`, `public`. Kept by the server: `online`, `connected_since`, `last_seen`, `address`, `route` (`tunnel` when the request carries a `Cf-Ray` header, otherwise `direct`), `latency_ms`, `client_version`, `current_job`, `paused_until` (the epoch time when delivery resumes, 60 s after a device error or a reply timeout, or null), `queued`, `printed_today`.
+- From the config: `id`, `name`, `place`, `public`.
+- Stored in the `printers` table, by printer `id`: `connected_since`, `last_seen`, `address`, `route` (`tunnel` when the request carries a `Cf-Ray` header, otherwise `direct`), `latency_ms`, `client_version`.
+- In `DeviceHub` memory, lost on restart: `online`, `current_job`, `paused_until` (the epoch time when delivery resumes, 60 s after a device error or a reply timeout, or null).
+- Counted from the jobs on each request: `queued`, `printed_today`.
 
 ### Stats
 

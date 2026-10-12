@@ -257,10 +257,10 @@ def _parser() -> argparse.ArgumentParser:
     image.add_argument("id")
     image.add_argument("-o", "--output", type=Path, required=True, metavar="FILE", help="where to write the PNG")
 
-    cancel = commands.add_parser("cancel", help="cancel a queued job")
+    cancel = commands.add_parser("cancel", help="cancel a queued or sending job")
     cancel.add_argument("id")
 
-    clear = commands.add_parser("clear", help="cancel every queued job of a printer")
+    clear = commands.add_parser("clear", help="cancel every queued and sending job of a printer")
     clear.add_argument("printer")
 
     reprint = commands.add_parser("reprint", help="queue a finished job again")

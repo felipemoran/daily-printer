@@ -95,8 +95,8 @@ The page at `/` lets a person send a message (printed as a receipt) or a photo. 
 | `printctl jobs [--printer P] [--status S] [--limit N]` | Lists jobs, newest first. Default limit: 20. |
 | `printctl show <id>` | Shows a job, the path of its artifact folder on the server, and its event timeline. |
 | `printctl image <id> -o <file>` | Saves the job's `print.png`. |
-| `printctl cancel <id>` | Cancels a queued job. |
-| `printctl clear <printer>` | Cancels every queued job of a printer. |
+| `printctl cancel <id>` | Cancels a queued or sending job. A sending job can still print; it then shows as printed. |
+| `printctl clear <printer>` | Cancels every queued and sending job of a printer. |
 | `printctl reprint <id> [--printer P]` | Queues a finished job again, on the same or another printer. It sends the same bytes as the first print. |
 | `printctl move <from> <to>` | Moves the queued jobs of one printer to another. |
 | `printctl printers` | Shows each printer's connection and queue. |

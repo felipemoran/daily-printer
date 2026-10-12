@@ -46,7 +46,7 @@ A device should run on a Raspberry Pi 2 or later, with 32-bit or 64-bit Raspberr
 |---|---|
 | `~/print-server/config.toml` | server config, mode 0600; the wizard rewrites it and drops comments |
 | `~/print-server/admin-token` | admin token for `printctl --token-file`, mode 0600 |
-| `~/print-server/data/print-server.db` | job queue |
+| `~/print-server/data/print-server.db` | job queue, with its `-wal` and `-shm` files beside it |
 | `~/print-server/wizard.env`, `~/print-device/wizard.env` | your wizard answers (hostnames, tunnel); no tokens |
 | `~/print-device/token` | printer token, mode 0600 |
 | `/etc/cloudflared/config.yml` | tunnel config, from `deploy/cloudflared/config.example.yml` |
