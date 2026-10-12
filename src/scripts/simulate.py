@@ -17,6 +17,7 @@ import io
 import json
 import os
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -74,11 +75,11 @@ class Children:
     def log(self, name: str) -> Path:
         return self.workdir / f"{name}.log"
 
-    def start(self, name: str, script: str, *args: str) -> None:
+    def start(self, name: str, command: list[str]) -> None:
         with open(self.log(name), "wb") as log, _signals_blocked():
             # Each child gets its own session: Ctrl-C reaches only this script, which stops them in order.
             self.processes[name] = subprocess.Popen(
-                [sys.executable, str(SCRIPTS / script), *args],
+                command,
                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
             )
 
@@ -204,17 +205,21 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
     # A receipt render starts a Chromium, so the POST can take a while.
     sender = Client(base, client_token, timeout=PRINT_TIMEOUT)
     print(f"Starting the print server on {base} ...", flush=True)
-    children.start("server", "print_server.py", "--config", str(config))
+    children.start("server", [sys.executable, str(SCRIPTS / "print_server.py"), "--config", str(config)])
     # Only our server writes this line, so no request goes out before it owns the port.
     _until(children, "the server to listen", READY_TIMEOUT,
            lambda: f"listening on {base}" in children.log("server").read_text(errors="replace"))
 
+    # A device runs the way a real one does: in its script environment, without the server's dependencies.
+    uv = os.environ.get("UV") or shutil.which("uv")
+    if uv is None:
+        raise SimulationError("uv is missing, so the fake printers cannot start. Install uv, then run this again.")
     print(f"Starting the fake printers: {', '.join(p[0] for p in PRINTERS)} ...", flush=True)
     for printer_id, *_ in PRINTERS:
-        children.start(
-            f"device-{printer_id}", "print_device.py", "--server", f"ws://127.0.0.1:{port}/device",
+        children.start(f"device-{printer_id}", [
+            uv, "run", "--script", str(SCRIPTS / "print_device.py"), "--server", f"ws://127.0.0.1:{port}/device",
             "--token-file", str(workdir / f"{printer_id}.token"), "--fake", str(workdir / printer_id),
-        )
+        ])
     _until(children, "both devices to come online", READY_TIMEOUT, lambda: _all_online(admin))
 
     print("Sending a receipt to home and an image to work ...", flush=True)

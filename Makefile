@@ -44,7 +44,7 @@ simulate: ## Run the server and two fake printers locally, print two jobs (needs
 
 device-fake: ## Fake printer device: make device-fake TOKEN_FILE=path [SERVER=ws://...] [OUT=dir]
 	@test -n "$(TOKEN_FILE)" || { echo "Set TOKEN_FILE to a file holding the printer token, e.g. make device-fake TOKEN_FILE=~/.print-token"; exit 2; }
-	uv run src/scripts/print_device.py --server "$(or $(SERVER),ws://127.0.0.1:8787/device)" --token-file $(TOKEN_FILE) --fake "$(or $(OUT),data/fake-printer)"
+	uv run --script src/scripts/print_device.py --server "$(or $(SERVER),ws://127.0.0.1:8787/device)" --token-file $(TOKEN_FILE) --fake "$(or $(OUT),data/fake-printer)"
 
 # ── Web UI ────────────────────────────────────────────────────────────────────
 

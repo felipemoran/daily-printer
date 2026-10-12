@@ -7,7 +7,7 @@ After=network-online.target
 [Service]
 User=__SERVICE_USER__
 WorkingDirectory=__REPO__
-ExecStart=__UV__ run src/scripts/print_device.py --server __SERVER_URL__ --token-file __TOKEN_FILE__
+ExecStart=__UV__ run --script src/scripts/print_device.py --server __SERVER_URL__ --token-file __TOKEN_FILE__
 Restart=always
 RestartSec=5
 

@@ -235,14 +235,33 @@ rotate_log() {
 }
 
 # A 32-bit userland on a 64-bit kernel reports aarch64, so the word size decides.
-check_arch() {
+arm32() {
   case "$(uname -m)" in
-    arm*|aarch64)
-      if [[ "$(getconf LONG_BIT)" == 32 ]]; then
-        die "Playwright has no 32-bit ARM build; install 64-bit Raspberry Pi OS."
-      fi
-      ;;
+    arm*|aarch64) [[ "$(getconf LONG_BIT)" == 32 ]] ;;
+    *) return 1 ;;
   esac
+}
+
+check_arch() {
+  if arm32; then die "Playwright has no 32-bit ARM build; install 64-bit Raspberry Pi OS."; fi
+}
+
+# PyPI has no 32-bit ARM wheels for Pillow and PyYAML, so uv builds them from source.
+install_build_tools() {
+  if [[ "$OS" != Linux ]] || ! arm32; then return 0; fi
+  local package missing=()
+  for package in build-essential python3-dev libjpeg-dev zlib1g-dev; do
+    dpkg -s "$package" >/dev/null 2>&1 || missing+=("$package")
+  done
+  if (( ${#missing[@]} == 0 )); then
+    ok "build tools installed"
+    return 0
+  fi
+  say "On 32-bit ARM, uv builds Pillow from source: PyPI has no 32-bit ARM wheel for it."
+  confirm "Install the build tools now (sudo apt-get install -y ${missing[*]})?" \
+    || die "The build tools are missing, so Pillow cannot build. Install them (sudo apt-get install ${missing[*]}), then re-run."
+  command -v apt-get >/dev/null 2>&1 || die "No apt-get here. Install a C compiler, the Python headers, libjpeg and zlib, then re-run."
+  sudo apt-get install -y "${missing[@]}"
 }
 
 find_uv() {
@@ -389,8 +408,15 @@ stage_tools() {
     [[ -n "$UV" ]] || die "uv is missing. Install it (https://docs.astral.sh/uv/getting-started/installation/), then re-run."
   fi
   ok "uv at $UV"
-  step "Installing the Python dependencies (uv sync)"
-  (cd "$REPO" && "$UV" sync --quiet)
+  if [[ "$ROLE" == device ]]; then
+    install_build_tools
+    step "Installing the device's Python dependencies (uv sync --script)"
+    if [[ "$OS" == Linux ]] && arm32; then note "This step builds Pillow from source, so it is slower than on a 64-bit system."; fi
+    (cd "$REPO" && "$UV" sync --quiet --script src/scripts/print_device.py)
+  else
+    step "Installing the Python dependencies (uv sync)"
+    (cd "$REPO" && "$UV" sync --quiet)
+  fi
   ok "Python dependencies installed"
 }
 
@@ -777,7 +803,6 @@ device_connected() {
 # ── Main ──────────────────────────────────────────────────────────────────
 
 case "$OS" in Darwin|Linux) ;; *) die "This wizard supports macOS and Linux, not $OS." ;; esac
-check_arch
 (( EUID != 0 )) || die "Run as your user; the wizard calls sudo itself."
 if [[ "$REPO$HOME_DIR" =~ [[:space:]] ]]; then die "The repo path and the home folder must not contain spaces: the service files cannot quote them."; fi
 ROLE=${1:-}
@@ -800,6 +825,7 @@ ENV_FILE=$STATE_DIR/wizard.env
 
 case "$ROLE" in
   server)
+    check_arch
     TOTAL_STAGES=9
     banner "Print server setup"
     stage_tools

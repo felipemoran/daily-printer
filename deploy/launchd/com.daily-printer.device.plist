@@ -9,6 +9,7 @@
 	<array>
 		<string>__UV__</string>
 		<string>run</string>
+		<string>--script</string>
 		<string>src/scripts/print_device.py</string>
 		<string>--server</string>
 		<string>__SERVER_URL__</string>

@@ -29,6 +29,11 @@ def wizard_placeholders() -> set[str]:
     return set(match.group(1).split())
 
 
+def uv_run(name: str) -> list[str]:
+    """A device runs in its own script environment; the server runs in the project environment."""
+    return ["__UV__", "run", "--script"] if "device" in name else ["__UV__", "run"]
+
+
 def entry_point_flags(script: str) -> set[str]:
     return set(re.findall(r'add_argument\(\s*"(--[a-z-]+)"', (ROOT / script).read_text()))
 
@@ -99,11 +104,13 @@ class DeployFilesTest(unittest.TestCase):
                 with path.open("rb") as file:
                     job = plistlib.load(file)
                 self.assertEqual(job["Label"], path.stem)
+                prefix = uv_run(path.name)
                 arguments = job["ProgramArguments"]
-                self.assertEqual(arguments[:2], ["__UV__", "run"])
-                self.assertTrue((ROOT / arguments[2]).is_file(), arguments[2])
-                flags = {argument for argument in arguments[3:] if argument.startswith("--")}
-                self.assertTrue(flags <= entry_point_flags(arguments[2]), flags)
+                self.assertEqual(arguments[:len(prefix)], prefix)
+                script, *rest = arguments[len(prefix):]
+                self.assertTrue((ROOT / script).is_file(), script)
+                flags = {argument for argument in rest if argument.startswith("--")}
+                self.assertTrue(flags <= entry_point_flags(script), flags)
                 self.assertIs(job["KeepAlive"], True)
                 self.assertEqual(job["WorkingDirectory"], "__REPO__")
                 self.assertTrue(job["StandardErrorPath"].startswith("__LOG_DIR__/"))
@@ -134,11 +141,13 @@ class DeployFilesTest(unittest.TestCase):
                 self.assertEqual(service["User"], "__SERVICE_USER__")
                 self.assertEqual(service["Restart"], "always")
                 self.assertEqual(sections["Install"]["WantedBy"], "multi-user.target")
+                prefix = uv_run(path.name)
                 command = service["ExecStart"].split()
-                self.assertEqual(command[:2], ["__UV__", "run"])
-                self.assertTrue((ROOT / command[2]).is_file(), command[2])
-                flags = {word for word in command[3:] if word.startswith("--")}
-                self.assertTrue(flags <= entry_point_flags(command[2]), flags)
+                self.assertEqual(command[:len(prefix)], prefix)
+                script, *rest = command[len(prefix):]
+                self.assertTrue((ROOT / script).is_file(), script)
+                flags = {word for word in rest if word.startswith("--")}
+                self.assertTrue(flags <= entry_point_flags(script), flags)
 
     def test_device_unit_waits_for_the_network_because_it_dials_out(self):
         unit = (DEPLOY / "systemd" / "print-device.service").read_text()
@@ -194,10 +203,10 @@ class DeployFilesTest(unittest.TestCase):
 
     def arch_check(self, machine: str, bits: int) -> subprocess.CompletedProcess:
         stubs = f"uname() {{ echo {machine}; }}\ngetconf() {{ echo {bits}; }}\n"
-        script = f'set -euo pipefail\nRED=""; RESET=""\n{stubs}{wizard_functions("die", "check_arch")}\ncheck_arch\n'
+        script = f'set -euo pipefail\nRED=""; RESET=""\n{stubs}{wizard_functions("die", "arm32", "check_arch")}\ncheck_arch\n'
         return subprocess.run(["bash", "-c", script], capture_output=True, text=True)
 
-    def test_wizard_refuses_a_32_bit_arm_userland_even_on_a_64_bit_kernel(self):
+    def test_server_role_refuses_a_32_bit_arm_userland_even_on_a_64_bit_kernel(self):
         for machine, bits in (("armv7l", 32), ("armv6l", 32), ("aarch64", 32)):
             with self.subTest(machine=machine, bits=bits):
                 result = self.arch_check(machine, bits)
@@ -206,8 +215,39 @@ class DeployFilesTest(unittest.TestCase):
         for machine, bits in (("aarch64", 64), ("arm64", 64), ("x86_64", 64), ("i686", 32)):
             with self.subTest(machine=machine, bits=bits):
                 self.assertEqual(self.arch_check(machine, bits).returncode, 0)
-        main = WIZARD.read_text().split("# ── Main", 1)[1]
-        self.assertLess(main.index("\ncheck_arch\n"), main.index("stage_tools"))
+        roles = WIZARD.read_text().split("# ── Main", 1)[1]
+        server = re.search(r"^  server\)\n(.*?)\n    ;;", roles, re.MULTILINE | re.DOTALL).group(1)
+        self.assertLess(server.index("check_arch"), server.index("stage_tools"))
+        for device in re.findall(r"^  device\)\n(.*?)\n    ;;", roles, re.MULTILINE | re.DOTALL):
+            self.assertNotIn("check_arch", device)
+        self.assertNotIn("check_arch", self.function(WIZARD.read_text(), "stage_tools"))
+
+    def tools_stage(self, role: str, machine: str, bits: int) -> list[str]:
+        """Runs stage_tools on Linux with every package but build-essential missing; returns the commands it ran."""
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = Path(tmp) / "calls"
+            fake_uv = Path(tmp) / "uv"
+            fake_uv.write_text(f'#!/bin/sh\necho "uv $*" >> {calls}\n')
+            fake_uv.chmod(0o755)
+            stubs = (
+                f"uname() {{ echo {machine}; }}\ngetconf() {{ echo {bits}; }}\nfind_uv() {{ echo {fake_uv}; }}\n"
+                f'sudo() {{ echo "sudo $*" >> {calls}; }}\ndpkg() {{ [[ "$2" == build-essential ]]; }}\n'
+                "apt-get() { :; }\nconfirm() { :; }\nstage() { :; }\nok() { :; }\nstep() { :; }\nnote() { :; }\nsay() { :; }\n"
+            )
+            functions = wizard_functions("die", "arm32", "install_build_tools", "stage_tools")
+            script = f'set -euo pipefail\nRED=""; RESET=""\nOS=Linux\nROLE={role}\nREPO={ROOT}\n{stubs}{functions}\nstage_tools\n'
+            result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return calls.read_text().splitlines()
+
+    def test_device_role_installs_only_the_device_script_dependencies_and_builds_pillow_on_32_bit_arm(self):
+        device_sync = "uv sync --quiet --script src/scripts/print_device.py"
+        self.assertEqual(
+            self.tools_stage("device", "armv7l", 32),
+            ["sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev", device_sync],
+        )
+        self.assertEqual(self.tools_stage("device", "aarch64", 64), [device_sync])
+        self.assertEqual(self.tools_stage("server", "x86_64", 64), ["uv sync --quiet"])
 
     def rotate(self, conf: Path, *logs: str) -> None:
         calls = "\n".join(f"rotate_log {log}" for log in logs)
