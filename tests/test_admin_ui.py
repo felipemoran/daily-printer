@@ -384,6 +384,14 @@ class AdminViewsTest(AdminBrowserCase):
         await expect(self.ticket(page, late)).to_be_visible()
         self.assertEqual(await tall.evaluate("s => [s.probe === true, s.scrollTop]"), [True, bottom])
 
+    async def test_a_ticket_keeps_its_scroll_when_a_poll_moves_it_along_the_rail(self):
+        page = await self.open()
+        sheet = self.ticket(page, self.printing).locator(".paper-wrap")
+        await sheet.evaluate("s => { s.scrollTop = 120; s.probe = true; }")
+        self.queue.take("office")
+        await expect(self.ticket(page, self.waiting)).to_have_class(re.compile(r"\bsending\b"))
+        self.assertEqual(await sheet.evaluate("s => [s.probe === true, s.scrollTop]"), [True, 120])
+
     async def test_a_sideways_wheel_over_a_ticket_still_moves_the_rail(self):
         page = await self.open()
         rail = await page.locator("#rail").element_handle()

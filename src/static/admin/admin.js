@@ -479,8 +479,10 @@ function renderRail() {
     });
   }
 
-  const entries = railEntries();
-  keyed($("track"), entries, (e) => e.key, createEntry, updateEntry);
+  // Chromium resets scrollTop on a node that insertBefore moves, and keyed() moves tickets when the rail reorders.
+  const scrolled = [...$("track").querySelectorAll(".paper-wrap")].map((sheet) => [sheet, sheet.scrollTop]);
+  keyed($("track"), railEntries(), (e) => e.key, createEntry, updateEntry);
+  for (const [sheet, top] of scrolled) sheet.scrollTop = top;
   const empty = !state.jobs.length;
   $("rail").hidden = empty;
   $("rail-empty").hidden = !empty;
