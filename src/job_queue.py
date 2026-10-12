@@ -284,7 +284,11 @@ class JobQueue:
         return changed > 0
 
     def confirm(self, job_id: str, *, now: float | None = None) -> None:
-        """Mark the job the device printed as printed, also when it was cancelled while sending."""
+        """Mark the job the device printed as printed, also when it was cancelled while sending.
+
+        A ``cancelled`` job is safe to accept only because the hub confirms just the job it is delivering. No SQL guard
+        tells a cancel while sending from one while queued: ``sent_at`` is still null after a cancel before ``mark_sent``.
+        """
         now = time.time() if now is None else now
         with self._transaction():
             row = self._db.execute("SELECT status FROM jobs WHERE id = ?", (job_id,)).fetchone()
