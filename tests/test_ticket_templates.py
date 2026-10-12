@@ -152,6 +152,20 @@ class RenderTest(unittest.TestCase):
         self.assertNotIsInstance(caught.exception, TemplateError)
         render_template(self.page, TICKET)
 
+    def test_parse_bug_is_a_server_fault(self):
+        # Only validate.ts's object() calls Object.hasOwn: a throw there stands in for a bug in parse.
+        self.page.evaluate("""() => {
+          window.originalHasOwn = Object.hasOwn;
+          Object.hasOwn = () => { throw new TypeError('parse broke'); };
+        }""")
+        try:
+            with self.assertRaisesRegex(RuntimeError, "^server fault: parse broke$") as caught:
+                render_template(self.page, TICKET)
+        finally:
+            self.page.evaluate("() => { Object.hasOwn = window.originalHasOwn; }")
+        self.assertNotIsInstance(caught.exception, TemplateError)
+        render_template(self.page, TICKET)
+
     def test_font_that_does_not_load_is_a_server_fault(self):
         # focus and agenda load their faces on the first render, so a patch after the page opens is in time.
         failures = {

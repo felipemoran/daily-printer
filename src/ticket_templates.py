@@ -31,11 +31,11 @@ SERVER_FAULT = "server fault: "
 # Resolves to [null, result] or [message, null], so a page error never looks like a Playwright fault.
 _CALL_JS = """
 async ([name, payload, timeout]) => {
+  if (typeof window[name] !== 'function') return [`server fault: render.html has no ${name}; rebuild web/dist`, null];
   let timer;
   const expired = new Promise((resolve) => {
     timer = setTimeout(() => resolve([`render did not finish within ${timeout} ms`, null]), timeout);
   });
-  if (typeof window[name] !== 'function') return [`server fault: render.html has no ${name}; rebuild web/dist`, null];
   const called = Promise.resolve().then(() => window[name](payload))
     .then((result) => [null, result ?? null], (error) => [error instanceof Error ? error.message : String(error), null]);
   try {
