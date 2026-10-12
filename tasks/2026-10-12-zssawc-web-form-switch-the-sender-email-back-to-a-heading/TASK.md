@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-zssawc-web-form-switch-the-sender-email-back-to-a-heading
 title: 'Web form: switch the sender email back to a heading block once the receipt app wraps .section-header'
-status: draft
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies: []

@@ -33,6 +33,7 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T08:27:16+00:00: Waves 4+5 closed: template merge oupows, template kind novtrv, admin UI sqlnun, docs mvzswn. Gate PASS: 475 tests x2, web build, real server + /admin CSP, simulate --once. Remaining: final design-system tip (render_text, check_envelope, cm message) -> re-parent merge + kind 'text' + form heading (zssawc).
 - 2026-10-12T08:35:34+00:00: Final whole-branch review: no blocker, no security finding. Fixing in a cleanup pass: simulate reuses printctl.Client; dead code/duplicates; render non-image message (l0w88g); stats limited to configured printers; deploy refuses 32-bit ARM + macOS log rotation; contract wording (ping/pong, clear, CSRF). Operator ACKs: device errors counting as attempts; Pi 2/32-bit support. Commit subjects shortened to <=50, build: -> chore(deps):.
 - 2026-10-12T08:52:32+00:00: Final cleanup pass closed: omyyqz..wpllrv (render message, simulate reuses printctl.Client, dead code, DOTS_PER_MM, FakeSink, stats filter, 32-bit ARM guard + macOS newsyslog, contract wording). Final reviewer approved.
+- 2026-10-12T09:25:43+00:00: Recovered: abandoning the 'start final design-system merge' bookkeeping commit (qnsplm, commit 2a3347) dropped three bacon entries; restored both TASK.md files from 2a3347. Lesson added to the orchestrator manual (bacon repo change kmnwvx, unpushed).
 
 ## Decisions
 
@@ -49,3 +50,4 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T07:47:14+00:00: decided admin UI: static files under src/static/admin (no build step), served at /admin; live data by polling every 3 s while visible (no SSE/WebSocket); local use without Access via a one-time admin-token field kept in sessionStorage only; two read-only endpoints /api/clients and /api/server — easy to change
 - 2026-10-12T07:53:48+00:00: decided web senders may post kind 'template' to public printers (rate limit applies) — easy to change
 - 2026-10-12T08:28:20+00:00: Landing plan (pending operator): option (a) — design-system chain lands first as its own draft PR to main; this PR follows. If their PR is squash-merged, merge main into this branch once (a landed PR this branch must port) so the PR diff shows only print-system work. If operator prefers one PR (b), this line already contains their chain.
+- 2026-10-12T09:21:00+00:00: decided a reprint of a 'text' job is recorded as kind 'template' (it prints the raster preview; native bytes are dropped at the final state) — easy to change

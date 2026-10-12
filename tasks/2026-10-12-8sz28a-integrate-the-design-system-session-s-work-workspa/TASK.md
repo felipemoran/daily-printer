@@ -32,6 +32,9 @@ Operator request: merge the parallel design-system stream into this branch so th
 - 2026-10-12T07:56:45+00:00: Final-tip follow-up for my side: call ticket_templates.check_envelope(payload) before launching Chromium (rejects bad envelope, unknown template via dist/templates.json, >64 KiB UTF-8); add kind 'text' via render_text(page, payload) -> body bytes with the raster preview from render_template on the same page.
 - 2026-10-12T08:08:14+00:00: Design-system stable point nrlvsnow: all 14 templates, gate green (187 tests x2), .receipt overflow-wrap fix. Plan: when the final tip arrives, re-parent my merge (oupows) onto it in one step (jj rebase -s <merge> -d <my line> -d <final tip>), then add check_envelope + kind 'text'. Final tip adds ServerFault mapping: template server-side failure -> RuntimeError (500), not TemplateError.
 - 2026-10-12T08:19:02+00:00: Merged interim point otvylkrs (oupowsvyzunm) + template kind (novtrvuwvvkp), reviewed. Still in progress: final design-system tip (render_text, check_envelope, cm message), then re-parent the merge and add kind 'text'.
+- 2026-10-12T09:00:23+00:00: Final tip txrwsrox (41ad51c6) received. Changed plan: merge it at the tip of the line (new merge) instead of re-parenting oupows, to avoid rewriting ~25 reviewed commits. Builder in .workspaces/ps-final.
+- 2026-10-12T09:18:00+00:00: Design-system follow-up coming on top of txrwsrox: check_envelope maps RecursionError -> TemplateError; public ticket_templates.TEXT_FEED. On arrival: small merge + make render_job import TEXT_FEED (drop its own).
+- 2026-10-12T09:25:43+00:00: Final tip merged as ysnuyvyotzwv + envelope check prqzmrksmuws + text kind nkollmomnunk + form heading wunnxullqrol; reviewed. Waiting: design-system follow-up (RecursionError in check_envelope, public TEXT_FEED).
 
 ## Decisions
 
