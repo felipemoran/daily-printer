@@ -227,7 +227,8 @@ main:focus { outline: none; }
   display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start;
   padding: 12px 0; color: inherit; text-decoration: none; min-height: 44px;
 }
-.ticket .feed { width: 100%; max-height: 150px; }
+/* Only -y: the `overscroll-behavior` shorthand also stops a sideways wheel from reaching the rail. */
+.ticket .paper-wrap { max-height: 150px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; }
 .ticket .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 4px; }
 .ticket .when { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .ticket .when .time { font-family: var(--mono); }
@@ -258,6 +259,8 @@ main:focus { outline: none; }
 .fleet-strip .muted { white-space: nowrap; }
 
 @media (min-width: 900px) {
+  body:has(#view-rail:not([hidden])) { height: 100dvh; }
+  main, #view-rail { min-height: 0; }
   .rail-head { flex-direction: row; align-items: flex-end; justify-content: space-between; padding: 24px 32px 0; }
   .rail-tools { flex: 0 1 auto; }
   .stats { margin: 20px 32px 0; }
@@ -283,9 +286,10 @@ main:focus { outline: none; }
   }
   .marker span { background: var(--bg); }
   .marker.now span { background: var(--text); }
-  .ticket { border: 0; width: 224px; flex: none; scroll-snap-align: center; }
-  .ticket a { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
-  .ticket .meta { order: -1; height: 100px; padding: 28px 0 0; gap: 1px; position: relative; }
+  .ticket { border: 0; width: 224px; flex: none; scroll-snap-align: center; max-height: 100%; display: flex; flex-direction: column; }
+  .ticket a { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; min-height: 0; }
+  .ticket .paper-wrap { max-height: none; min-height: 0; }
+  .ticket .meta { order: -1; flex: none; height: 100px; padding: 28px 0 0; gap: 1px; position: relative; }
   .ticket .meta::before {
     content: ""; position: absolute; top: 8px; left: 50%; width: 8px; height: 8px; margin-left: -4px;
     border-radius: 50%; background: var(--pin, var(--muted)); box-shadow: 0 0 0 4px var(--bg);
@@ -297,7 +301,6 @@ main:focus { outline: none; }
   .progress .bar { display: none; }
   .ticket .title { font-size: 13px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ticket .note { font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ticket .feed { max-height: 400px; }
   .rail-foot { display: flex; padding: 0 32px; }
 }
 

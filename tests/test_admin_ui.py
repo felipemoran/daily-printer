@@ -332,6 +332,74 @@ class AdminViewsTest(AdminBrowserCase):
                 continue
             self.assertGreaterEqual(box["height"], 44, await target.inner_text())
 
+    @staticmethod
+    async def scroll_state(sheet) -> dict:
+        return await sheet.evaluate("s => ({top: s.scrollTop, height: s.scrollHeight, client: s.clientHeight})")
+
+    @staticmethod
+    async def at_bottom(page, sheet) -> None:
+        await page.wait_for_function("s => s.scrollTop > 0 && s.scrollTop + s.clientHeight >= s.scrollHeight - 1",
+                                     arg=await sheet.element_handle())
+
+    async def test_a_tall_ticket_scrolls_on_its_own_and_keeps_its_place_across_a_poll(self):
+        page = await self.open()
+        tall = self.ticket(page, self.retried).locator(".paper-wrap")
+        other = self.ticket(page, self.printing).locator(".paper-wrap")
+        short = self.ticket(page, self.printed).locator(".paper-wrap")
+        box = await tall.bounding_box()
+        self.assertLessEqual(box["y"] + box["height"], 900, "the sheet ends inside the window")
+        state = await self.scroll_state(tall)
+        self.assertGreater(state["height"], state["client"], "the receipt is taller than its sheet")
+        state = await self.scroll_state(short)
+        self.assertEqual(state["height"], state["client"], "a short ticket does not scroll")
+        image = await tall.locator("img").evaluate(
+            "i => [i.clientWidth, i.clientHeight, i.closest('.paper').clientWidth, i.closest('.paper').clientHeight]")
+        self.assertAlmostEqual(image[1] / image[0], RECEIPT.height / RECEIPT.width, delta=0.02, msg="not squeezed")
+        self.assertGreater(image[2], 180, "the receipt keeps the sheet's width")
+        rail_left = await page.locator("#rail").evaluate("r => r.scrollLeft")
+
+        await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        await page.mouse.wheel(0, 20000)
+        await self.at_bottom(page, tall)
+        bottom = (await self.scroll_state(tall))["top"]
+        self.assertEqual((await self.scroll_state(other))["top"], 0)
+        self.assertEqual(await page.evaluate("window.scrollY"), 0)
+        self.assertEqual(await page.locator("#rail").evaluate("r => r.scrollLeft"), rail_left)
+
+        await tall.evaluate("s => { s.probe = true; }")
+        late = self.add("office", RENDERED, title="Late arrival", source="admin", ingress="cli", at=time.time())
+        await expect(self.ticket(page, late)).to_be_visible()
+        self.assertEqual(await tall.evaluate("s => [s.probe === true, s.scrollTop]"), [True, bottom])
+
+    async def test_a_sideways_wheel_over_a_ticket_still_moves_the_rail(self):
+        page = await self.open()
+        rail = await page.locator("#rail").element_handle()
+        box = await self.ticket(page, self.retried).locator(".paper-wrap").bounding_box()
+        await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        for shift, dx, dy in ((False, -300, 0), (True, 0, 150)):
+            with self.subTest(shift=shift):
+                start = await rail.evaluate("r => r.scrollLeft")
+                if shift:
+                    await page.keyboard.down("Shift")
+                await page.mouse.wheel(dx, dy)
+                await page.keyboard.up("Shift")
+                await page.wait_for_function("([r, start]) => r.scrollLeft !== start", arg=[rail, start])
+
+    async def test_on_a_phone_a_swipe_on_a_ticket_scrolls_only_that_ticket(self):
+        page = await self.open(width=390, height=844)
+        sheet = self.ticket(page, self.waiting).locator(".paper-wrap")
+        other = self.ticket(page, self.printing).locator(".paper-wrap")
+        box = await sheet.bounding_box()
+        cdp = await page.context.new_cdp_session(page)
+        for _ in range(2):
+            await cdp.send("Input.synthesizeScrollGesture", {
+                "x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2, "yDistance": -2000,
+                "gestureSourceType": "touch", "speed": 3000,
+            })
+        await self.at_bottom(page, sheet)
+        self.assertEqual((await self.scroll_state(other))["top"], 0)
+        self.assertEqual(await page.evaluate("window.scrollY"), 0, "the page stays put at the sheet's end")
+
     async def test_hostile_titles_and_printer_names_render_as_text(self):
         office = self.config.printers["office"]
         self.config.printers["office"] = dataclasses.replace(office, name=HOSTILE)
