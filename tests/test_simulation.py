@@ -28,7 +28,9 @@ from printer import PRINT_WIDTH_DOTS  # noqa: E402
 
 SCRIPT = _TESTS.parent / "src" / "scripts" / "simulate.py"
 RUN_TIMEOUT = 240
-SUMMARY_LINE = re.compile(r"^\s+(\w+)\s+(receipt|image)\s+(\w+)\s+(\d+) x (\d+) dots\s+[\d.]+ cm\s+(\S+\.png)$", re.M)
+SUMMARY_LINE = re.compile(
+    r"^\s+(\w+)\s+(template|text|image|receipt)\s+(\S+)\s+(\w+)\s+(\d+) x (\d+) dots\s+[\d.]+ cm\s+(\S+\.(?:png|bin))$", re.M
+)
 
 
 def _free_port() -> int:
@@ -86,36 +88,44 @@ class SimulateScriptTest(unittest.TestCase):
         return workdir
 
     def assertNoTokenIn(self, output: str) -> None:
+        """The fixed admin token is printed on purpose; the printer and client tokens never are."""
         workdir = self.workdir()
-        tokens = [path.read_text().strip() for path in workdir.glob("*-token")] + [
-            path.read_text().strip() for path in workdir.glob("*.token")
-        ]
+        tokens = [path.read_text().strip() for path in workdir.glob("*.token")]
         tokens += re.findall(r'token = "([^"]+)"', (workdir / "server.toml").read_text())
-        self.assertEqual(len(set(tokens)), 4)
+        tokens.remove(simulate.ADMIN_TOKEN)
+        self.assertEqual(len(set(tokens)), 3)
         for token in tokens:
             self.assertNotIn(token, output)
 
-    def test_once_prints_a_receipt_and_an_image_on_two_fake_printers_and_leaves_no_process(self):
+    def test_once_prints_every_sample_on_two_fake_printers_and_leaves_no_process(self):
         process = self.start("--once", "--port", str(_free_port()))
         stdout, stderr = process.communicate(timeout=RUN_TIMEOUT)
         self.assertEqual(process.returncode, 0, stderr)
 
-        jobs = {printer: rest for printer, *rest in SUMMARY_LINE.findall(stdout)}
-        self.assertEqual(sorted(jobs), ["home", "work"], stdout)
-        self.assertEqual([jobs["home"][0], jobs["work"][0]], ["receipt", "image"])
+        templates = sorted(path.stem for path in (_TESTS.parent / "samples" / "templates").glob("*.json"))
+        jobs = SUMMARY_LINE.findall(stdout)
+        self.assertEqual([(kind, name) for _, kind, name, *_ in jobs],
+                         [("template", name) for name in templates] + [("text", "text"), ("image", "image"),
+                                                                       ("receipt", "receipt")], stdout)
+        self.assertEqual(stdout.count(" accepted as "), len(jobs))
+        self.assertEqual({printer for printer, *_ in jobs}, {"home", "work"})
         paper = {}
-        for printer, (kind, status, width, height, png) in jobs.items():
-            self.assertEqual(status, "printed")
-            with Image.open(png) as image:
-                paper[printer] = image.size
-            self.assertEqual(paper[printer], (int(width), int(height)), f"{kind} paper differs from the job size")
-        image_width, image_height = simulate.IMAGE_SIZE
-        self.assertEqual(paper["work"], (PRINT_WIDTH_DOTS, image_height * PRINT_WIDTH_DOTS // image_width))
-        self.assertEqual(paper["home"][0], PRINT_WIDTH_DOTS)
-        self.assertGreater(paper["home"][1], PRINT_WIDTH_DOTS, "the sample receipt is longer than it is wide")
+        for printer, kind, name, status, width, height, output in jobs:
+            self.assertEqual(status, "printed", name)
+            if kind == "text":
+                self.assertGreater(Path(output).stat().st_size, 0)
+                continue
+            with Image.open(output) as image:
+                paper[name] = image.size
+            self.assertEqual(paper[name], (int(width), int(height)), f"{name} paper differs from the job size")
+        with Image.open(simulate.SAMPLE_IMAGE) as image:
+            image_width, image_height = image.size
+        self.assertEqual(paper["image"], (PRINT_WIDTH_DOTS, image_height * PRINT_WIDTH_DOTS // image_width))
+        self.assertEqual(paper["receipt"][0], PRINT_WIDTH_DOTS)
+        self.assertGreater(paper["receipt"][1], PRINT_WIDTH_DOTS, "the sample receipt is longer than it is wide")
 
         workdir = self.workdir()
-        for secret in ("server.toml", "admin-token", "home.token", "work.token"):
+        for secret in ("server.toml", "home.token", "work.token"):
             self.assertEqual(stat.S_IMODE((workdir / secret).stat().st_mode), 0o600, secret)
         self.assertNoTokenIn(stdout + stderr)
         self.assertNoLeftovers()
@@ -157,7 +167,10 @@ class SimulateScriptTest(unittest.TestCase):
         process.send_signal(signal.SIGINT)
         text = output()
         self.assertEqual(process.returncode, 0, text)
-        self.assertIn(f"Admin token:   {self.workdir() / 'admin-token'}", text)
+        self.assertIn(f"Admin token:   {simulate.ADMIN_TOKEN}\n", text)
+        self.assertRegex(text, r"Admin page: +http://127\.0\.0\.1:\d+/admin\n")
+        self.assertRegex(text, r"make demo-<name> DEMO_SERVER=http://127\.0\.0\.1:\d+\n")
+        self.assertIn("<name> is one of: agenda, ", text)
         self.assertIn("printctl.py", text)
         self.assertNoTokenIn(text)
         self.assertStopped(running)
@@ -199,6 +212,24 @@ class SimulateScriptTest(unittest.TestCase):
 
 
 class SimulateMainTest(unittest.TestCase):
+    def test_sample_jobs_are_every_template_file_then_text_image_and_receipt(self):
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(simulate, "TEMPLATES", Path(folder)):
+            for name in ("zeta", "alpha"):
+                (Path(folder) / f"{name}.json").write_text("{}")
+            (Path(folder) / "notes.txt").write_text("")
+            jobs = simulate.sample_jobs()
+        self.assertEqual([(kind, name) for kind, name, _ in jobs], [
+            ("template", "alpha"), ("template", "zeta"), ("text", "text"), ("image", "image"), ("receipt", "receipt"),
+        ])
+        for _, _, path in jobs[2:]:
+            self.assertTrue(path.is_file(), path)
+
+    def test_the_admin_token_never_reaches_the_front_end(self):
+        files = [path for path in (_TESTS.parent / "src" / "static").rglob("*") if path.is_file()]
+        self.assertTrue(files)
+        for path in files:
+            self.assertNotIn(simulate.ADMIN_TOKEN.encode(), path.read_bytes(), path)
+
     def test_a_missing_receipt_app_says_how_to_build_it_before_starting_anything(self):
         stderr = io.StringIO()
         with tempfile.TemporaryDirectory() as missing, \

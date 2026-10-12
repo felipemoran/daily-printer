@@ -1,9 +1,11 @@
 """
 Run the whole print system on this machine: the server and two devices with fake printers.
 
+It prints one job per sample in samples/templates, plus one text, one image and one receipt job.
+
 Examples:
-  uv run src/scripts/simulate.py           # print two jobs, then keep running until Ctrl-C
-  uv run src/scripts/simulate.py --once    # print two jobs, then stop
+  uv run src/scripts/simulate.py           # print the samples, then keep running until Ctrl-C
+  uv run src/scripts/simulate.py --once    # print the samples, then stop
 
 Ctrl-C or SIGTERM stops the server and both devices. Exit status: 0 after the jobs printed,
 1 when something failed, 130 when stopped before the jobs printed.
@@ -13,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import io
 import json
 import os
 import secrets
@@ -31,18 +32,22 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_PROJECT_ROOT / "src" / "scripts"))
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from PIL import Image  # noqa: E402
-
 from printctl import Client, Failure  # noqa: E402
 from render_job import DIST_DIR  # noqa: E402
 
 SCRIPTS = _PROJECT_ROOT / "src" / "scripts"
-SAMPLE_RECEIPT = _PROJECT_ROOT / "samples" / "receipt-sample.json"
+SAMPLES = _PROJECT_ROOT / "samples"
+TEMPLATES = SAMPLES / "templates"
+# build.json has a text mode; the Makefile's demo-text target sends the same file.
+TEXT_SAMPLE = TEMPLATES / "build.json"
+SAMPLE_IMAGE = SAMPLES / "test-pattern.png"
+SAMPLE_RECEIPT = SAMPLES / "receipt-sample.json"
 DEFAULT_PORT = 8787
+# Operator decision: a fixed admin token, so the admin page and `make demo-<name>` need no lookup.
+ADMIN_TOKEN = "moranlindo"
 # (id, name, place, public)
 PRINTERS = (("home", "Home", "Home office", True), ("work", "Work", "Desk at work", False))
 CLIENT = "sim-client"
-IMAGE_SIZE = (640, 480)
 READY_TIMEOUT = 60
 PRINT_TIMEOUT = 180
 POLL_TIMEOUT = 10
@@ -128,9 +133,8 @@ def _write_private(path: Path, text: str) -> None:
     path.write_text(text)
 
 
-def _write_config(workdir: Path, port: int) -> tuple[Path, str, str]:
-    admin_token, client_token = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-    _write_private(workdir / "admin-token", admin_token + "\n")
+def _write_config(workdir: Path, port: int) -> tuple[Path, str]:
+    client_token = secrets.token_urlsafe(32)
     printers = []
     for printer_id, name, place, public in PRINTERS:
         token = secrets.token_urlsafe(32)
@@ -141,11 +145,11 @@ def _write_config(workdir: Path, port: int) -> tuple[Path, str, str]:
         )
     config = workdir / "server.toml"
     _write_private(config, (
-        f'[server]\nhost = "127.0.0.1"\nport = {port}\ndatabase = "data/queue.db"\nadmin_token = "{admin_token}"\n\n'
+        f'[server]\nhost = "127.0.0.1"\nport = {port}\ndatabase = "data/queue.db"\nadmin_token = "{ADMIN_TOKEN}"\n\n'
         + "\n".join(printers)
         + f'\n[clients.{CLIENT}]\ntoken = "{client_token}"\n'
     ))
-    return config, admin_token, client_token
+    return config, client_token
 
 
 def _call(client: Client, method: str, path: str, body: dict | None = None) -> dict:
@@ -171,15 +175,20 @@ def _until(children: Children, what: str, timeout: float, condition) -> None:
         time.sleep(POLL_SECONDS)
 
 
-def _test_image() -> bytes:
-    picture = Image.merge("RGB", (
-        Image.linear_gradient("L").resize(IMAGE_SIZE),
-        Image.linear_gradient("L").rotate(90).resize(IMAGE_SIZE),
-        Image.radial_gradient("L").resize(IMAGE_SIZE),
-    ))
-    data = io.BytesIO()
-    picture.save(data, format="PNG")
-    return data.getvalue()
+def sample_jobs() -> list[tuple[str, str, Path]]:
+    """(kind, name, file) for each job; the name is also the job title and the `make demo-<name>` target."""
+    templates = [("template", path.stem, path) for path in sorted(TEMPLATES.glob("*.json"))]
+    return templates + [("text", "text", TEXT_SAMPLE), ("image", "image", SAMPLE_IMAGE),
+                        ("receipt", "receipt", SAMPLE_RECEIPT)]
+
+
+def _request(printer: str, kind: str, name: str, path: Path) -> dict:
+    body = {"printer": printer, "kind": kind, "title": name}
+    if kind == "image":
+        body["image"] = base64.b64encode(path.read_bytes()).decode()
+    else:
+        body["payload"] = json.loads(path.read_text(encoding="utf-8"))
+    return body
 
 
 def _check_port_free(port: int) -> None:
@@ -200,9 +209,9 @@ def _all_online(admin: Client) -> bool:
 def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]:
     base = f"http://127.0.0.1:{port}"
     _check_port_free(port)
-    config, admin_token, client_token = _write_config(workdir, port)
-    admin = Client(base, admin_token, timeout=POLL_TIMEOUT)
-    # A receipt render starts a Chromium, so the POST can take a while.
+    config, client_token = _write_config(workdir, port)
+    admin = Client(base, ADMIN_TOKEN, timeout=POLL_TIMEOUT)
+    # A receipt, template or text render starts a Chromium, so the POST can take a while.
     sender = Client(base, client_token, timeout=PRINT_TIMEOUT)
     print(f"Starting the print server on {base} ...", flush=True)
     children.start("server", [sys.executable, str(SCRIPTS / "print_server.py"), "--config", str(config)])
@@ -222,14 +231,15 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
         ])
     _until(children, "both devices to come online", READY_TIMEOUT, lambda: _all_online(admin))
 
-    print("Sending a receipt to home and an image to work ...", flush=True)
-    requests = [
-        {"printer": "home", "kind": "receipt", "title": "Sample receipt",
-         "payload": json.loads(SAMPLE_RECEIPT.read_text(encoding="utf-8"))},
-        {"printer": "work", "kind": "image", "title": "Test pattern",
-         "image": base64.b64encode(_test_image()).decode()},
-    ]
-    ids = [_call(sender, "POST", "/api/jobs", body)["id"] for body in requests]
+    samples = sample_jobs()
+    width = max(len(name) for _, name, _ in samples)
+    print(f"Sending {len(samples)} sample jobs ...", flush=True)
+    ids = []
+    for number, (kind, name, path) in enumerate(samples, 1):
+        printer = PRINTERS[(number - 1) % len(PRINTERS)][0]
+        job_id = _call(sender, "POST", "/api/jobs", _request(printer, kind, name, path))["id"]
+        ids.append(job_id)
+        print(f"  {number:>2}/{len(samples)}  {printer:<5} {kind:<8} {name:<{width}}  accepted as {job_id}", flush=True)
 
     jobs: dict[str, dict] = {}
 
@@ -241,49 +251,56 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
                 raise SimulationError(f"job {job_id} for {job['printer']} ended {job['status']}: {events}")
         return all(job["status"] == "printed" for job in jobs.values())
 
-    _until(children, "both jobs to print", PRINT_TIMEOUT, all_printed)
+    _until(children, "every job to print", PRINT_TIMEOUT, all_printed)
     return base, [jobs[job_id] for job_id in ids]
 
 
 def _summary(workdir: Path, jobs: list[dict]) -> None:
     print(f"\nPrinted {len(jobs)} jobs. Fake printer output is in {workdir}:")
+    width = max(len(job["title"]) for job in jobs)
     for job in jobs:
-        png = workdir / job["printer"] / f"{job['id']}.png"
-        if not png.is_file():
-            raise SimulationError(f"job {job['id']} is printed, but the fake printer wrote no {png}")
+        # A text job holds no raster, so the fake printer keeps only its ESC/POS bytes.
+        output = workdir / job["printer"] / f"{job['id']}.{'bin' if job['kind'] == 'text' else 'png'}"
+        if not output.is_file():
+            raise SimulationError(f"job {job['id']} is printed, but the fake printer wrote no {output}")
         size = f"{job['width']} x {job['height']} dots"
-        print(f"  {job['printer']:<5} {job['kind']:<8} {job['status']:<8} {size:<16} "
-              f"{job['paper_mm'] / 10:5.1f} cm  {png}")
+        print(f"  {job['printer']:<5} {job['kind']:<8} {job['title']:<{width}}  {job['status']:<8} {size:<16} "
+              f"{job['paper_mm'] / 10:5.1f} cm  {output}")
 
 
-def _instructions(workdir: Path, base: str) -> None:
-    printctl = f"uv run src/scripts/printctl.py --server {base} --token-file {workdir / 'admin-token'}"
+def _instructions(workdir: Path, base: str, port: int) -> None:
+    printctl = f"PRINT_ADMIN_TOKEN={ADMIN_TOKEN} uv run src/scripts/printctl.py --server {base}"
+    server = "" if port == DEFAULT_PORT else f" DEMO_SERVER={base}"
+    names = ", ".join(name for _, name, _ in sample_jobs())
     print(f"""
 The print system is running. Press Ctrl-C to stop it.
-  Server:        {base}
-  Admin token:   {workdir / 'admin-token'}
+  Admin page:    {base}/admin
+  Admin token:   {ADMIN_TOKEN}
   Logs, config:  {workdir}
 
-Try these in another terminal, from the repo root:
+Send one more sample from another terminal, in the repo root:
+  make demo-<name>{server}
+  <name> is one of: {names}
+
+Or use printctl:
   {printctl} printers
   {printctl} jobs
   {printctl} stats
-  {printctl} send image <photo.jpg> --printer work
 """, flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run the print server and two devices with fake printers, print one job on each, "
+        description="Run the print server and two devices with fake printers, print one job per sample, "
         "and keep them running until Ctrl-C.",
     )
-    parser.add_argument("--once", action="store_true", help="stop after both jobs print")
+    parser.add_argument("--once", action="store_true", help="stop after every job prints")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"server port (default {DEFAULT_PORT})")
     args = parser.parse_args(argv)
 
     if not (DIST_DIR / "index.html").is_file():
         print(
-            f"simulate: {DIST_DIR / 'index.html'} is missing. The receipt job needs the built receipt app.\n"
+            f"simulate: {DIST_DIR / 'index.html'} is missing. The sample jobs need the built web app.\n"
             "Build it with `make web-build` (on a fresh clone, run `make setup-web` first).",
             file=sys.stderr,
         )
@@ -300,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
         printed = True
         if args.once:
             return 0
-        _instructions(workdir, base)
+        _instructions(workdir, base, args.port)
         while True:
             children.check()
             time.sleep(0.5)
