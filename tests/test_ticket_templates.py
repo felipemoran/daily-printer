@@ -112,6 +112,8 @@ class RenderTest(unittest.TestCase):
         self.assert_template_error(ticket(titel="typo"), r"^data\.titel: unknown field$")
         self.assert_template_error(ticket(fields=[{"label": "a", "value": "b"}] * 11),
                                    r"^data\.fields: expected at most 10 items$")
+        self.assert_template_error(ticket(qr={"text": "https://x.io/a\u2192b"}),
+                                   r"^data\.qr\.text: expected ASCII \(percent-encode the URL\)$")
 
     def test_component_that_throws_is_caught_by_the_error_boundary(self):
         with self.failing_transition():

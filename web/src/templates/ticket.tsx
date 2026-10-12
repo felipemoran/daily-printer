@@ -1,13 +1,10 @@
 // Strip 1c of designs/receipt-set-1, on design-system/components/TicketTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { qrMatrix } from './qr'
-import { array, limitedString, object, optional, string } from './validate'
+import { qrMatrix, qrText } from './qr'
+import { array, object, optional, string } from './validate'
 
 const gap = { height: 'var(--space-7)' }
-
-// At 3 dots per module, 120 ASCII characters (QR version 7 at level M) leave room for the lines beside it.
-const qrText = limitedString(120)
 
 const parse = object({
   kind: optional(string),
