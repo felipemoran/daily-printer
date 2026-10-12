@@ -5,12 +5,15 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
+import hashlib
 import json
 import logging
+import re
 import time
 from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 
 from aiohttp import web
 
@@ -32,13 +35,14 @@ HUB = web.AppKey("hub", DeviceHub)
 
 log = logging.getLogger("http_api")
 
-_INDEX = """<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Print</title></head>
-<body><p>The print form is not built yet.</p></body>
-</html>
-"""
+_SEND_PAGE = (Path(__file__).resolve().parent / "static" / "send.html").read_text(encoding="utf-8")
+[_SEND_SCRIPT] = re.findall(r"<script>(.*?)</script>", _SEND_PAGE, re.DOTALL)
+_SEND_PAGE_CSP = (
+    "default-src 'none'; "
+    f"script-src 'sha256-{base64.b64encode(hashlib.sha256(_SEND_SCRIPT.encode()).digest()).decode()}'; "
+    "style-src 'unsafe-inline'; img-src data: blob:; connect-src 'self'; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
 
 
 class ApiError(Exception):
@@ -349,7 +353,8 @@ class _Api:
 
     async def index(self, request: web.Request) -> web.Response:
         await self.web_sender(request)
-        return web.Response(text=_INDEX, content_type="text/html")
+        return web.Response(text=_SEND_PAGE, content_type="text/html",
+                            headers={"Content-Security-Policy": _SEND_PAGE_CSP})
 
 
 def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifier | None = None) -> web.Application:

@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Send a print</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --desk: #e4e8ee;
+  --desk-ink: #1d2433;
+  --desk-soft: #566074;
+  --body: #23304d;
+  --body-edge: #121a2e;
+  --paper: #fdfdfb;
+  --ink: #23262d;
+  --ink-soft: #5d6370;
+  --line: #d5d8de;
+  --stripe: #e2457a;
+  --stripe-ink: #ffffff;
+  --ok: #17663f;
+  --error: #b3261e;
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk: #161a23;
+    --desk-ink: #e6e8ee;
+    --desk-soft: #a3abbb;
+    --body: #34436a;
+    --body-edge: #0e1322;
+    --paper: #ecebe6;
+    --line: #c6c8cd;
+    --stripe: #ff6f9c;
+    --stripe-ink: #2a0a16;
+    --ok: #7ad3a5;
+    --error: #ff8a80;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--desk);
+  color: var(--desk-ink);
+  font: 1.0625rem/1.5 var(--font);
+}
+main {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 2rem 1rem calc(2.5rem + env(safe-area-inset-bottom));
+}
+h1 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.who {
+  margin: 0.25rem 0 1.5rem;
+  color: var(--desk-soft);
+  overflow-wrap: anywhere;
+}
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.printers { margin-bottom: 1.25rem; }
+.printer-option { display: block; margin-bottom: 0.5rem; cursor: pointer; }
+.printer-option span {
+  display: block;
+  min-height: 3.5rem;
+  padding: 0.6rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--desk-ink) 7%, transparent);
+}
+.printer-option strong { display: block; }
+.printer-option small { color: var(--desk-soft); font-size: 0.875rem; }
+.printer-option input:checked + span { border-color: var(--body); background: color-mix(in srgb, var(--body) 14%, transparent); }
+@media (prefers-color-scheme: dark) {
+  .printer-option input:checked + span { border-color: var(--desk-ink); }
+}
+
+.slot {
+  position: relative;
+  z-index: 1;
+  padding: 0.85rem 1.25rem 1.6rem;
+  border-radius: 20px;
+  background: var(--body);
+  color: #ffffff;
+  box-shadow: inset 0 -5px 0 var(--body-edge);
+}
+.slot::after {
+  content: "";
+  position: absolute;
+  left: 1rem; right: 1rem; bottom: 0.7rem;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--body-edge);
+}
+.slot-to { font-size: 0.875rem; opacity: 0.75; }
+.slot-name { display: block; font-size: 1.25rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+
+.paper {
+  position: relative;
+  margin: -1rem 1.1rem 2.25rem;
+  padding: 1.9rem 1.1rem 1.4rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+.paper::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -12px;
+  height: 12px;
+  background:
+    linear-gradient(-45deg, transparent 8px, var(--paper) 0) 0 0 / 16px 12px repeat-x,
+    linear-gradient(45deg, transparent 8px, var(--paper) 0) 0 0 / 16px 12px repeat-x;
+}
+.paper.fed { animation: feed 0.7s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes feed { from { transform: translateY(-1.75rem); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .paper.fed { animation: none; } }
+
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.mode { cursor: pointer; }
+.mode span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.mode input:checked + span { background: var(--ink); color: var(--paper); }
+
+.field { display: block; margin-bottom: 1rem; }
+.field-label { display: block; margin-bottom: 0.3rem; font-weight: 700; font-size: 0.9375rem; }
+.field-label small { font-weight: 400; color: var(--ink-soft); }
+input[type="text"], textarea {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.7rem 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+textarea { min-height: 10rem; resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--ink-soft); opacity: 0.8; }
+
+.photo-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 9rem;
+  padding: 1rem;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+.photo-pick small { display: block; font-weight: 400; color: var(--ink-soft); }
+.preview {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  filter: grayscale(1) contrast(1.15);
+}
+
+.send {
+  display: block;
+  width: 100%;
+  min-height: 3.5rem;
+  border: 0;
+  border-radius: 16px;
+  background: var(--stripe);
+  color: var(--stripe-ink);
+  font: 800 1.1875rem/1 var(--font);
+  cursor: pointer;
+}
+.send:disabled { opacity: 0.55; cursor: progress; }
+.result { min-height: 1.5rem; margin: 1rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.result[data-tone="ok"] { color: var(--ok); }
+.result[data-tone="error"] { color: var(--error); }
+
+input:focus-visible, textarea:focus-visible, .send:focus-visible,
+.mode input:focus-visible + span, .printer-option input:focus-visible + span,
+#photo:focus-visible + .photo-pick {
+  outline: 3px solid var(--stripe);
+  outline-offset: 2px;
+}
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Send a print</h1>
+  <p class="who" id="who">Checking who you are&hellip;</p>
+
+  <form id="send-form" novalidate>
+    <fieldset class="printers" id="printer-picker" hidden>
+      <legend>Which printer?</legend>
+      <div id="printer-options"></div>
+    </fieldset>
+
+    <div class="slot" aria-hidden="true">
+      <span class="slot-to">Printing on</span>
+      <span class="slot-name" id="slot-name">&hellip;</span>
+    </div>
+
+    <div class="paper" id="paper">
+      <fieldset class="modes">
+        <legend class="visually-hidden">What to send</legend>
+        <label class="mode"><input class="visually-hidden" type="radio" name="mode" value="message" checked><span>Message</span></label>
+        <label class="mode"><input class="visually-hidden" type="radio" name="mode" value="photo"><span>Photo</span></label>
+      </fieldset>
+
+      <div id="message-panel">
+        <label class="field">
+          <span class="field-label">Title <small>(optional)</small></span>
+          <input type="text" id="title" maxlength="200" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label">Message</span>
+          <textarea id="message" rows="6" placeholder="Say hi, share a joke, leave a to-do&hellip;"></textarea>
+        </label>
+      </div>
+
+      <div id="photo-panel" hidden>
+        <input class="visually-hidden" type="file" id="photo" accept="image/*">
+        <label class="photo-pick" for="photo"><span id="photo-label">Choose or take a photo<small>It prints in black and white</small></span></label>
+        <img class="preview" id="preview" alt="The photo you picked, as a black and white preview" hidden>
+      </div>
+    </div>
+
+    <button class="send" id="send" type="submit" disabled>Print it</button>
+    <p class="result" id="result" role="status" aria-live="polite"></p>
+  </form>
+</main>
+<script>
+"use strict";
+const PRINT_WIDTH = 384;
+const SEND_LABEL = "Print it";
+const SIGNED_OUT = "Your sign-in expired \u2014 reload the page to sign in again.";
+const $ = (id) => document.getElementById(id);
+const form = $("send-form");
+const sendButton = $("send");
+const state = { email: null, printers: [], photo: null, pick: 0, decoding: false, sending: false };
+
+function refreshSend() {
+  sendButton.disabled = state.decoding || state.sending || !chosenPrinter();
+  sendButton.textContent = state.sending ? "Sending…" : SEND_LABEL;
+}
+
+function show(text, tone) {
+  $("result").textContent = text;
+  $("result").dataset.tone = tone || "";
+}
+
+async function readJson(response) {
+  try { return await response.json(); } catch { return null; }
+}
+
+function errorText(status, data) {
+  const detail = data && typeof data.error === "string" ? data.error : "";
+  switch (status) {
+    case 401: return SIGNED_OUT;
+    case 403: return "The printer refused this: " + (detail || "you are not allowed to print here") + ".";
+    case 413: return "That is too big to send. Try a smaller photo or a shorter message.";
+    case 422: return "The printer could not lay this out: " + (detail || "unknown problem") + ".";
+    case 429: return "That's a lot of prints! Give the printer a few minutes, then try again.";
+  }
+  return detail ? "Something went wrong: " + detail + "." : "Something went wrong (HTTP " + status + "). Try again in a moment.";
+}
+
+function chosenPrinter() {
+  const picked = form.querySelector('input[name="printer"]:checked');
+  return picked ? state.printers.find((printer) => printer.id === picked.value) : undefined;
+}
+
+function updateSlot() {
+  const printer = chosenPrinter();
+  $("slot-name").textContent = printer ? printer.name : "…";
+}
+
+function showPrinters(printers) {
+  const options = $("printer-options");
+  printers.forEach((printer, index) => {
+    const label = document.createElement("label");
+    label.className = "printer-option";
+    const input = document.createElement("input");
+    input.className = "visually-hidden";
+    input.type = "radio";
+    input.name = "printer";
+    input.value = printer.id;
+    input.checked = index === 0;
+    input.addEventListener("change", updateSlot);
+    const card = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = printer.name;
+    card.append(name);
+    if (printer.place) {
+      const place = document.createElement("small");
+      place.textContent = printer.place;
+      card.append(place);
+    }
+    label.append(input, card);
+    options.append(label);
+  });
+  $("printer-picker").hidden = printers.length < 2;
+  updateSlot();
+}
+
+async function load() {
+  let response;
+  try {
+    response = await fetch("/api/me", { headers: { Accept: "application/json" }, redirect: "manual" });
+  } catch {
+    $("who").textContent = "Could not reach the printer. Check your connection, then reload.";
+    return;
+  }
+  if (response.type === "opaqueredirect") {
+    $("who").textContent = SIGNED_OUT;
+    return;
+  }
+  const data = await readJson(response);
+  if (!response.ok || !data) {
+    $("who").textContent = errorText(response.status, data);
+    return;
+  }
+  state.email = data.email;
+  state.printers = data.printers || [];
+  $("who").textContent = "Signed in as " + data.email;
+  if (!state.printers.length) {
+    show("No printer takes prints from this page right now.", "error");
+    return;
+  }
+  showPrinters(state.printers);
+  refreshSend();
+}
+
+function mode() {
+  return form.querySelector('input[name="mode"]:checked').value;
+}
+
+form.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener("change", () => {
+  $("message-panel").hidden = mode() !== "message";
+  $("photo-panel").hidden = mode() !== "photo";
+  show("");
+}));
+
+function downscale(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const picture = new Image();
+    picture.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, PRINT_WIDTH / picture.naturalWidth);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(picture.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(picture.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.imageSmoothingQuality = "high";
+      context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    picture.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("unreadable"));
+    };
+    picture.src = url;
+  });
+}
+
+function clearPhoto() {
+  state.pick++;
+  state.decoding = false;
+  state.photo = null;
+  $("photo").value = "";
+  $("preview").hidden = true;
+  $("preview").removeAttribute("src");
+}
+
+$("photo").addEventListener("change", async () => {
+  const file = $("photo").files[0];
+  const pick = ++state.pick;
+  state.photo = null;
+  $("preview").hidden = true;
+  show("");
+  if (!file) {
+    state.decoding = false;
+    refreshSend();
+    return;
+  }
+  state.decoding = true;
+  refreshSend();
+  let dataUrl = null;
+  try {
+    dataUrl = await downscale(file);
+  } catch {
+    if (pick === state.pick) show("This photo format cannot be read here. Try a JPEG or PNG.", "error");
+  }
+  if (pick !== state.pick) return;
+  state.decoding = false;
+  refreshSend();
+  if (!dataUrl) return;
+  state.photo = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  $("preview").src = dataUrl;
+  $("preview").hidden = false;
+});
+
+function receiptPayload(lines, title) {
+  // Only task text wraps on the receipt; a long email or title in a header block is cut off.
+  const blocks = [{ type: "task", content: state.email }];
+  if (title) blocks.push({ type: "task", content: title });
+  for (const line of lines) blocks.push({ type: "task", content: line });
+  return { schemaVersion: 2, generatedAt: new Date().toISOString(), blocks: blocks };
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const printer = chosenPrinter();
+  if (!printer || state.decoding || state.sending) return;
+  const job = { printer: printer.id };
+  if (mode() === "message") {
+    const title = $("title").value.trim();
+    const lines = $("message").value.split(/\r?\n/).filter((line) => line.trim());
+    if (!lines.length) {
+      show("Write a message first.", "error");
+      $("message").focus();
+      return;
+    }
+    job.kind = "receipt";
+    job.title = title;
+    job.payload = receiptPayload(lines, title);
+  } else {
+    if (!state.photo) {
+      show("Choose a photo first.", "error");
+      return;
+    }
+    job.kind = "image";
+    job.image = state.photo;
+  }
+
+  state.sending = true;
+  refreshSend();
+  show("");
+  try {
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(job),
+      redirect: "manual",
+    });
+    const data = await readJson(response);
+    if (response.type === "opaqueredirect") {
+      show(SIGNED_OUT, "error");
+    } else if (response.ok) {
+      show("Queued for " + printer.name, "ok");
+      $("title").value = "";
+      $("message").value = "";
+      clearPhoto();
+      const paper = $("paper");
+      paper.classList.remove("fed");
+      void paper.offsetWidth;
+      paper.classList.add("fed");
+    } else {
+      show(errorText(response.status, data), "error");
+    }
+  } catch {
+    show("Could not reach the printer. Check your connection and try again.", "error");
+  } finally {
+    state.sending = false;
+    refreshSend();
+  }
+});
+
+load();
+</script>
+</body>
+</html>
