@@ -201,6 +201,7 @@ def _local_midnight(now: float, tz: tzinfo | None) -> float:
 class JobQueue:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, isolation_level=None)
+        self._db.execute("PRAGMA foreign_keys = ON")
         self._db.executescript(_SCHEMA)
 
     def close(self) -> None:

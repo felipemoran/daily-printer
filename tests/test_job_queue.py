@@ -257,6 +257,11 @@ class TransactionTest(QueueTestCase):
         self.assertFalse(self.queue._db.in_transaction)
         self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
 
+    def test_an_event_for_a_missing_job_is_refused(self):
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "FOREIGN KEY"), self.queue._transaction():
+            self.queue._event("nope", 0, Event.CANCELLED)
+        self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM job_events").fetchone()[0], 0)
+
 
 class EventsTest(QueueTestCase):
     def test_events_read_back_in_the_order_of_the_transitions(self):
