@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-8sz28a-integrate-the-design-system-session-s-work-workspa
 title: Integrate the design-system session's work (workspace design-system__daily-printer) with the print system
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-6t1a04-print-system-server-devices-cli-web-form-simulatio
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -35,6 +35,7 @@ Operator request: merge the parallel design-system stream into this branch so th
 - 2026-10-12T09:00:23+00:00: Final tip txrwsrox (41ad51c6) received. Changed plan: merge it at the tip of the line (new merge) instead of re-parenting oupows, to avoid rewriting ~25 reviewed commits. Builder in .workspaces/ps-final.
 - 2026-10-12T09:18:00+00:00: Design-system follow-up coming on top of txrwsrox: check_envelope maps RecursionError -> TemplateError; public ticket_templates.TEXT_FEED. On arrival: small merge + make render_job import TEXT_FEED (drop its own).
 - 2026-10-12T09:25:43+00:00: Final tip merged as ysnuyvyotzwv + envelope check prqzmrksmuws + text kind nkollmomnunk + form heading wunnxullqrol; reviewed. Waiting: design-system follow-up (RecursionError in check_envelope, public TEXT_FEED).
+- 2026-10-12T09:42:27+00:00: Done. Merges: oupowsvyzunm (otvylkrs), ysnuyvyotzwv (txrwsrox), vxmkvowsnvmw (ppokxpmr). Kinds template + text; check_envelope before Chromium (depth <= 32: page.evaluate hangs ~150 deep). All reviewed.
 
 ## Decisions
 

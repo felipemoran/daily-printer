@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-6t1a04-print-system-server-devices-cli-web-form-simulatio
 title: 'Print system: server, devices, CLI, web form, simulation — orchestrator mission log'
-status: pending
+status: operator
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -34,6 +34,7 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T08:35:34+00:00: Final whole-branch review: no blocker, no security finding. Fixing in a cleanup pass: simulate reuses printctl.Client; dead code/duplicates; render non-image message (l0w88g); stats limited to configured printers; deploy refuses 32-bit ARM + macOS log rotation; contract wording (ping/pong, clear, CSRF). Operator ACKs: device errors counting as attempts; Pi 2/32-bit support. Commit subjects shortened to <=50, build: -> chore(deps):.
 - 2026-10-12T08:52:32+00:00: Final cleanup pass closed: omyyqz..wpllrv (render message, simulate reuses printctl.Client, dead code, DOTS_PER_MM, FakeSink, stats filter, 32-bit ARM guard + macOS newsyslog, contract wording). Final reviewer approved.
 - 2026-10-12T09:25:43+00:00: Recovered: abandoning the 'start final design-system merge' bookkeeping commit (qnsplm, commit 2a3347) dropped three bacon entries; restored both TASK.md files from 2a3347. Lesson added to the orchestrator manual (bacon repo change kmnwvx, unpushed).
+- 2026-10-12T09:42:38+00:00: FINAL STATE. Built, reviewed and gated: store, render (receipt/image/template/text), config + Access, device client (USB + fake), server (hub + HTTP API), printctl, web form, admin UI, simulation, deploy files + wizard, docs; three design-system merges. Every task reviewed by a reviewer != builder (security surfaces twice). Not done (operator-gated): push and draft PR (SSH approval); deploy (wizard never run); real-printer test. Resume: push felipe/print-system with jrepush, open the draft PR with the body in the handoff; if the design-system PR squash-merges first, merge main into this branch once.
 
 ## Decisions
 
@@ -51,3 +52,4 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T07:53:48+00:00: decided web senders may post kind 'template' to public printers (rate limit applies) — easy to change
 - 2026-10-12T08:28:20+00:00: Landing plan (pending operator): option (a) — design-system chain lands first as its own draft PR to main; this PR follows. If their PR is squash-merged, merge main into this branch once (a landed PR this branch must port) so the PR diff shows only print-system work. If operator prefers one PR (b), this line already contains their chain.
 - 2026-10-12T09:21:00+00:00: decided a reprint of a 'text' job is recorded as kind 'template' (it prints the raster preview; native bytes are dropped at the final state) — easy to change
+- 2026-10-12T09:42:38+00:00: ROLL-UP of 'decided — easy to change' defaults: per-job confirm (no per-frame acks); dial-in mapping of admin design fields; no paper/firmware tracking; tokens in 0600 TOML; admin routes token-only + Access admin_emails; web limits 10/10 min, 10 MB, PNG kept 30 days; 60 s pause after device error (still counts as attempt); silent device closed after 60 s; title <= 200, expiry <= 7 d; reprint records admin as source, refuses queued/sending; text reprint labelled template; web senders may send templates to public printers; admin UI static at /admin, 3 s polling, sessionStorage token locally; web form: title only for messages, CSP. See the dated decisions above.
