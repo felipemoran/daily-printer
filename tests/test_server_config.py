@@ -46,7 +46,6 @@ class ServerConfigTest(unittest.TestCase):
         self.assertEqual(config.database, self.directory / "data" / "print-server.db")
         self.assertEqual(config.access.team_domain, "your-team.cloudflareaccess.com")
         self.assertEqual(config.access.web_rate_limit, 10)
-        self.assertTrue(config.web_senders_enabled)
         self.assertEqual(list(config.printers), ["home", "office"])
         self.assertEqual((config.printers["home"].public, config.printers["office"].public), (True, False))
         self.assertEqual(config.printers["office"].place, "Desk at work")
@@ -70,13 +69,12 @@ class ServerConfigTest(unittest.TestCase):
                 self.assertIsNone(config.printer_for_token(token))
                 self.assertIsNone(config.client_for_token(token))
 
-    def test_without_access_section_web_senders_are_disabled(self):
+    def test_without_access_section_no_email_is_admin(self):
         text = EXAMPLE.read_text()
         start = text.index("# Optional. Without [access]")
         end = text.index("# One table per printer.")
         config = load_config(self.write(text[:start] + text[end:]))
         self.assertIsNone(config.access)
-        self.assertFalse(config.web_senders_enabled)
         self.assertFalse(config.is_admin_email("you@example.com"))
 
     def test_absolute_database_path_is_kept(self):

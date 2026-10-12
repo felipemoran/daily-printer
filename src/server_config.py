@@ -54,10 +54,6 @@ class ServerConfig:
     printers: dict[str, Printer]
     clients: dict[str, Client]
 
-    @property
-    def web_senders_enabled(self) -> bool:
-        return self.access is not None
-
     def is_admin_email(self, email: str) -> bool:
         # str.lower() maps some non-ASCII letters to ASCII: KELVIN SIGN (U+212A) becomes "k".
         return self.access is not None and email.isascii() and email.lower() in self.access.admin_emails
