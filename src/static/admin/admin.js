@@ -374,6 +374,13 @@ const seen = new IntersectionObserver((entries) => {
   }
 }, { rootMargin: "400px" });
 
+const tallness = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    const sheet = entry.target.closest(".paper-wrap");
+    sheet.classList.toggle("tall", sheet.scrollHeight > sheet.clientHeight);
+  }
+});
+
 function lazyImage(img, id) {
   img.dataset.want = id;
   if (img.dataset.seen) showImage(img, id);
@@ -559,6 +566,8 @@ function createEntry(entry) {
   const headLine = el("div", "head-line");
   const unprinted = el("div", "unprinted");
   wrap.append(sheet, headLine, unprinted);
+  tallness.observe(wrap);
+  tallness.observe(sheet);
   const meta = el("div", "meta");
   const whenRow = el("div", "when");
   whenRow.append(el("span", "time"), el("span", "printer"));

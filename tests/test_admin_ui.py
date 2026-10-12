@@ -421,6 +421,22 @@ class AdminViewsTest(AdminBrowserCase):
         self.assertEqual((await self.scroll_state(other))["top"], 0)
         self.assertEqual(await page.evaluate("window.scrollY"), 0, "the page stays put at the sheet's end")
 
+    async def test_on_a_phone_a_swipe_on_a_short_ticket_scrolls_the_page(self):
+        page = await self.open(width=390, height=844)
+        sheet = self.ticket(page, self.printed).locator(".paper-wrap")
+        await sheet.scroll_into_view_if_needed()
+        state = await self.scroll_state(sheet)
+        self.assertEqual(state["height"], state["client"], "nothing to scroll in this sheet")
+        before = await page.evaluate("window.scrollY")
+        self.assertGreater(before, 0)
+        box = await sheet.bounding_box()
+        cdp = await page.context.new_cdp_session(page)
+        await cdp.send("Input.synthesizeScrollGesture", {
+            "x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2, "yDistance": 200,
+            "gestureSourceType": "touch", "speed": 3000,
+        })
+        await page.wait_for_function("before => window.scrollY < before", arg=before, timeout=3000)
+
     async def test_hostile_titles_and_printer_names_render_as_text(self):
         office = self.config.printers["office"]
         self.config.printers["office"] = dataclasses.replace(office, name=HOSTILE)
