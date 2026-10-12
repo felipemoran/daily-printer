@@ -1,9 +1,10 @@
-"""Render template payloads to 1-bit rasters through web/dist/render.html: docs/feature-ticket-templates.md."""
+"""Render template payloads through web/dist/render.html, to 1-bit rasters or native ESC/POS text: docs/feature-ticket-templates.md."""
 
 from __future__ import annotations
 
 import io
 import json
+import math
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -11,7 +12,7 @@ from PIL import Image
 
 from print_profile import DEFAULT_PROFILE, capture_options, to_bitmap, to_gray
 from printer import PRINT_WIDTH_DOTS
-from raster_capture import _ALIASED_TEXT_CSS
+from raster_capture import ALIASED_TEXT_CSS
 
 DIST = (Path(__file__).resolve().parents[1] / "web" / "dist").resolve()
 ORIGIN = "http://render.invalid"
@@ -23,18 +24,20 @@ MAX_PAYLOAD_BYTES = 64 * 1024
 
 _CAPTURE = capture_options(DEFAULT_PROFILE)
 VIEWPORT_MARGIN = 64
+DOTS_PER_CM = 80
+SERVER_FAULT = "server fault: "
 
-# Resolves to null or the sender-readable message, so a page error never looks like a Playwright fault.
-_RENDER_JS = """
-async ([payload, timeout]) => {
+# Resolves to [null, result] or [message, null], so a page error never looks like a Playwright fault.
+_CALL_JS = """
+async ([name, payload, timeout]) => {
   let timer;
   const expired = new Promise((resolve) => {
-    timer = setTimeout(() => resolve(`render did not finish within ${timeout} ms`), timeout);
+    timer = setTimeout(() => resolve([`render did not finish within ${timeout} ms`, null]), timeout);
   });
-  const rendered = window.renderTemplate(payload)
-    .then(() => null, (error) => (error instanceof Error ? error.message : String(error)));
+  const called = Promise.resolve().then(() => window[name](payload))
+    .then((result) => [null, result ?? null], (error) => [error instanceof Error ? error.message : String(error), null]);
   try {
-    return await Promise.race([rendered, expired]);
+    return await Promise.race([called, expired]);
   } finally {
     clearTimeout(timer);
   }
@@ -139,23 +142,28 @@ def open_render_page(browser):
     page.route(f"{ORIGIN}/**", _serve)
     page.goto(f"{ORIGIN}/render.html", wait_until="load", timeout=LOAD_TIMEOUT_MS)
     if _CAPTURE["aliased_text"]:
-        page.add_style_tag(content=_ALIASED_TEXT_CSS)
+        page.add_style_tag(content=ALIASED_TEXT_CSS)
     if _CAPTURE["extra_css"]:
         page.add_style_tag(content=_CAPTURE["extra_css"])
     return page
 
 
-def _check_envelope(payload) -> None:
+def check_envelope(payload) -> None:
+    """Raises TemplateError for an envelope render.html would refuse, without a browser."""
     if not isinstance(payload, dict):
         raise TemplateError("payload: expected object")
     try:
-        size = len(json.dumps(payload, allow_nan=False).encode())
+        size = len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode())
     except (TypeError, ValueError) as error:
         raise TemplateError(f"payload: not JSON ({error})") from error
     if size > MAX_PAYLOAD_BYTES:
         raise TemplateError(f"payload: {size} bytes; the limit is {MAX_PAYLOAD_BYTES}")
-    if not isinstance(payload.get("template"), str):
+    name = payload.get("template")
+    if not isinstance(name, str):
         raise TemplateError("template: expected string")
+    names = template_names()
+    if name not in names:
+        raise TemplateError(f'unknown template "{name}"; known: {", ".join(sorted(names))}')
     version = payload.get("schemaVersion")
     if not isinstance(version, int) or isinstance(version, bool):
         raise TemplateError("schemaVersion: expected integer")
@@ -180,12 +188,19 @@ def _check_unchanged(length: int, now: int, verb: str) -> None:
         raise TemplateError(f"render was still changing layout (measured {length} dots, {verb} {now})")
 
 
+def _call(page, name: str, payload):
+    check_envelope(payload)
+    error, result = page.evaluate(_CALL_JS, [name, payload, RENDER_TIMEOUT_MS])
+    if error is None:
+        return result
+    if error.startswith(SERVER_FAULT):
+        raise RuntimeError(error)
+    raise TemplateError(error)
+
+
 def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Image:
     """``payload`` as a mode "1" bitmap, ``PRINT_WIDTH_DOTS`` wide. Raises TemplateError for sender faults."""
-    _check_envelope(payload)
-    error = page.evaluate(_RENDER_JS, [payload, RENDER_TIMEOUT_MS])
-    if error:
-        raise TemplateError(error)
+    _call(page, "renderTemplate", payload)
     if _CAPTURE["prepare_js"]:
         page.evaluate(_CAPTURE["prepare_js"])
     receipt = page.evaluate(_RECEIPT_JS)
@@ -197,7 +212,8 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     _cover_receipt(page, landscape, min(receipt["width"] if landscape else receipt["height"], max_height_dots))
     length = _length(page, landscape)
     if length > max_height_dots:
-        raise TemplateError(f"render is {length} dots long; the limit is {max_height_dots}")
+        raise TemplateError(f"the receipt would print {math.ceil(length / DOTS_PER_CM * 10) / 10} cm long; "
+                            f"the limit is {max_height_dots / DOTS_PER_CM:g} cm")
     misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
     if misfit:
         raise TemplateError(misfit)
@@ -212,4 +228,46 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     if image.width != PRINT_WIDTH_DOTS:
         raise RuntimeError(f"#receipt captured {image.width} dots across the paper, not {PRINT_WIDTH_DOTS}")
     bitmap = to_bitmap(to_gray(image), DEFAULT_PROFILE)
-    return bitmap if bitmap.mode == "1" else bitmap.convert("1")
+    if bitmap.mode != "1":
+        raise RuntimeError(f'to_bitmap returned mode "{bitmap.mode}", not "1"')
+    return bitmap
+
+
+# Font A code page: ESC t 0 selects PC437, the ESC/POS power-on default, and its bytes for the bar glyphs.
+# Unverified on the MPT-II (design-system/verify.md, Text mode).
+TEXT_CODE_PAGE = (b"\x1bt\x00", {"\u2588": 0xDB, "\u2591": 0xB0})
+LINE_SPACING_24 = b"\x1b3\x18"
+LINE_SPACING_DEFAULT = b"\x1b2"
+DOUBLE_ON, DOUBLE_OFF = b"\x1d!\x11", b"\x1d!\x00"
+REVERSE_ON, REVERSE_OFF = b"\x1dB\x01", b"\x1dB\x00"
+
+
+def _encode(text: str) -> bytes:
+    glyphs = TEXT_CODE_PAGE[1]
+    encoded = bytearray()
+    for char in text:
+        if char in glyphs:
+            encoded.append(glyphs[char])
+        elif " " <= char <= "~":
+            encoded.append(ord(char))
+        else:
+            raise RuntimeError(f"text-mode line holds {char!r}, which Font A cannot print")
+    return bytes(encoded)
+
+
+def render_text(page, payload) -> bytes:
+    """``payload`` as native ESC/POS Font A text: the body only, with no init, feed or cut.
+
+    Breaks lines where ``render_template`` previews them. Raises TemplateError for sender faults.
+    """
+    body = bytearray(LINE_SPACING_24 + TEXT_CODE_PAGE[0])
+    for line in _call(page, "templateLines", payload):
+        text = _encode(line["text"])
+        if line.get("double"):
+            text = DOUBLE_ON + text + DOUBLE_OFF
+        if line.get("reverse"):
+            text = REVERSE_ON + text + REVERSE_OFF
+        # LF after every line, a full 32-column one too. Unverified: firmware that auto-wraps at column 32
+        # would then feed a blank line.
+        body += text + b"\n"
+    return bytes(body + LINE_SPACING_DEFAULT)

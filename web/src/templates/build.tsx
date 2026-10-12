@@ -38,5 +38,6 @@ const parse: Parser<BuildReport> = object({
 export default defineTemplate({
   schemaVersion: 1,
   parse,
+  lines: buildLines,
   Component: ({ data }) => <T.TextMode lines={buildLines(data)} />,
 })

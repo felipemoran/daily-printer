@@ -12,13 +12,14 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ticket_templates import TemplateError, open_render_page, render_template, template_names  # noqa: E402
+from ticket_templates import TemplateError, check_envelope, open_render_page, render_template, template_names  # noqa: E402
 
 SAMPLES = sorted((ROOT / "samples" / "templates").glob("*.json"))
 TICKET = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
 HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
 NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
+SERVER_FAULT = "() => { throw Object.assign(new Error('database down'), { name: 'ServerFault' }); }"
 GROW = "() => document.querySelector('#receipt').append(Object.assign(document.createElement('div'), { style: 'height: 48px' }))"
 BOX = "() => window.React.createElement('div', %s)"
 KEEPS_GROWING = """() => {
@@ -61,6 +62,16 @@ class EnvelopeTest(unittest.TestCase):
     def test_payload_size_is_capped(self):
         with self.assertRaisesRegex(TemplateError, "^payload: .* bytes; the limit is 65536$"):
             render_template(None, ticket(title="x" * 70_000))
+
+    def test_payload_size_counts_utf8_bytes(self):
+        # 50 KB as UTF-8; escaped to ASCII it would be 130 KB.
+        check_envelope(ticket(title="\u00e7\u00e3o" * 10_000))
+        with self.assertRaisesRegex(TemplateError, r"^payload: \d+ bytes; the limit is 65536$"):
+            check_envelope(ticket(title="\u00e7\u00e3o" * 14_000))
+
+    def test_unknown_template_fails_without_a_page(self):
+        with self.assertRaisesRegex(TemplateError, '^unknown template "nope"; known: .*ticket'):
+            render_template(None, {"template": "nope", "schemaVersion": 1, "data": {}})
 
 
 @unittest.skipUnless(HAS_WEB, "needs web dependencies: make setup-web")
@@ -132,6 +143,13 @@ class RenderTest(unittest.TestCase):
         with self.failing_transition():
             self.assert_template_error(TICKET, '^template "ticket" failed to render: boom$')
 
+    def test_server_fault_is_not_a_template_error(self):
+        with self.failing_transition(SERVER_FAULT):
+            with self.assertRaisesRegex(RuntimeError, "^server fault: database down$") as caught:
+                render_template(self.page, TICKET)
+        self.assertNotIsInstance(caught.exception, TemplateError)
+        render_template(self.page, TICKET)
+
     def test_effect_that_throws_fails_the_render(self):
         with self.failing_transition(EFFECT_THROWS):
             self.assert_template_error(TICKET, '^template "ticket" failed to render: effect boom$')
@@ -200,7 +218,8 @@ class RenderTest(unittest.TestCase):
 
     def test_too_tall_fails_before_the_screenshot(self):
         with mock.patch.object(self.page, "locator", side_effect=AssertionError("screenshot taken")):
-            self.assert_template_error(TICKET, "dots long; the limit is 100", max_height_dots=100)
+            self.assert_template_error(TICKET, r"^the receipt would print \d+\.\d cm long; the limit is 1\.25 cm$",
+                                       max_height_dots=100)
 
     def test_landscape_render_is_rotated_onto_the_paper(self):
         with self.landscape_page() as page:
