@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-e4d0a7-admin-interface-uses-vendored-geist-fonts
 title: 'Admin interface: Geist fonts, per-ticket scroll, Connections tab'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description

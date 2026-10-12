@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-gnfjvm-demo-one-sample-of-each-template-and-make-targets
 title: 'Demo: one sample of each template, and make targets'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description

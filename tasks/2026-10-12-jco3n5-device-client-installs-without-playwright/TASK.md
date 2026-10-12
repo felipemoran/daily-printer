@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-jco3n5-device-client-installs-without-playwright
 title: Device client installs without Playwright
-status: in-progress
+status: done
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
