@@ -101,7 +101,7 @@ public = "yes"
 [printers.short]
 name = "Short"
 place = "Somewhere"
-token = "too-short"
+token = ""
 
 [printers.text]
 token = "{OFFICE}"
@@ -123,7 +123,7 @@ token = "{HOME}"
             "access.web_rate_limit: must be an integer",
             "printers.Home: id must be lowercase",
             "printers.Home.public: must be true or false",
-            "printers.short.token: shorter than 24 characters",
+            "printers.short.token: empty",
             "printers.text.name: missing",
             "printers.text.place: missing",
             "clients.morning brief: id must be lowercase",
@@ -141,7 +141,6 @@ token = "{HOME}"
             .replace("port = 8787", "port = 8787\nhots = \"0.0.0.0\"")
             .replace("web_rate_limit = 10", "web_rate_limt = 10")
             .replace(f'token = "{BRIEF}"', f'token = "{BRIEF}"\nschedule = "07:00"')
-            .replace(f'token = "{OFFICE}"', 'token = "short"')
         )
         message = self.problems(text + '\n[printer.desk]\nname = "Desk"\n')
         expected = [
@@ -151,11 +150,16 @@ token = "{HOME}"
             "access.web_rate_limit: missing",
             "clients.morning-brief.schedule: unknown key",
             "  - printer: unknown key",
-            "printers.office.token: shorter than 24 characters",
         ]
         for problem in expected:
             self.assertIn(problem, message)
         self.assertEqual(message.count("\n  - "), len(expected))
+
+    def test_a_short_token_loads_and_an_empty_one_is_refused(self):
+        config = load_config(self.write(EXAMPLE.read_text().replace(ADMIN, "moranlindo")))
+        self.assertTrue(config.is_admin("moranlindo"))
+        message = self.problems(EXAMPLE.read_text().replace(ADMIN, ""))
+        self.assertIn("server.admin_token: empty", message)
 
     def test_no_token_appears_in_repr_or_str(self):
         config = load_config(self.example())

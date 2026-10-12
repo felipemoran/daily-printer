@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-MIN_TOKEN_LENGTH = 24
 _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _HOSTNAME = re.compile(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
@@ -126,8 +125,6 @@ class _Reader:
         if not value:
             return ""
         place = f"{where}.{key}"
-        if len(value) < MIN_TOKEN_LENGTH:
-            self.problems.append(f"{place}: shorter than {MIN_TOKEN_LENGTH} characters")
         if value in self.tokens:
             self.problems.append(f"{place}: same token as {self.tokens[value]}")
         else:

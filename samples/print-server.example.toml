@@ -1,6 +1,6 @@
 # Print server config. Copy it out of the repo, replace every token, then: chmod 600 <file>
 # The server refuses to start when other users can read this file.
-# Every token must be unique and at least 24 characters. Make one with:
+# Every token must be unique. Make a long random one with:
 #   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 [server]
