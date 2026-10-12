@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-axvgf8-freeze-every-ticket-s-artifacts-at-creation
 title: Freeze every ticket's artifacts at creation
-status: pending
+status: in-progress
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: null
+phase: implementing
 ---
 
 ## Description
