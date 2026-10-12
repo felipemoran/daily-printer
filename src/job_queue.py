@@ -22,6 +22,8 @@ FRAME_SIZE = 4096
 DAY_SECONDS = 86400
 HOUR_SECONDS = 3600
 ID_TRIES = 5
+# The wait for another writer blocks the server's event loop: keep it far below the 60 s device receive timeout.
+BUSY_TIMEOUT_SECONDS = 10.0
 
 
 class JobNotFinal(ValueError):
@@ -200,7 +202,8 @@ def _local_midnight(now: float, tz: tzinfo | None) -> float:
 
 class JobQueue:
     def __init__(self, path: Path | str) -> None:
-        self._db = sqlite3.connect(path, isolation_level=None)
+        self._db = sqlite3.connect(path, isolation_level=None, timeout=BUSY_TIMEOUT_SECONDS)
+        self._db.execute("PRAGMA journal_mode = WAL")
         self._db.execute("PRAGMA foreign_keys = ON")
         self._db.executescript(_SCHEMA)
 

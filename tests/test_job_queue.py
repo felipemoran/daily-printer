@@ -257,6 +257,19 @@ class TransactionTest(QueueTestCase):
         self.assertFalse(self.queue._db.in_transaction)
         self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
 
+    def test_a_reader_holding_a_transaction_does_not_block_a_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = JobQueue(Path(tmp) / "jobs.db")
+            self.addCleanup(queue.close)
+            reader = sqlite3.connect(Path(tmp) / "jobs.db", isolation_level=None)
+            self.addCleanup(reader.close)
+            reader.execute("BEGIN")
+            self.assertEqual(reader.execute("SELECT COUNT(*) FROM jobs").fetchone()[0], 0)
+            job = queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
+                            width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
+            self.assertEqual(queue.take("home", now=1).id, job.id)
+            reader.execute("COMMIT")
+
     def test_an_event_for_a_missing_job_is_refused(self):
         with self.assertRaisesRegex(sqlite3.IntegrityError, "FOREIGN KEY"), self.queue._transaction():
             self.queue._event("nope", 0, Event.CANCELLED)
@@ -393,12 +406,12 @@ class ArtifactFolderTest(QueueTestCase):
         queue.cancel(finished.id, now=0)
         artifacts = self.root / "artifacts"
         artifacts.mkdir()
-        # A reader's lock lets the insert run but makes COMMIT fail with SQLITE_BUSY.
-        reader = sqlite3.connect(self.root / "jobs.db", isolation_level=None)
-        self.addCleanup(reader.close)
-        reader.execute("BEGIN")
-        reader.execute("SELECT COUNT(*) FROM jobs").fetchone()
-        queue._db.execute("PRAGMA busy_timeout = 0")
+        # A deferred foreign key violation lets the insert run, then fails COMMIT and leaves the transaction open.
+        queue._db.executescript("""
+            CREATE TEMP TABLE parent (id INTEGER PRIMARY KEY);
+            CREATE TEMP TABLE child (parent INTEGER REFERENCES parent (id) DEFERRABLE INITIALLY DEFERRED);
+            CREATE TEMP TRIGGER orphan AFTER INSERT ON main.jobs BEGIN INSERT INTO child VALUES (1); END;
+        """)
         attempts = {
             "add": lambda staged: queue.add(
                 "home", DATA, kind="receipt", title="t", source="admin", ingress="cli", width=PRINT_WIDTH_DOTS,
@@ -410,11 +423,11 @@ class ArtifactFolderTest(QueueTestCase):
             with self.subTest(name):
                 staged = artifacts / ".tmp-staged"
                 staged.mkdir()
-                with self.assertRaisesRegex(sqlite3.OperationalError, "database is locked"):
+                with self.assertRaisesRegex(sqlite3.IntegrityError, "FOREIGN KEY"):
                     attempt(staged)
                 self.assertFalse(queue._db.in_transaction)
                 self.assertEqual(list(artifacts.iterdir()), [])
-        reader.execute("ROLLBACK")
+        queue._db.execute("DROP TRIGGER orphan")
         self.assertEqual([job.id for job in queue.jobs(now=1)], [finished.id])
 
     def test_a_failed_rename_rolls_the_insert_back(self):
