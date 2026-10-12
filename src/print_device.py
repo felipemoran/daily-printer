@@ -29,6 +29,8 @@ MIN_STABLE_SECONDS = 30.0
 REPLACED_CLOSE_CODE = 4000
 # The server pings every 20 s, so this much silence means a dead connection.
 RECEIVE_TIMEOUT = 60.0
+# Without a bound, aiohttp waits forever for the server's close frame, and stop() hangs.
+CLOSE_TIMEOUT = 3.0
 USB_WRITE_TIMEOUT_MS = 10_000
 
 log = logging.getLogger("print_device")
@@ -218,7 +220,7 @@ class DeviceClient:
                 # On stop, a cancelled to_thread sink call may still run; the exit releases the printer.
                 if not self._stopping:
                     await self._abort()
-            await ws.close()
+            await self._close(ws)
 
         if ws.close_code == REPLACED_CLOSE_CODE:
             log.warning("server closed this connection (4000): another device connected with this printer's token")
@@ -305,6 +307,14 @@ class DeviceClient:
     async def _reply_error(self, ws: aiohttp.ClientWebSocketResponse, job_id: str, error: str) -> None:
         log.error("job %s failed: %s", job_id, error)
         await ws.send_json({"type": "error", "id": job_id, "message": error})
+
+    async def _close(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+        # On timeout the cancelled close() drops the TCP connection itself.
+        try:
+            async with asyncio.timeout(CLOSE_TIMEOUT):
+                await ws.close()
+        except TimeoutError:
+            log.warning("server did not answer the close within %.0f s; dropped the connection", CLOSE_TIMEOUT)
 
     async def _abort(self) -> None:
         try:

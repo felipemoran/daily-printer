@@ -1,6 +1,8 @@
 import asyncio
+import signal
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -15,8 +17,13 @@ from PIL import Image, ImageChops, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import print_device  # noqa: E402
+from http_api import HUB, create_app  # noqa: E402
+from job_queue import JobQueue  # noqa: E402
 from print_device import CLIENT_VERSION, MIN_STABLE_SECONDS, DeviceClient, FakeSink, SinkError, UsbSink  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
+from server_config import load_config  # noqa: E402
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 TOKEN = "printer-token-home"
 FRAME = 4096
@@ -77,6 +84,18 @@ class RecordingSink:
 
     def abort(self) -> None:
         self.calls.append("abort")
+
+
+class BlockingSink(RecordingSink):
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def write(self, chunk: bytes) -> None:
+        self.entered.set()
+        self.release.wait(10)
+        super().write(chunk)
 
 
 class DeviceClientTest(unittest.IsolatedAsyncioTestCase):
@@ -416,6 +435,113 @@ class DeviceClientTest(unittest.IsolatedAsyncioTestCase):
         await self._run_until_done(RecordingSink())
         self.assertEqual(WSCloseCode.OK, await asyncio.wait_for(closed, 10))
         self.assertEqual([], self.delays)
+
+    async def test_stop_finishes_when_the_server_never_answers_the_close(self):
+        sink = BlockingSink()
+        server_release = asyncio.Event()
+
+        async def handler(request, attempt):
+            ws = await self._accept(request)
+            await _send_job(ws, "job-s", RASTER, end=False)
+            await asyncio.to_thread(sink.entered.wait, 5)
+            self.done.set_result(None)
+            await server_release.wait()  # never reads, so the close frame gets no answer
+            return ws
+
+        self.handler = handler
+        loop = asyncio.get_running_loop()
+        with mock.patch.object(print_device, "CLOSE_TIMEOUT", 0.3), self.assertLogs("print_device", "INFO") as logs:
+            task = asyncio.create_task(self._client(sink).run())
+            try:
+                await asyncio.wait_for(self.done, 10)
+                stop_started = loop.time()
+                self.client.stop()
+                await asyncio.wait_for(task, 5)
+                stop_seconds = loop.time() - stop_started
+            finally:
+                sink.release.set()
+                server_release.set()
+        self.assertLess(stop_seconds, 2)
+        output = "\n".join(logs.output)
+        self.assertIn("did not answer the close", output)
+        self.assertIn("stopped", output)
+        self.assertNotIn("abort", sink.calls, "on stop the sink is not touched while its write still runs")
+
+
+HOME_TOKEN = "home-printer-token-2b4d6f8a0c1e3a5c"
+
+
+class RealServerStopTest(unittest.IsolatedAsyncioTestCase):
+    """The device against the real print server app, as ``src/scripts/print_server.py`` builds it."""
+
+    async def asyncSetUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        config_path = self.tmp / "server.toml"
+        config_path.write_text(f"""
+[server]
+host = "127.0.0.1"
+port = 8787
+database = "queue.db"
+admin_token = "admin-token-7f3c9a1e5b2d4f6a8c0e"
+
+[printers.home]
+name = "Home"
+place = "Home office"
+token = "{HOME_TOKEN}"
+""")
+        config_path.chmod(0o600)
+        config = load_config(config_path)
+        self.queue = JobQueue(config.database)
+        self.server = TestServer(create_app(config, self.queue))
+        await self.server.start_server()
+        self.hub = self.server.app[HUB]
+        self.url = str(self.server.make_url("/device")).replace("http://", "ws://", 1)
+
+    async def asyncTearDown(self):
+        await self.server.close()
+        self.queue.close()
+        for path in sorted(self.tmp.rglob("*"), reverse=True):
+            path.rmdir() if path.is_dir() else path.unlink()
+        self.tmp.rmdir()
+
+    async def _until_online(self, online: bool = True) -> None:
+        async with asyncio.timeout(10):
+            while self.hub.online("home") != online:
+                await asyncio.sleep(0.02)
+
+    async def test_stop_while_connected_finishes_within_five_seconds(self):
+        client = DeviceClient(self.url, HOME_TOKEN, FakeSink(self.tmp / "out"))
+        with self.assertLogs("print_device", "INFO") as logs:
+            task = asyncio.create_task(client.run())
+            await self._until_online()
+            client.stop()
+            await asyncio.wait_for(task, 5)
+        self.assertIn("stopped", "\n".join(logs.output))
+        await self._until_online(False)
+
+    async def test_sigterm_stops_the_connected_cli_within_five_seconds(self):
+        token_file = self.tmp / "token"
+        token_file.write_text(HOME_TOKEN)
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, str(PROJECT_ROOT / "src" / "scripts" / "print_device.py"),
+            "--server", self.url, "--token-file", str(token_file), "--fake", str(self.tmp / "out"),
+            stderr=asyncio.subprocess.PIPE,
+        )
+        lines = []
+        try:
+            async with asyncio.timeout(20):
+                while "connected to" not in (lines[-1] if lines else ""):
+                    lines.append((await process.stderr.readline()).decode())
+                    self.assertTrue(lines[-1], f"the CLI exited early: {''.join(lines)}")
+            await self._until_online()
+            process.send_signal(signal.SIGTERM)
+            rest = await asyncio.wait_for(process.stderr.read(), 5)
+            self.assertEqual(0, await asyncio.wait_for(process.wait(), 5))
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        self.assertIn("stopped", rest.decode())
 
 
 class UsbSinkTest(unittest.TestCase):
