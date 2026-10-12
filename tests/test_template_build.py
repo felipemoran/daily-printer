@@ -32,8 +32,8 @@ WORST = {
     "schemaVersion": 1,
     "data": {
         "name": "W" * 12,
-        "number": 9007199254740991,
-        "since": 9007199254740991,
+        "number": 9999999,
+        "since": 9999999,
         "branch": "W" * 80,
         "commit": "W" * 80,
         "start": "W" * 40,
@@ -42,7 +42,7 @@ WORST = {
         "stages": [{"name": "W" * 80, "time": "W" * 40, "status": "fail"}] * 12,
         "suites": [{"name": "W" * 80, "seconds": 359999.9}] * 10,
         "failures": [{"spec": "W" * 80, "reason": "W" * 40, "title": ("W" * 15 + " ") * 7 + "W" * 8}] * 8,
-        "commits": 9007199254740991,
+        "commits": 9999999,
         "url": "W" * 200,
     },
 }
@@ -141,6 +141,8 @@ class BuildLinesTest(unittest.TestCase):
         payload = copy.deepcopy(SAMPLE)
         del payload["data"]["name"]
         self.assertEqual(texts(payload)[1], "          BUILD  #1184")
+        self.assertEqual(texts(WORST)[1], "  WWWWWWWWWWWW BUILD  #9999999")
+        self.assertIn(" 9999999 commits since #9999999", texts(WORST))
 
     def test_long_failure_titles_wrap(self):
         title = "applies the coupon to every line item of a mixed cart"
@@ -225,12 +227,15 @@ class BuildRenderTest(unittest.TestCase):
             (build(failures=[{"spec": "a", "reason": "b", "title": "c"}] * 9), r"^data\.failures: expected at most 8 items$"),
             (build(suites=[{"name": "a", "seconds": -1}]), r"^data\.suites\[0\]\.seconds: expected seconds from 0 to 359999$"),
             (build(suites=[{"name": "a", "seconds": 360000}]), r"^data\.suites\[0\]\.seconds: expected seconds from 0 to 359999$"),
-            (build(number=0), r"^data\.number: expected a whole number from 1$"),
-            (build(number=1.5), r"^data\.number: expected a whole number from 1$"),
-            (build(since=0), r"^data\.since: expected a whole number from 1$"),
+            (build(number=0), r"^data\.number: expected a whole number from 1 to 9999999$"),
+            (build(number=1.5), r"^data\.number: expected a whole number from 1 to 9999999$"),
+            (build(number=10000000), r"^data\.number: expected a whole number from 1 to 9999999$"),
+            (build(since=0), r"^data\.since: expected a whole number from 1 to 9999999$"),
+            (build(since=10000000), r"^data\.since: expected a whole number from 1 to 9999999$"),
             (build(name="W" * 13), r"^data\.name: expected at most 12 characters$"),
             (build(name=" "), r"^data\.name: expected non-blank text$"),
-            (build(commits=-1), r"^data\.commits: expected a whole number from 0$"),
+            (build(commits=-1), r"^data\.commits: expected a whole number from 0 to 9999999$"),
+            (build(commits=10000000), r"^data\.commits: expected a whole number from 0 to 9999999$"),
             (build(branch=" "), r"^data\.branch: expected non-blank text$"),
             (build(url="W" * 201), r"^data\.url: expected at most 200 characters$"),
             (build(failures=[{"spec": "a", "reason": "b", "title": "W" * 121}]), r"^data\.failures\[0\]\.title: expected at most 120"),

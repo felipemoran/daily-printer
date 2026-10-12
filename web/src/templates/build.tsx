@@ -11,9 +11,9 @@ const oneOf = <V extends string>(...values: V[]): Parser<V> => (value, path) => 
   return value as V
 }
 
-const count = (min: number): Parser<number> => (value, path) => {
+const count = (min: number, max: number): Parser<number> => (value, path) => {
   const result = number(value, path)
-  if (!Number.isSafeInteger(result) || result < min) throw new TemplateDataError(`${path}: expected a whole number from ${min}`)
+  if (!Number.isInteger(result) || result < min || result > max) throw new TemplateDataError(`${path}: expected a whole number from ${min} to ${max}`)
   return result
 }
 
@@ -24,10 +24,13 @@ const seconds: Parser<number> = (value, path) => {
   return result
 }
 
+// 7 digits keep the title (with a 12-character name) and the commits line within their columns.
+const BUILD_MAX = 9_999_999
+
 const parse: Parser<BuildReport> = object({
   name: optional(text(12)),
-  number: count(1),
-  since: optional(count(1)),
+  number: count(1, BUILD_MAX),
+  since: optional(count(1, BUILD_MAX)),
   branch: text(80),
   commit: text(80),
   start: text(40),
@@ -36,7 +39,7 @@ const parse: Parser<BuildReport> = object({
   stages: array(object({ name: text(80), time: text(40), status: oneOf('ok', 'fail', 'skip') }), 12),
   suites: array(object({ name: text(80), seconds }), 10),
   failures: array(object({ spec: text(80), reason: text(40), title: text(120) }), 8),
-  commits: count(0),
+  commits: count(0, BUILD_MAX),
   url: text(200),
 })
 
