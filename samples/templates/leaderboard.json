@@ -1,0 +1,18 @@
+{
+  "template": "leaderboard",
+  "schemaVersion": 1,
+  "data": {
+    "title": "Q3 SALES",
+    "status": "FINAL",
+    "people": [
+      { "name": "N. Haddad", "amount": "$412K", "pct": 137 },
+      { "name": "J. Alvarez", "amount": "$356K", "pct": 118 },
+      { "name": "K. Osei", "amount": "$331K", "pct": 110 },
+      { "name": "P. Ruiz", "amount": "$298K", "pct": 99 },
+      { "name": "L. Brandt", "amount": "$270K", "pct": 90 },
+      { "name": "T. Nakamura", "amount": "$244K", "pct": 81 },
+      { "name": "A. Fofana", "amount": "$198K", "pct": 66 }
+    ],
+    "total": { "amount": "$2.31M", "pct": 104 }
+  }
+}

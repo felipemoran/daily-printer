@@ -1,0 +1,103 @@
+// Strip 1m of designs/receipt-set-1: #1 as the hero, the rest as bars against a printed quota line.
+import T from '../thermal'
+import { defineTemplate } from './define'
+import { array, limitedString, nonBlank, number, object, TemplateDataError, type Parser } from './validate'
+
+const MAX_PEOPLE = 10
+const MAX_PCT = 1000
+
+// The track shows 0 to 133% of quota, so the quota line sits at 75%: pct * 3 / 400 is exact at 100.
+const QUOTA_AT = 0.75
+const fraction = (pct: number) => Math.min(1, (pct * 3) / 400)
+
+// BarList columns: label, 12px gap, track, 12px gap, 52px value. Its quota mark is centred on QUOTA_X.
+const LABEL_WIDTH = 140
+const TRACK = 384 - LABEL_WIDTH - 52 - 2 * 12
+const QUOTA_X = LABEL_WIDTH + 12 + Math.round(QUOTA_AT * TRACK)
+const QUOTA_LABEL_WIDTH = 60
+
+// The BarList value cell is 52px: five 16px Plex Mono glyphs. The bundled fonts cover only Latin-1 and €;
+// a fallback-font glyph is wider and would overrun the cell.
+const AMOUNT = /^[0-9A-Za-z$£¥€.,'+-]+$/u
+const amount = (max: number): Parser<string> => (value, path) => {
+  const result = nonBlank(limitedString(max))(value, path)
+  if (!AMOUNT.test(result)) throw new TemplateDataError(`${path}: expected digits, Latin letters or $ £ ¥ € . , ' + -`)
+  return result
+}
+
+const percent: Parser<number> = (value, path) => {
+  const result = number(value, path)
+  if (!(result >= 0 && result <= MAX_PCT)) throw new TemplateDataError(`${path}: expected a number from 0 to ${MAX_PCT}`)
+  // -0 passes the check above and would print as "-0%".
+  return result + 0
+}
+
+const people: Parser<{ name: string; amount: string; pct: number }[]> = (value, path) => {
+  const result = array(object({ name: nonBlank(limitedString(24)), amount: amount(5), pct: percent }), MAX_PEOPLE)(value, path)
+  if (result.length === 0) throw new TemplateDataError(`${path}: expected at least 1 item`)
+  return result
+}
+
+const parse = object({
+  title: nonBlank(limitedString(24)),
+  status: nonBlank(limitedString(12)),
+  people,
+  total: object({ amount: amount(8), pct: percent }),
+})
+
+// Floored: 99.6 must not claim the quota.
+const percentText = (pct: number) => `${Math.floor(pct)}%`
+const rank = (index: number) => String(index + 1).padStart(2, '0')
+
+const wrap = { overflowWrap: 'anywhere', minWidth: 0 } as const
+
+export default defineTemplate({
+  schemaVersion: 1,
+  parse,
+  Component: ({ data }) => {
+    const [hero, ...rest] = data.people
+    return (
+      <>
+        <T.HeaderBar left={<span style={wrap}>{data.title}</span>} right={<span style={wrap}>{data.status}</span>} />
+        <div style={{ display: 'flex', gap: 'var(--space-5)', alignItems: 'flex-end', marginTop: 'var(--space-6)' }}>
+          <div className="display-hero" style={{ flex: 'none' }}>{rank(0)}</div>
+          <div style={{ ...wrap, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <div className="lead" style={wrap}>{hero.name}</div>
+            <div className="display-stat">{hero.amount}</div>
+            <div className="body-strong">{percentText(hero.pct)} OF QUOTA</div>
+          </div>
+        </div>
+        <T.Rule weight="rule" style={{ margin: 'var(--space-6) 0 var(--space-4)' }} />
+        {rest.length ? (
+          <>
+            <div className="micro" style={{ position: 'relative', height: 21, marginBottom: 'var(--space-2)' }}>
+              <span style={{ position: 'absolute', left: QUOTA_X - QUOTA_LABEL_WIDTH / 2, width: QUOTA_LABEL_WIDTH, textAlign: 'center' }}>
+                QUOTA
+              </span>
+            </div>
+            <T.BarList
+              labelWidth={LABEL_WIDTH}
+              marker={QUOTA_AT}
+              rows={rest.map(({ name, amount, pct }, index) => ({
+                label: (
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', whiteSpace: 'normal' }}>
+                    <span style={{ flex: 'none' }}>{rank(index + 1)}</span>
+                    <span style={wrap}>{name}</span>
+                  </div>
+                ),
+                value: amount,
+                a: fraction(pct),
+                solid: pct >= 100,
+              }))}
+            />
+            <T.Rule weight="rule" style={{ margin: 'var(--space-6) 0 var(--space-3)' }} />
+          </>
+        ) : null}
+        <div className="body-strong" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+          <span>TEAM TOTAL</span>
+          <span>{data.total.amount} · {percentText(data.total.pct)}</span>
+        </div>
+      </>
+    )
+  },
+})
