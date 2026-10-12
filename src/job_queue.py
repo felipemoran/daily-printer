@@ -282,8 +282,11 @@ class JobQueue:
         return len(ids)
 
     def reprint(self, job_id: str, printer: str, data: bytes, *, source: str, ingress: str,
-                now: float | None = None) -> Job | None:
-        """Queue a copy of a finished job with new ESC/POS ``data``. None when the job or its PNG is gone."""
+                artifacts: Path | None = None, now: float | None = None) -> Job | None:
+        """Queue a copy of a finished job that sends ``data``. None when the job is unknown.
+
+        ``artifacts``: as for ``add``.
+        """
         with self._transaction():
             now = self._expire(now)
             row = self._db.execute(
@@ -296,15 +299,12 @@ class JobQueue:
             status, kind, title, png, width, height, render_ms, lifetime = row
             if status in (Status.QUEUED, Status.SENDING):
                 raise JobNotFinal(f"job {job_id} is still {status}")
-            if png is None:
-                return None
-            # The copy prints the stored PNG as a raster, so a text job comes back as a template one.
-            kind = "template" if kind == "text" else kind
             job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, png=png,
                                width=width, height=height, render_ms=render_ms, expires_at=now + lifetime, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}, reprint of {job_id}")
-            self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots from the stored PNG")
+            self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots, the bytes of {job_id}")
             self._event(job_id, now, Event.REPRINTED, job.id)
+            _place(artifacts, job.id)
         return job
 
     def job(self, job_id: str, *, now: float | None = None) -> Job | None:

@@ -4,6 +4,7 @@ import email
 import functools
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 from unittest import mock
@@ -17,6 +18,7 @@ sys.path.insert(0, str(_TESTS.parent / "src"))
 sys.path.insert(0, str(_TESTS))
 
 import http_api  # noqa: E402
+import render_job  # noqa: E402
 from http_api import create_app  # noqa: E402
 from job_artifacts import artifacts_root, dist_sha256  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
@@ -165,6 +167,62 @@ class IntakeTest(ArtifactTestCase):
         self.assertEqual(status, 500)
         self.assertEqual(list(self.root.iterdir()), [])
         self.assertEqual(self.queue.jobs(), [])
+
+
+class ReprintTest(ArtifactTestCase):
+    async def finished(self, name: str, **payload) -> dict:
+        job = await self.send(name, **payload)
+        self.queue.cancel(job["id"])
+        return job
+
+    async def test_reprint_copies_the_folder_sends_the_same_bytes_and_records_reprint_of(self):
+        for name, (kind, _, _) in CASES.items():
+            with self.subTest(name):
+                job = await self.finished(name)
+                status, copy = await self.call("POST", f"/api/jobs/{job['id']}/reprint", self.admin)
+                self.assertEqual(status, 201, copy)
+                self.assertEqual(copy["kind"], kind)
+                source, target = self.root / job["id"], self.root / copy["id"]
+                names = sorted(path.name for path in source.iterdir())
+                self.assertEqual(sorted(path.name for path in target.iterdir()), names)
+                for file in names:
+                    if file != "meta.json":
+                        self.assertEqual((target / file).read_bytes(), (source / file).read_bytes(), file)
+                meta = json.loads((source / "meta.json").read_bytes())
+                self.assertEqual(json.loads((target / "meta.json").read_bytes()),
+                                 {**meta, "created_at": copy["created_at"], "reprint_of": job["id"]})
+                self.assertEqual(self.queue.take("home").data, (source / "job.escpos").read_bytes())
+                self.queue.cancel(copy["id"])
+
+    async def test_a_job_without_its_folder_cannot_be_reprinted(self):
+        job = await self.finished("image")
+        shutil.rmtree(self.root / job["id"])
+        status, body = await self.call("POST", f"/api/jobs/{job['id']}/reprint", self.admin)
+        self.assertEqual((status, body), (409, {"error": f"job {job['id']} has no artifact folder with its printer "
+                                                         f"bytes, so it cannot be reprinted"}))
+        self.assertEqual([listed.id for listed in self.queue.jobs()], [job["id"]])
+
+    async def test_a_later_change_cannot_alter_a_past_ticket(self):
+        body = _request("text", {"payload": BUILD})
+        status, past = await self.call("POST", "/api/jobs", self.admin, body=body)
+        self.assertEqual(status, 201, past)
+        printed = self.file(past["id"], "print.png"), self.file(past["id"], "job.escpos")
+        self.queue.cancel(past["id"])
+
+        changed = Image.new("1", (PRINT_WIDTH_DOTS, 40), 0)
+        with mock.patch.object(render_job, "bitmap_from_capture", return_value=changed), \
+                mock.patch.object(render_job, "render_text", return_value=b"CHANGED\n"):
+            status, now = await self.call("POST", "/api/jobs", self.admin, body=body)
+            self.assertEqual(status, 201, now)
+            self.assertNotEqual((self.file(now["id"], "print.png"), self.file(now["id"], "job.escpos")), printed)
+
+            response = await self.client.get(f"/api/jobs/{past['id']}/image", headers=self.admin)
+            self.assertEqual(await response.read(), printed[0])
+            status, copy = await self.call("POST", f"/api/jobs/{past['id']}/reprint", self.admin)
+            self.assertEqual(status, 201, copy)
+        self.queue.cancel(now["id"])
+        self.assertEqual(self.queue.take("home").data, printed[1])
+        self.assertEqual((self.file(copy["id"], "print.png"), self.file(copy["id"], "job.escpos")), printed)
 
 
 class SweepTest(ArtifactTestCase):

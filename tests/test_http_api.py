@@ -24,8 +24,9 @@ sys.path.insert(0, str(_TESTS))
 import http_api  # noqa: E402
 from access_auth import HEADER, AccessVerifier  # noqa: E402
 from http_api import HUB, create_app  # noqa: E402
+from job_artifacts import ArtifactStore, artifacts_root, job_files  # noqa: E402
 from job_queue import JobQueue, Status  # noqa: E402
-from render_job import escpos_from_png, render  # noqa: E402
+from render_job import render  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_access_auth import AUDIENCE, KEY_A, STRANGER, TEAM, FakeCerts, claims, sign  # noqa: E402
 
@@ -90,6 +91,19 @@ def photo_png(size: tuple[int, int] = (640, 480)) -> bytes:
 
 PHOTO = photo_png()
 RENDERED = render("image", image=PHOTO)
+
+
+def add_frozen_job(queue: JobQueue, database: Path, printer: str = "home", rendered=RENDERED, *, kind: str = "image",
+                   payload: dict | None = None, title: str = "Holiday photo", source: str = "morning-brief",
+                   ingress: str = "api", expires_in: float = 3600, now: float | None = None):
+    """A job and its artifact folder, as intake makes them. An image job's source is ``PHOTO``."""
+    now = time.time() if now is None else now
+    image = PHOTO if kind == "image" else None
+    staged = ArtifactStore(artifacts_root(database)).stage(
+        job_files(kind, rendered, payload=payload, image=image, created_at=now))
+    return queue.add(printer, rendered.escpos, kind=kind, title=title, source=source, ingress=ingress,
+                     png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
+                     artifacts=staged, expires_in=expires_in, now=now)
 
 
 class LogCapture(logging.Handler):
@@ -160,11 +174,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         return response.status, raw
 
     def add_job(self, printer: str = "home", *, expires_in: float = 3600, rendered=RENDERED):
-        return self.queue.add(
-            printer, rendered.escpos, kind="image", title="Holiday photo", source="morning-brief", ingress="api",
-            png=rendered.png, width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
-            expires_in=expires_in,
-        )
+        return add_frozen_job(self.queue, self.config.database, printer, rendered, expires_in=expires_in)
 
     def image_job(self, printer: str = "home", **extra) -> dict:
         return {"printer": printer, "kind": "image", "title": "Holiday photo",
@@ -298,11 +308,11 @@ class IntakeTest(ServerTestCase):
                 self.assertEqual(body["paper_mm"], body["height"] / 8)
                 png = self.queue.png(body["id"])
                 self.assertEqual(png, RENDERED.png)
-                self.assertEqual(body["size_bytes"], len(escpos_from_png(png)))
+                self.assertEqual(body["size_bytes"], len(RENDERED.escpos))
                 self.assertAlmostEqual(body["expires_at"] - body["created_at"], 3600)
                 self.assertEventsMatchStatus(body["id"])
         taken = self.queue.take("home")
-        self.assertEqual(taken.data, escpos_from_png(self.queue.png(taken.id)))
+        self.assertEqual(taken.data, RENDERED.escpos)
 
     async def test_receipt_job_renders_the_sample_payload(self):
         body = {"printer": "office", "kind": "receipt", "title": "Today", "payload": SAMPLE_PAYLOAD, "expires_in": 600}
@@ -556,7 +566,7 @@ class AdminTest(ServerTestCase):
         self.assertEqual(status, 404)
         self.assertEventsMatchStatus(job.id)
 
-    async def test_reprint_queues_a_copy_from_the_stored_png_as_the_admin(self):
+    async def test_reprint_queues_a_copy_with_the_frozen_bytes_as_the_admin(self):
         job = self.add_job("home")
         status, _ = await self.call("POST", f"/api/jobs/{job.id}/reprint", self.admin)
         self.assertEqual(status, 409)
@@ -576,9 +586,6 @@ class AdminTest(ServerTestCase):
         status, _ = await self.call("POST", f"/api/jobs/{job.id}/reprint", self.admin, body={"printer": "garage"})
         self.assertEqual(status, 404)
         status, _ = await self.call("POST", "/api/jobs/00000000/reprint", self.admin)
-        self.assertEqual(status, 404)
-        self.queue.prune(now=time.time() + 31 * 86400)
-        status, _ = await self.call("POST", f"/api/jobs/{job.id}/reprint", self.admin)
         self.assertEqual(status, 404)
 
     async def test_clear_cancels_only_that_printers_queue(self):

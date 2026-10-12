@@ -16,7 +16,7 @@ sys.path.insert(0, str(_TESTS))
 
 from render_job import render  # noqa: E402
 from test_device_hub import HubTestCase  # noqa: E402
-from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL  # noqa: E402
+from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job  # noqa: E402
 
 ADMIN_DIR = _TESTS.parent / "src" / "static" / "admin"
 RECEIPT = render("receipt", payload=SAMPLE_PAYLOAD)
@@ -106,10 +106,10 @@ class AdminBrowserCase(HubTestCase):
         await super().asyncTearDown()
 
     def add(self, printer: str, rendered, *, title: str, source: str, ingress: str, at: float):
-        return self.queue.add(
-            printer, rendered.escpos, kind="image" if rendered is RENDERED else "receipt", title=title, source=source,
-            ingress=ingress, png=rendered.png, width=rendered.width, height=rendered.height,
-            render_ms=rendered.render_ms, now=at,
+        receipt = rendered is not RENDERED
+        return add_frozen_job(
+            self.queue, self.config.database, printer, rendered, kind="receipt" if receipt else "image",
+            payload=SAMPLE_PAYLOAD if receipt else None, title=title, source=source, ingress=ingress, now=at,
         )
 
     def seed(self) -> None:

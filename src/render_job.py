@@ -96,10 +96,6 @@ def render(kind: str, *, payload: dict | None = None, image: bytes | None = None
     )
 
 
-def escpos_from_png(png: bytes) -> bytes:
-    return _escpos(Image.open(io.BytesIO(png)))
-
-
 def _escpos(bitmap: Image.Image) -> bytes:
     printer = Dummy()
     printer.profile.profile_data["media"]["width"]["pixels"] = PRINT_WIDTH_DOTS

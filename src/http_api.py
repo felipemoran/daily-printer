@@ -20,11 +20,11 @@ from aiohttp import web
 
 from access_auth import HEADER, AccessDenied, AccessVerifier
 from device_hub import DeviceHub, bearer_token
-from job_artifacts import ArtifactStore, artifacts_root, job_files
+from job_artifacts import ESCPOS, ArtifactStore, artifacts_root, job_files
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
-from render_job import KINDS, RenderError, escpos_from_png, render
+from render_job import KINDS, RenderError, render
 from server_config import ServerConfig
 
 MAX_BODY_BYTES = 10 * 1024 * 1024
@@ -215,6 +215,14 @@ class _Api:
             raise ApiError(429, "too many jobs; try again in a few minutes")
         sent.append(now)
 
+    @staticmethod
+    async def stage(staging) -> Path:
+        try:
+            return await staging
+        except Exception:
+            log.exception("writing the artifacts of a job failed")
+            raise ApiError(500, "saving the job failed on the server") from None
+
     async def post_job(self, request: web.Request) -> web.Response:
         caller = await self.caller(request)
         body = await self.body(request)
@@ -259,11 +267,7 @@ class _Api:
 
         now = time.time()
         files = job_files(kind, rendered, payload=payload, image=image, created_at=now)
-        try:
-            staged = await asyncio.to_thread(self.artifacts.stage, files)
-        except Exception:
-            log.exception("writing the artifacts of a %s job for %s failed", kind, caller.source)
-            raise ApiError(500, "saving the job failed on the server") from None
+        staged = await self.stage(asyncio.to_thread(self.artifacts.stage, files))
         try:
             job = self.queue.add(
                 printer.id, rendered.escpos, kind=kind, title=title, source=caller.source, ingress=caller.ingress,
@@ -321,17 +325,21 @@ class _Api:
         printer = self.printer(body.get("printer", original.printer))
         if original.status in (Status.QUEUED, Status.SENDING):
             raise ApiError(409, f"the job is still {original.status}")
-        png = self.queue.png(original.id)
-        if png is None:
-            raise ApiError(404, "the job's image was deleted after 30 days")
-        async with self.render_slots:
-            data = await asyncio.to_thread(escpos_from_png, png)
+        data = self.artifacts.read(original.id, ESCPOS)
+        if data is None:
+            raise ApiError(409, f"job {original.id} has no artifact folder with its printer bytes, "
+                                f"so it cannot be reprinted")
+        now = time.time()
+        staged = await self.stage(asyncio.to_thread(self.artifacts.stage_reprint, original.id, created_at=now))
         try:
-            job = self.queue.reprint(original.id, printer.id, data, source=caller.source, ingress=caller.ingress)
+            job = self.queue.reprint(original.id, printer.id, data, source=caller.source, ingress=caller.ingress,
+                                     artifacts=staged, now=now)
         except JobNotFinal as error:
             raise ApiError(409, str(error)) from None
+        finally:
+            self.artifacts.discard(staged)
         if job is None:
-            raise ApiError(404, "the job's image was deleted after 30 days")
+            raise ApiError(404, "unknown job")
         log.info("job %s queued for %s by %s as a reprint of %s", job.id, printer.id, caller.source, original.id)
         self.hub.notify(printer.id)
         return web.json_response(_job_json(job), status=201)

@@ -18,7 +18,7 @@ sys.path.insert(0, str(_ROOT / "src"))
 import render_job  # noqa: E402
 from fake_printer import decode  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
-from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, TEXT_FEED, RenderError, escpos_from_png, render  # noqa: E402
+from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, TEXT_FEED, RenderError, render  # noqa: E402
 from ticket_templates import MAX_DEPTH, open_render_page, render_template, render_text  # noqa: E402
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
@@ -82,9 +82,6 @@ class RenderInvariants:
 
     def test_escpos_prints_exactly_the_bitmap(self):
         self.assertSameImage(self.rendered.bitmap, decode(self.rendered.escpos))
-
-    def test_reprint_from_png_prints_the_same_bitmap(self):
-        self.assertSameImage(self.rendered.bitmap, decode(escpos_from_png(self.rendered.png)))
 
     def test_bitmap_has_both_ink_and_paper(self):
         self.assertEqual(self.rendered.bitmap.convert("L").getextrema(), (0, 255))

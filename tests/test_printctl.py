@@ -38,6 +38,7 @@ from test_http_api import (  # noqa: E402
     RENDERED,
     SAMPLE_PAYLOAD,
     LogCapture,
+    add_frozen_job,
     write_config,
 )
 
@@ -198,11 +199,7 @@ class PrintctlTestCase(unittest.TestCase):
         return run.err
 
     def add_job(self, printer: str = "home", *, title: str = "Holiday photo"):
-        return self.server.call(
-            self.server.queue.add, printer, RENDERED.escpos, kind="image", title=title, source="morning-brief",
-            ingress="api", png=RENDERED.png, width=RENDERED.width, height=RENDERED.height,
-            render_ms=RENDERED.render_ms, expires_in=3600,
-        )
+        return self.server.call(add_frozen_job, self.server.queue, self.server.config.database, printer, title=title)
 
     def print_job(self, job_id: str, printer: str = "home") -> None:
         queue = self.server.queue

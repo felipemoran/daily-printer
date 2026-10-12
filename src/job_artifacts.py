@@ -6,6 +6,7 @@ import functools
 import hashlib
 import io
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -96,6 +97,21 @@ class ArtifactStore:
         try:
             for name, content in files.items():
                 (staged / name).write_bytes(content)
+        except BaseException:
+            self.discard(staged)
+            raise
+        return staged
+
+    def stage_reprint(self, job_id: str, *, created_at: float) -> Path:
+        """A copy of the job's folder, its files hard-linked, with ``reprint_of`` in a new meta.json."""
+        source = self.folder(job_id)
+        meta = json.loads((source / META).read_text(encoding="utf-8"))
+        staged = self._new_staging()
+        try:
+            for file in source.iterdir():
+                if file.name != META:
+                    os.link(file, staged / file.name)
+            (staged / META).write_bytes(_json({**meta, "created_at": created_at, "reprint_of": job_id}))
         except BaseException:
             self.discard(staged)
             raise

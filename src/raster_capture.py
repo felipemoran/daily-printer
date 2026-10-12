@@ -140,8 +140,8 @@ def capture_receipt(
     extra_css: str | None = None,
     prepare_js: str | None = None,
 ) -> tuple[str, list[dict]]:
-    """Serve ``dist_dir``, screenshot ``#receipt`` to ``out_png`` and, with ``out_mhtml``, snapshot the page; return the page URL and
-    CSS-pixel boxes (relative to ``#receipt``) of every element matching ``measure_selector``. Elements matching
+    """Serve ``dist_dir``, screenshot ``#receipt`` to ``out_png``, and snapshot the page to ``out_mhtml`` when given.
+    Return the page URL and CSS-pixel boxes (relative to ``#receipt``) of every element matching ``measure_selector``. Elements matching
     ``snap_selector`` are nudged onto whole pixels before the screenshot.
     ``aliased_text`` turns off text anti-aliasing; ``extra_css`` is injected after load; ``prepare_js`` (a function
     expression) runs after that, before snapping and the screenshot."""

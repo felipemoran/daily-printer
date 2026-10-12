@@ -1,6 +1,7 @@
 import io
 import math
 import random
+import shutil
 import sqlite3
 import statistics
 import sys
@@ -327,16 +328,16 @@ class ReprintTest(QueueTestCase):
         self.assertEqual([e.event for e in events[:2]], [Event.RECEIVED, Event.RENDERED])
         self.assertEqual(events[0].detail, f"admin via cli, reprint of {original.id}")
 
-    def test_reprint_of_a_text_job_is_a_template_job_because_it_prints_the_png_raster(self):
-        original = self.queue.add("home", b"\x1b@ BUILD FAILED\n\n\n\n", kind="text", title="NIGHTLY",
-                                  source="ci", ingress="api", png=PNG, width=PRINT_WIDTH_DOTS,
-                                  height=RASTER.height, render_ms=900, expires_in=3600, now=0)
+    def test_reprint_of_a_text_job_is_a_text_job(self):
+        text = b"\x1b@ BUILD FAILED\n\n\n\n"
+        original = self.queue.add("home", text, kind="text", title="NIGHTLY", source="ci", ingress="api", png=PNG,
+                                  width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=900, expires_in=3600, now=0)
         self.queue.take("home", now=1)
         self.queue.confirm(original.id, now=2)
 
-        copy = self.reprint(original.id, "home", _escpos(RASTER), now=100)
-        self.assertEqual((copy.kind, self.queue.job(original.id, now=100).kind), ("template", "text"))
-        self.assertEqual(self.queue.png(copy.id), PNG)
+        copy = self.reprint(original.id, "home", text, now=100)
+        self.assertEqual(copy.kind, "text")
+        self.assertEqual(self.queue.take("home", now=101).data, text)
 
     def test_reprint_refuses_a_job_that_is_still_queued_or_sending(self):
         queued = self.add("home", now=0)
@@ -356,12 +357,41 @@ class ReprintTest(QueueTestCase):
         self.assertEqual(self.status(job.id), Status.EXPIRED)
         self.assertEqual(copy.status, Status.QUEUED)
 
-    def test_reprint_refuses_an_unknown_job_or_a_pruned_png(self):
-        job = self.add(now=0)
-        self.queue.prune(now=PNG_RETENTION_SECONDS + 1)
-        self.assertIsNone(self.reprint(job.id, now=PNG_RETENTION_SECONDS + 1))
+    def test_reprint_of_an_unknown_job_is_none(self):
         self.assertIsNone(self.reprint("nope", now=0))
-        self.assertEqual(len(self.queue.jobs(now=0)), 1)
+        self.assertEqual(self.queue.jobs(now=0), [])
+
+
+class ArtifactFolderTest(QueueTestCase):
+    def setUp(self):
+        super().setUp()
+        self.root = Path(tempfile.mkdtemp(prefix="job-queue-test-"))
+        self.addCleanup(shutil.rmtree, self.root, True)
+
+    def staged(self) -> Path:
+        folder = self.root / ".tmp-staged"
+        folder.mkdir()
+        (folder / "job.escpos").write_bytes(DATA)
+        return folder
+
+    def test_add_and_reprint_rename_the_staged_folder_to_the_job_id(self):
+        job = self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli", png=PNG,
+                             width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, artifacts=self.staged(), now=0)
+        self.queue.cancel(job.id, now=1)
+        copy = self.queue.reprint(job.id, "home", DATA, source="admin", ingress="cli", artifacts=self.staged(), now=2)
+        self.assertEqual(sorted(path.name for path in self.root.iterdir()), sorted([job.id, copy.id]))
+        self.assertEqual((self.root / copy.id / "job.escpos").read_bytes(), DATA)
+
+    def test_a_failed_rename_rolls_the_insert_back(self):
+        staged = self.staged()
+        (self.root / "0000beef").mkdir()
+        (self.root / "0000beef" / "orphan").write_bytes(b"")
+        with mock.patch.object(job_queue, "_new_id", return_value="0000beef"), self.assertRaises(OSError):
+            self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli", png=PNG,
+                           width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, artifacts=staged, now=0)
+        self.assertEqual(self.queue.jobs(now=0), [])
+        self.assertEqual(self.queue._db.execute("SELECT COUNT(*) FROM job_events").fetchone()[0], 0)
+        self.assertTrue(staged.is_dir())
 
 
 class MoveTest(QueueTestCase):
