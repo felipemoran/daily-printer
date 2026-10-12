@@ -43,7 +43,6 @@ const images = new Map();
 let timer = null;
 let sequence = 0;
 let noticeTimer = null;
-let scrollToClients = false;
 
 class Halt extends Error {}
 class Problem extends Error {
@@ -102,7 +101,7 @@ async function refresh() {
   if (state.gate) return;
   const mine = ++sequence;
   const jobsPath = "/api/jobs?limit=" + JOB_LIMIT + (state.filter === "all" ? "" : "&printer=" + encodeURIComponent(state.filter));
-  const fleet = state.view === "printers" || state.view === "clients";
+  const fleet = state.view === "connections";
   const requests = [api("/api/printers"), api(jobsPath), api("/api/stats")];
   if (fleet) requests.push(api("/api/clients"), api("/api/server"));
   if (state.view === "job") {
@@ -189,7 +188,7 @@ function showGate(title, text, form) {
   $("gate-text").textContent = text;
   $("token-form").hidden = !form;
   $("gate").hidden = false;
-  for (const id of ["view-rail", "view-job", "view-printers", "tabs", "tabbar"]) $(id).hidden = true;
+  for (const id of ["view-rail", "view-job", "view-connections", "tabs", "tabbar"]) $(id).hidden = true;
   $("health").replaceChildren();
   document.title = title + " - Thermal";
 }
@@ -390,7 +389,7 @@ function render() {
   $("tabbar").hidden = false;
   $("view-rail").hidden = state.view !== "rail";
   $("view-job").hidden = state.view !== "job";
-  $("view-printers").hidden = state.view !== "printers" && state.view !== "clients";
+  $("view-connections").hidden = state.view !== "connections";
   const section = state.view === "job" ? "rail" : state.view;
   for (const link of document.querySelectorAll("[data-view]")) {
     if (link.dataset.view === section) link.setAttribute("aria-current", "page");
@@ -399,7 +398,7 @@ function render() {
   renderHealth();
   if (state.view === "rail") renderRail();
   if (state.view === "job") renderJob();
-  if (state.view === "printers" || state.view === "clients") renderFleet();
+  if (state.view === "connections") renderFleet();
   const keep = new Set(state.jobs.map((job) => job.id));
   if (state.jobId) keep.add(state.jobId);
   if (state.job) keep.add(state.job.id);
@@ -492,7 +491,7 @@ function renderRail() {
   keyed($("fleet-strip"), state.printers, (p) => p.id, () => {
     const item = el("li");
     const link = el("a");
-    link.href = "#/printers";
+    link.href = "#/connections";
     link.append(el("span", "dot"), el("span"), el("span", "muted"));
     item.append(link);
     return item;
@@ -778,7 +777,7 @@ function pager(job) {
 }
 
 function renderFleet() {
-  document.title = (state.view === "clients" ? "Clients" : "Printers") + " - Thermal";
+  document.title = "Connections - Thermal";
   const server = state.server;
   if (!server) return;
   const card = $("server-card");
@@ -845,12 +844,6 @@ function renderFleet() {
     const count = last.lastChild;
     count.replaceChildren(el("span", "mono", String(c.jobs_today)), el("span", "muted small", " today"));
   });
-
-  if (scrollToClients) {
-    scrollToClients = false;
-    $("clients").scrollIntoView({ block: "start" });
-    $("clients").focus({ preventScroll: true });
-  }
 }
 
 function createPrinterCard(p) {
@@ -1101,14 +1094,13 @@ function route() {
   if (jobId) {
     state.view = "job";
     state.jobId = jobId;
-  } else if (hash === "#/printers" || hash === "#/clients") {
-    state.view = hash.slice(2);
+  } else if (["#/connections", "#/printers", "#/clients"].includes(hash)) {
+    state.view = "connections";
     state.jobId = null;
   } else {
     state.view = "rail";
     state.jobId = null;
   }
-  scrollToClients = state.view === "clients";
   if (before !== state.view + " " + state.jobId) {
     state.job = null;
     state.jobMissing = false;

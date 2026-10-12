@@ -184,7 +184,7 @@ class AdminAuthTest(AdminBrowserCase):
     async def test_without_credentials_the_page_asks_for_the_token_and_shows_no_data(self):
         page = await self.open(email=None, width=360, height=740, ready="#token-form")
         await expect(page.locator("#gate-title")).to_have_text("Sign in")
-        for hidden in ("#view-rail", "#view-job", "#view-printers", "#tabbar"):
+        for hidden in ("#view-rail", "#view-job", "#view-connections", "#tabbar"):
             await expect(page.locator(hidden)).to_be_hidden()
         text = await page.locator("body").inner_text()
         for secret in ("Holiday photo", "Office", "morning-brief"):
@@ -277,8 +277,23 @@ class AdminViewsTest(AdminBrowserCase):
         await page.goto(self.origin + "/admin#/job/00000000")
         await expect(page.locator("#job-title")).to_have_text("This job does not exist")
 
-    async def test_the_printers_view_shows_printers_server_and_clients(self):
-        page = await self.open("/admin#/printers", ready=".printer-card")
+    async def test_connections_is_one_tab_and_the_old_printers_and_clients_links_open_it(self):
+        page = await self.open()
+        for nav in ("#tabs", "#tabbar"):
+            await expect(page.locator(nav + " a")).to_have_text(["Rail", "Connections"])
+        await expect(page.locator(".rail-foot .quiet-link")).to_have_attribute("href", "#/connections")
+        for path in ("#/connections", "#/printers", "#/clients"):
+            with self.subTest(path=path):
+                await page.goto(self.origin + "/admin#/")
+                await expect(page.locator("#view-rail")).to_be_visible()
+                await page.goto(self.origin + "/admin" + path)
+                await expect(page.locator(".printer-card")).to_have_count(2)
+                await expect(page).to_have_title("Connections - Thermal")
+                await expect(page.locator("#view-connections h2")).to_have_text(["Printers", "Clients"])
+                await expect(page.locator('#tabs a[aria-current="page"]')).to_have_text("Connections")
+
+    async def test_the_connections_view_shows_printers_server_and_clients(self):
+        page = await self.open("/admin#/connections", ready=".printer-card")
         cards = page.locator(".printer-card")
         await expect(cards).to_have_count(2)
         home, office = cards.nth(0), cards.nth(1)
@@ -320,10 +335,8 @@ class AdminViewsTest(AdminBrowserCase):
         await expect(page.locator("#dialog")).to_be_visible()
         await self.assertNoSideScroll(page)
         await page.keyboard.press("Escape")
-        await page.locator("#tabbar").get_by_role("link", name="Printers").click()
+        await page.locator("#tabbar").get_by_role("link", name="Connections").click()
         await expect(page.locator(".printer-card")).to_have_count(2)
-        await self.assertNoSideScroll(page)
-        await page.locator("#tabbar").get_by_role("link", name="Clients").click()
         await expect(page.locator("#client-list li")).to_have_count(2)
         await self.assertNoSideScroll(page)
         for target in await page.locator("#tabbar a, .printer-card button, .printer-card summary").all():
@@ -409,7 +422,7 @@ class AdminViewsTest(AdminBrowserCase):
         await expect(hostile.locator(".title")).to_have_text(HOSTILE)
         await (self.ticket(page, self.hostile)).click()
         await expect(page.locator("#job-title")).to_have_text(HOSTILE)
-        await page.goto(self.origin + "/admin#/printers")
+        await page.goto(self.origin + "/admin#/connections")
         await expect(page.locator(".printer-card .name").nth(1)).to_have_text(HOSTILE)
         self.assertEqual(await page.locator('img[src="x"]').count(), 0)
         self.assertNotEqual(await page.title(), "pwned")
@@ -543,7 +556,7 @@ class AdminActionsTest(AdminBrowserCase):
         await expect(page.locator("#notice")).to_have_class(re.compile("bad"))
 
     async def test_move_and_clear_act_on_the_printers_queue(self):
-        page = await self.open("/admin#/printers", ready=".printer-card")
+        page = await self.open("/admin#/connections", ready=".printer-card")
         office = page.locator(".printer-card").nth(1)
         await office.get_by_role("button", name="Move 2 jobs…").click()
         await page.locator("#dialog").get_by_role("button", name="Move jobs").click()

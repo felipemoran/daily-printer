@@ -16,8 +16,7 @@
     <span class="brand">Thermal</span>
     <nav class="tabs" id="tabs" aria-label="Sections" hidden>
       <a href="#/" data-view="rail">Rail</a>
-      <a href="#/printers" data-view="printers">Printers</a>
-      <a href="#/clients" data-view="clients">Clients</a>
+      <a href="#/connections" data-view="connections">Connections</a>
     </nav>
   </div>
   <div class="top-right">
@@ -57,7 +56,7 @@
     <p class="empty" id="rail-empty" hidden></p>
     <footer class="rail-foot">
       <ul class="fleet-strip" id="fleet-strip"></ul>
-      <a href="#/printers" class="quiet-link">Printers and clients</a>
+      <a href="#/connections" class="quiet-link">Printers and clients</a>
     </footer>
   </section>
 
@@ -102,7 +101,7 @@
     </div>
   </section>
 
-  <section class="view" id="view-printers" hidden>
+  <section class="view" id="view-connections" hidden>
     <div class="fleet">
       <section class="topology" aria-label="Server and connections">
         <div class="server-card" id="server-card"></div>
@@ -113,7 +112,7 @@
         <h2 class="section-label" id="printers-h">Printers</h2>
         <div class="printer-grid" id="printer-grid"></div>
       </section>
-      <section id="clients" aria-labelledby="clients-h" tabindex="-1">
+      <section aria-labelledby="clients-h">
         <h2 class="section-label" id="clients-h">Clients</h2>
         <ul class="client-list" id="client-list"></ul>
       </section>
@@ -123,8 +122,7 @@
 
 <nav class="tabbar" id="tabbar" aria-label="Sections" hidden>
   <a href="#/" data-view="rail">Rail</a>
-  <a href="#/printers" data-view="printers">Printers</a>
-  <a href="#/clients" data-view="clients">Clients</a>
+  <a href="#/connections" data-view="connections">Connections</a>
 </nav>
 
 <p class="notice" id="notice" role="status" aria-live="polite"></p>
