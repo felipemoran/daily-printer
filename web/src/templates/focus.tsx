@@ -10,17 +10,9 @@ const count = (min: number, max: number): Parser<number> => (value, path) => {
   return n
 }
 
-// Characters in the cmap of all three faces under web/public/fonts, less controls, soft hyphen and combining
-// marks. Chrome draws any other character from a system face it resolves differently in the page (Times)
-// and in the screenshot (Menlo): a Cyrillic id wrapped the header in layout but not on paper, and the PNG
-// ended in a band of page canvas.
-const UNPRINTABLE = /[^\u0020-\u007E\u00A0-\u00AC\u00AE-\u00FF\u0131\u0152\u0153\u02BC\u02C6\u02DA\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2022\u2026\u2032\u2033\u2039\u203A\u2044\u20AC\u2122\u2191\u2193\u2212\u2215]/u
-
 const text = (max: number): Parser<string> => (value, path) => {
   const s = limitedString(max)(value, path)
   if (!s.trim()) throw new TemplateDataError(`${path}: expected non-empty text`)
-  const unprintable = UNPRINTABLE.exec(s)
-  if (unprintable) throw new TemplateDataError(`${path}: expected Latin text; the printer fonts have no "${unprintable[0]}"`)
   return s
 }
 
