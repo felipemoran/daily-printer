@@ -1,0 +1,23 @@
+{
+  "template": "briefing",
+  "schemaVersion": 1,
+  "data": {
+    "weekday": "THURSDAY",
+    "dateLine": "1 OCTOBER 2026 · WEEK 40",
+    "weather": {
+      "temp": 14,
+      "condition": "Overcast",
+      "high": 17,
+      "low": 9,
+      "note": "Rain 60% after 15:00",
+      "advice": "take a jacket"
+    },
+    "counts": { "meetings": 5, "tasks": 7, "deadlines": 2 },
+    "firstUp": [
+      { "time": "09:00", "title": "Standup" },
+      { "time": "10:00", "title": "Focus block · 2h" },
+      { "time": "14:00", "title": "Design review" }
+    ],
+    "oneThing": "Ship the billing migration PR before lunch."
+  }
+}
