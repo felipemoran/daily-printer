@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import secrets
+import shutil
 import sqlite3
 import statistics
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
@@ -167,10 +168,24 @@ def _job(row: tuple) -> Job:
     return Job(*row[:6], Status(row[6]), *row[7:])
 
 
-def _place(artifacts: Path | None, job_id: str) -> None:
-    # A failed rename rolls the insert back. A crash after it leaves a folder no job names.
-    if artifacts is not None:
-        artifacts.rename(artifacts.with_name(job_id))
+@contextmanager
+def _placing(artifacts: Path | None) -> Iterator[Callable[[str], None]]:
+    """Yields ``place(job_id)``, which renames ``artifacts`` to the job id inside the caller's transaction.
+
+    The folder goes again when the transaction fails after the rename. A crash after it leaves a folder no job names.
+    """
+    placed = []
+
+    def place(job_id: str) -> None:
+        if artifacts is not None:
+            placed.append(artifacts.rename(artifacts.with_name(job_id)))
+
+    try:
+        yield place
+    except BaseException:
+        for folder in placed:
+            shutil.rmtree(folder, ignore_errors=True)
+        raise
 
 
 def _new_id() -> str:
@@ -196,12 +211,12 @@ class JobQueue:
             expires_in: float = DEFAULT_EXPIRY_SECONDS, now: float | None = None) -> Job:
         """``artifacts``, a staged folder, becomes ``<its parent>/<job id>`` before the insert commits."""
         now = time.time() if now is None else now
-        with self._transaction():
+        with _placing(artifacts) as place, self._transaction():
             job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, width=width,
                                height=height, render_ms=render_ms, expires_at=now + expires_in, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}")
             self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots in {render_ms} ms")
-            _place(artifacts, job.id)
+            place(job.id)
         return job
 
     def take(self, printer: str, *, now: float | None = None) -> Job | None:
@@ -285,7 +300,7 @@ class JobQueue:
 
         ``artifacts``: as for ``add``.
         """
-        with self._transaction():
+        with _placing(artifacts) as place, self._transaction():
             now = self._expire(now)
             row = self._db.execute(
                 "SELECT status, kind, title, width, height, render_ms, expires_at - created_at"
@@ -302,7 +317,7 @@ class JobQueue:
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}, reprint of {job_id}")
             self._event(job.id, now, Event.RENDERED, f"{width}x{height} dots, the bytes of {job_id}")
             self._event(job_id, now, Event.REPRINTED, job.id)
-            _place(artifacts, job.id)
+            place(job.id)
         return job
 
     def job(self, job_id: str, *, now: float | None = None) -> Job | None:
@@ -420,11 +435,12 @@ class JobQueue:
         self._db.execute("BEGIN IMMEDIATE")
         try:
             yield
+            # A failed COMMIT can leave the transaction open; a later COMMIT would then store it.
+            self._db.execute("COMMIT")
         except BaseException:
             if self._db.in_transaction:
                 self._db.execute("ROLLBACK")
             raise
-        self._db.execute("COMMIT")
 
     def _insert(self, printer: str, data: bytes, *, kind: str, title: str, source: str, ingress: str,
                 width: int, height: int, render_ms: int, expires_at: float, now: float) -> Job:

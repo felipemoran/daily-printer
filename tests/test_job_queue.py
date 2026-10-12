@@ -375,6 +375,31 @@ class ArtifactFolderTest(QueueTestCase):
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), sorted([job.id, copy.id]))
         self.assertEqual((self.root / copy.id / "job.escpos").read_bytes(), DATA)
 
+    def test_a_failed_commit_removes_the_renamed_folder_and_stores_no_job(self):
+        finished = self.queue.add("home", DATA, kind="receipt", title="t", source="admin", ingress="cli",
+                                  width=PRINT_WIDTH_DOTS, height=RASTER.height, render_ms=1, now=0)
+        self.queue.cancel(finished.id, now=0)
+        db = self.queue._db
+        # A deferred foreign key fails only at COMMIT, after the rename.
+        db.execute("PRAGMA foreign_keys = ON")
+        db.execute("CREATE TEMP TRIGGER dangling AFTER INSERT ON jobs"
+                   " BEGIN INSERT INTO job_events (job_id, at, event) VALUES ('missing', 0, 'x'); END")
+        attempts = {
+            "add": lambda staged: self.queue.add(
+                "home", DATA, kind="receipt", title="t", source="admin", ingress="cli", width=PRINT_WIDTH_DOTS,
+                height=RASTER.height, render_ms=1, artifacts=staged, now=1),
+            "reprint": lambda staged: self.queue.reprint(
+                finished.id, "home", DATA, source="admin", ingress="cli", artifacts=staged, now=1),
+        }
+        for name, attempt in attempts.items():
+            with self.subTest(name):
+                db.execute("PRAGMA defer_foreign_keys = ON")
+                with self.assertRaisesRegex(sqlite3.IntegrityError, "FOREIGN KEY"):
+                    attempt(self.staged())
+                self.assertFalse(db.in_transaction)
+                self.assertEqual(list(self.root.iterdir()), [])
+                self.assertEqual([job.id for job in self.queue.jobs(now=1)], [finished.id])
+
     def test_a_failed_rename_rolls_the_insert_back(self):
         staged = self.staged()
         (self.root / "0000beef").mkdir()
