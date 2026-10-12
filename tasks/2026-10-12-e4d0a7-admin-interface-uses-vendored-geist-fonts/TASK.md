@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-e4d0a7-admin-interface-uses-vendored-geist-fonts
 title: Admin interface uses vendored Geist fonts
-status: pending
+status: in-progress
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: null
+phase: implementing
 ---
 
 ## Description
