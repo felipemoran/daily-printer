@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- LaunchAgent: runs while the user is logged in, and needs no admin rights. Installed by deploy/wizard.sh. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.daily-printer.device</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__UV__</string>
+		<string>run</string>
+		<string>src/scripts/print_device.py</string>
+		<string>--server</string>
+		<string>__SERVER_URL__</string>
+		<string>--token-file</string>
+		<string>__TOKEN_FILE__</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__REPO__</string>
+	<!-- pyusb finds libusb with ctypes, whose macOS fallback search skips /opt/homebrew/lib (Apple silicon Homebrew). -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>__HOME_DIR__</string>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin</string>
+		<key>DYLD_FALLBACK_LIBRARY_PATH</key>
+		<string>/opt/homebrew/lib:/usr/local/lib:/usr/lib</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/device.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/device.log</string>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+# Installed by deploy/wizard.sh to /etc/systemd/system/print-device.service.
+[Unit]
+Description=Daily printer: printer device
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=__SERVICE_USER__
+WorkingDirectory=__REPO__
+ExecStart=__UV__ run src/scripts/print_device.py --server __SERVER_URL__ --token-file __TOKEN_FILE__
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

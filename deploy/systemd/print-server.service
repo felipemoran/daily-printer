@@ -1,0 +1,14 @@
+# Installed by deploy/wizard.sh to /etc/systemd/system/print-server.service.
+[Unit]
+Description=Daily printer: print server
+After=network.target
+
+[Service]
+User=__SERVICE_USER__
+WorkingDirectory=__REPO__
+ExecStart=__UV__ run src/scripts/print_server.py --config __CONFIG__
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
