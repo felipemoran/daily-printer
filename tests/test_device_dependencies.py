@@ -2,7 +2,10 @@
 
 import ast
 import importlib.metadata
+import os
 import re
+import shutil
+import subprocess
 import sys
 import tomllib
 import unittest
@@ -14,6 +17,7 @@ SCRIPT = SRC / "scripts" / "print_device.py"
 METADATA_BLOCK = re.compile(r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$")
 REQUIREMENT = re.compile(r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[(?P<extras>[^\]]*)\])?")
 NEVER_ON_DEVICE = {"playwright", "jwt"}
+UV = os.environ.get("UV") or shutil.which("uv")
 # (module, import): why the device never needs it.
 UNDECLARED_ALLOWED = {
     ("printer.py", "bleak"): "only printer._ble_find_and_send imports it, and the device never calls it",
@@ -106,6 +110,14 @@ class DeviceDependenciesTest(unittest.TestCase):
         for path in device_modules():
             with self.subTest(module=path.name):
                 self.assertFalse(imports(path) & NEVER_ON_DEVICE)
+
+    @unittest.skipIf(UV is None, "uv is not installed, so the script lock cannot be checked")
+    def test_script_lock_matches_the_script_metadata(self):
+        result = subprocess.run([UV, "lock", "--script", str(SCRIPT), "--check"], capture_output=True, text=True)
+        self.assertEqual(
+            result.returncode, 0,
+            f"{result.stderr}\nRun: uv lock --script {SCRIPT.relative_to(SRC.parent)}",
+        )
 
 
 if __name__ == "__main__":
