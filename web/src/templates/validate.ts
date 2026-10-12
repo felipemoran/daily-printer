@@ -16,7 +16,13 @@ export const boolean = primitive<boolean>('boolean')
 export const limitedString = (max: number): Parser<string> => (value, path) =>
   string(value, path).length > max ? fail(path, `at most ${max} characters`) : (value as string)
 
-export const optional = <T>(parse: Parser<T>): Parser<T | undefined> => (value, path) =>
+// A blank required field would print an empty hero and still report success.
+export const nonBlank = (parse: Parser<string>): Parser<string> => (value, path) => {
+  const text = parse(value, path)
+  return text.trim() === '' ? fail(path, 'non-blank text') : text
+}
+
+export const optional =<T>(parse: Parser<T>): Parser<T | undefined> => (value, path) =>
   value === undefined || value === null ? undefined : parse(value, path)
 
 // max bounds the render time: the page cannot stop a render it has started.

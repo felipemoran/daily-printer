@@ -2,18 +2,20 @@
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { qrMatrix, qrText } from './qr'
-import { array, object, optional, string } from './validate'
+import { array, nonBlank, object, optional, string } from './validate'
+
+const text = nonBlank(string)
 
 const gap = { height: 'var(--space-7)' }
 
 const parse = object({
   kind: optional(string),
   time: optional(string),
-  id: string,
-  title: string,
-  status: object({ from: string, to: string }),
-  fields: optional(array(object({ label: string, value: string }), 10)),
-  comment: optional(object({ text: string, author: optional(string) })),
+  id: text,
+  title: text,
+  status: object({ from: text, to: text }),
+  fields: optional(array(object({ label: text, value: text }), 10)),
+  comment: optional(object({ text, author: optional(string) })),
   qr: optional(object({ text: qrText, lines: optional(array(string, 3)) })),
 })
 
