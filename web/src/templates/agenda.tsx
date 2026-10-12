@@ -2,8 +2,8 @@
 import { use } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { serverFault } from './faults'
-import { array, integer, object, optional, string, TemplateDataError, text, type Parser } from './validate'
+import { facesLoaded } from './faults'
+import { array, fail, integer, object, oneOf, optional, string, TemplateDataError, text, type Parser } from './validate'
 
 const HOUR = 56
 const MAX_HOURS = 14
@@ -21,11 +21,8 @@ const DATE_WIDTH = 128
 // Right-aligned text starts after a fractional glyph run: round its box so it starts on a whole pixel.
 const whole = { width: 'calc-size(fit-content, round(up, size, 1px))' }
 
-type Kind = 'meeting' | 'focus'
-
-const fail = (path: string, message: string): never => {
-  throw new TemplateDataError(`${path}: ${message}`)
-}
+const kind = oneOf('meeting', 'focus')
+type Kind = ReturnType<typeof kind>
 
 // Minutes since midnight. 24:00 is accepted only where a day can end.
 const time = (allowMidnight: boolean): Parser<number> => (value, path) => {
@@ -33,11 +30,8 @@ const time = (allowMidnight: boolean): Parser<number> => (value, path) => {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(clockText)
   if (match) return Number(match[1]) * 60 + Number(match[2])
   if (allowMidnight && clockText === '24:00') return 24 * 60
-  return fail(path, `expected a time HH:MM from 00:00 to ${allowMidnight ? '24:00' : '23:59'}`)
+  return fail(path, `a time HH:MM from 00:00 to ${allowMidnight ? '24:00' : '23:59'}`)
 }
-
-const kind: Parser<Kind> = (value, path) =>
-  value === 'meeting' || value === 'focus' ? value : fail(path, 'expected "meeting" or "focus"')
 
 const shape = object({
   date: text(12),
@@ -59,13 +53,13 @@ const parse: Parser<Agenda> = (value, path) => {
   const data = shape(value, path)
   const day = [data.dayStart * 60, data.dayEnd * 60]
   if (data.dayEnd <= data.dayStart || data.dayEnd - data.dayStart > MAX_HOURS) {
-    fail(`${path}.dayEnd`, `expected an hour after dayStart, at most ${MAX_HOURS} hours later`)
+    fail(`${path}.dayEnd`, `an hour after dayStart, at most ${MAX_HOURS} hours later`)
   }
   data.events.forEach((event, index) => {
     const at = `${path}.events[${index}]`
-    if (event.end - event.start < MIN_EVENT_MINUTES) fail(`${at}.end`, `expected at least ${MIN_EVENT_MINUTES} minutes after start`)
+    if (event.end - event.start < MIN_EVENT_MINUTES) fail(`${at}.end`, `at least ${MIN_EVENT_MINUTES} minutes after start`)
     if (event.start < day[0] || event.end > day[1]) {
-      fail(at, `${clock(event.start)}–${clock(event.end)} is outside the day ${clock(day[0])}–${clock(day[1])}`)
+      throw new TemplateDataError(`${at}: ${clock(event.start)}–${clock(event.end)} is outside the day ${clock(day[0])}–${clock(day[1])}`)
     }
   })
   const order = data.events.map((_, index) => index).sort((a, b) => data.events[a].start - data.events[b].start || data.events[a].end - data.events[b].end)
@@ -74,7 +68,7 @@ const parse: Parser<Agenda> = (value, path) => {
   for (const index of order) {
     const event = data.events[index]
     const lane = laneEnds.findIndex((end) => end <= event.start)
-    if (lane === -1) fail(`${path}.events[${index}]`, `overlaps two other events at ${clock(event.start)}; at most 2 events may overlap`)
+    if (lane === -1) throw new TemplateDataError(`${path}.events[${index}]: overlaps two other events at ${clock(event.start)}; at most 2 events may overlap`)
     laneEnds[lane] = event.end
     lanes[index] = lane as 0 | 1
   }
@@ -104,11 +98,7 @@ const duration = (minutes: number) => {
 }
 
 // A label measured in a fallback face misjudges the fit, so the render suspends until Plex Mono is in.
-let plexMono: Promise<void> | undefined
-const plexMonoLoaded = () =>
-  (plexMono ??= document.fonts.load('700 16px "IBM Plex Mono"').catch(() => []).then((faces) => {
-    if (!faces.length) throw serverFault('font 700 16px "IBM Plex Mono" did not load')
-  }))
+const FACES = ['700 16px "IBM Plex Mono"']
 
 // Synchronous, so the committed layout is the measured one. Emoji and CJK come from system faces,
 // and only the real text in the real class measures them. Rounded up like the boxes that hold them.
@@ -136,7 +126,7 @@ export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => {
-    use(plexMonoLoaded())
+    use(facesLoaded(FACES))
     const [nowWidth, ...labelWidths] = textWidths([NOW_TAG, ...data.events.map(label)])
     const origin = data.dayStart * 60
     const height = (data.dayEnd - data.dayStart) * HOUR

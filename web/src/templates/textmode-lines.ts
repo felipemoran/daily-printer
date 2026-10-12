@@ -23,13 +23,13 @@ export interface Line {
   reverse?: boolean
 }
 
-export const COLUMNS = 32
-export const DOUBLE_COLUMNS = 16
+const COLUMNS = 32
+const DOUBLE_COLUMNS = 16
 
 // Which Font A code page holds these is unverified (design-system/verify.md, Text mode). Swap for '#' and '.' if they misprint.
-export const BAR = { full: '█', empty: '░', cells: 16 }
+const BAR = { full: '█', empty: '░', cells: 16 }
 
-export const MORE = '~'
+const MORE = '~'
 
 const STATUS = { ok: '[ OK ]', fail: '[FAIL]', skip: '[SKIP]' }
 
@@ -62,7 +62,7 @@ const wrap = (text: string, width: number) => {
 
 const two = (value: number) => String(value).padStart(2, '0')
 
-export const formatSeconds = (seconds: number) => {
+const formatSeconds = (seconds: number) => {
   const whole = Math.floor(seconds)
   return whole < 3600
     ? `${Math.floor(whole / 60)}:${two(whole % 60)}`

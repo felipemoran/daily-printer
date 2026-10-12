@@ -1,23 +1,18 @@
 // Strip 1e of designs/receipt-set-1, on design-system/components/ReportTemplate.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, boolean, integer, nonBlank, number, object, optional, string, TemplateDataError, text, type Parser } from './validate'
+import { array, boolean, integer, object, optional, range, text } from './validate'
 
 // Up to 1e12 every amount fits in 4 characters, as compact notation at worst ("1T").
-const MAX_AMOUNT = 1e12
-
-const amount: Parser<number> = (value, path) => {
-  const parsed = number(value, path)
-  if (!(parsed >= 0 && parsed <= MAX_AMOUNT)) throw new TemplateDataError(`${path}: expected a number from 0 to 1e12`)
-  // -0 passes the check above and would print as "-0".
-  return parsed + 0
-}
+const amount = range(0, 1e12)
 
 const parse = object({
   week: integer(1, 53),
-  range: nonBlank(string),
-  title: nonBlank(string),
-  kpis: array(object({ label: nonBlank(string), value: text(6), note: optional(nonBlank(string)), inverted: optional(boolean) }), 4),
+  // A word of 32 fits the 35-column masthead line with its " ·".
+  range: text(32),
+  title: text(32),
+  // 15 Plex Mono cells fill a 2-up tile.
+  kpis: array(object({ label: text(15), value: text(6), note: optional(text(15)), inverted: optional(boolean) }), 4),
   channels: array(object({ label: text(7), value: amount, prev: amount }), 8),
   days: array(object({ label: text(4), value: amount }), 7),
 })

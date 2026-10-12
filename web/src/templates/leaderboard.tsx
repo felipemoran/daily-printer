@@ -1,10 +1,9 @@
 // Strip 1m of designs/receipt-set-1: #1 as the hero, the rest as bars against a printed quota line.
 import T from '../thermal'
 import { defineTemplate } from './define'
-import { array, number, object, TemplateDataError, text, type Parser } from './validate'
+import { array, object, range, text } from './validate'
 
 const MAX_PEOPLE = 10
-const MAX_PCT = 1000
 
 // The track shows 0 to 133% of quota, so the quota line sits at 75%: pct * 3 / 400 is exact at 100.
 const QUOTA_AT = 0.75
@@ -18,12 +17,7 @@ const QUOTA_X = LABEL_WIDTH + 12 + QUOTA_PX
 const fraction = (pct: number) => Math.min(pct >= 100 ? 1 : (QUOTA_PX - 1) / TRACK, (pct * 3) / 400)
 const QUOTA_LABEL_WIDTH = 60
 
-const percent: Parser<number> = (value, path) => {
-  const result = number(value, path)
-  if (!(result >= 0 && result <= MAX_PCT)) throw new TemplateDataError(`${path}: expected a number from 0 to ${MAX_PCT}`)
-  // -0 passes the check above and would print as "-0%".
-  return result + 0
-}
+const percent = range(0, 1000)
 
 const parse = object({
   title: text(24),

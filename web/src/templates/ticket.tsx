@@ -2,28 +2,28 @@
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { qrMatrix, qrText } from './qr'
-import { array, nonBlank, object, optional, string } from './validate'
-
-const text = nonBlank(string)
+import { array, object, optional, text } from './validate'
 
 const gap = { height: 'var(--space-7)' }
 
 const parse = object({
-  kind: optional(string),
-  time: optional(string),
-  id: text,
-  title: text,
-  status: object({ from: text, to: text }),
-  fields: optional(array(object({ label: text, value: text }), 10)),
-  comment: optional(object({ text, author: optional(string) })),
-  qr: optional(object({ text: qrText, lines: optional(array(string, 3)) })),
+  // 24 cells of the header bar fit one line: 16 for kind, 8 for time.
+  kind: optional(text(16)),
+  time: optional(text(8)),
+  id: text(16),
+  title: text(120),
+  status: object({ from: text(24), to: text(24) }),
+  fields: optional(array(object({ label: text(16), value: text(32) }), 10)),
+  comment: optional(object({ text: text(280), author: optional(text(32)) })),
+  qr: optional(object({ text: qrText, lines: optional(array(text(40), 3)) })),
 })
 
 export default defineTemplate({
   schemaVersion: 1,
   parse,
   Component: ({ data }) => (
-    <>
+    // An unbroken token wraps instead of running past the 384-dot edge.
+    <div style={{ overflowWrap: 'anywhere' }}>
       <T.HeaderBar left={data.kind ?? 'TICKET UPDATE'} right={data.time} />
       <div className="display-xl" style={{ marginTop: 'var(--space-5)', letterSpacing: -1 }}>{data.id}</div>
       <div className="lead" style={{ marginTop: 'var(--space-3)', textWrap: 'pretty' }}>{data.title}</div>
@@ -47,6 +47,6 @@ export default defineTemplate({
           <T.QRSlot matrix={qrMatrix(data.qr.text)} module={3} lines={data.qr.lines} />
         </>
       ) : null}
-    </>
+    </div>
   ),
 })

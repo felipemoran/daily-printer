@@ -2,7 +2,7 @@
 import T from '../thermal'
 import type { CellState } from '../thermal'
 import { defineTemplate } from './define'
-import { array, nonBlank, number, object, optional, TemplateDataError, text, type Parser } from './validate'
+import { array, nonBlank, object, optional, range, TemplateDataError, text, type Parser } from './validate'
 
 // 51 + 24 * 11 + 23 * 3 = 384: the grid fills the paper on whole pixels.
 const LABEL_WIDTH = 51
@@ -19,12 +19,6 @@ const hours: Parser<CellState[]> = (value, path) => {
   return [...value].map((hour) => STATES[hour])
 }
 
-const percent: Parser<number> = (value, path) => {
-  const result = number(value, path)
-  if (!(result >= 0 && result <= 100)) throw new TemplateDataError(`${path}: expected a number from 0 to 100`)
-  return result
-}
-
 // The label column is 51 dots: five 16px Plex Mono cells. Fallback-font glyphs are wider and would overrun the cells.
 const dayLabel: Parser<string> = (value, path) => {
   if (typeof value !== 'string' || !/^[\p{Script=Latin}0-9 ./-]{1,5}$/u.test(value)) {
@@ -38,7 +32,7 @@ const percentText = (pct: number) => `${pct.toFixed(10).slice(0, -8)}%`
 
 const parse = object({
   service: text(60),
-  uptimePct: percent,
+  uptimePct: range(0, 100),
   days: array(object({ label: nonBlank(dayLabel), hours }), 7, { min: 1 }),
   incidents: optional(array(object({ when: text(9), text: text(80) }), 6)),
 })

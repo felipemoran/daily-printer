@@ -1,13 +1,13 @@
 // The one place that knows the QR encoder: swap the library here.
 import qrcode from 'qrcode-generator'
-import { limitedString, TemplateDataError, type Parser } from './validate'
+import { TemplateDataError, text, type Parser } from './validate'
 
-const text = limitedString(120)
+const qrData = text(120)
 
 // The encoder keeps only the low byte of each character, so non-ASCII text encodes wrong.
 // 120 ASCII characters fit QR version 7 at level M (45 modules).
 export const qrText: Parser<string> = (value, path) => {
-  const result = text(value, path)
+  const result = qrData(value, path)
   if ([...result].some((char) => char.charCodeAt(0) > 0x7f)) throw new TemplateDataError(`${path}: expected ASCII (percent-encode the URL)`)
   return result
 }

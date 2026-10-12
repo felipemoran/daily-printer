@@ -54,7 +54,7 @@ class IncidentTest(unittest.TestCase):
         cls.playwright.stop()
 
     def test_blank_required_text_is_refused(self):
-        for sample, field, value in ((INCIDENT, "severity", ""), (INCIDENT, "id", "#"), (INCIDENT, "ackBy", "  ")):
+        for sample, field, value in ((INCIDENT, "severity", ""), (INCIDENT, "id", "#"), (INCIDENT, "ackBy", "  "), (INCIDENT, "summary", "   ")):
             with self.subTest(template=sample["template"], field=field), \
                     self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
                 render_template(self.page, with_data(sample, **{field: value}))

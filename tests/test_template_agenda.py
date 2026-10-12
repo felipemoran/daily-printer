@@ -247,7 +247,7 @@ class AgendaTest(unittest.TestCase):
             (agenda(events=[event("10:00", "10:09")]), r"^data\.events\[0\]\.end: expected at least 10 minutes after start$"),
             (agenda(events=[event("07:30", "09:00")]), r"^data\.events\[0\]: 07:30–09:00 is outside the day 08:00–18:00$"),
             (agenda(events=[event("17:30", "18:30")]), r"^data\.events\[0\]: 17:30–18:30 is outside the day 08:00–18:00$"),
-            (agenda(events=[event("09:00", "09:30", kind="call")]), r'^data\.events\[0\]\.kind: expected "meeting" or "focus"$'),
+            (agenda(events=[event("09:00", "09:30", kind="call")]), r'^data\.events\[0\]\.kind: expected one of meeting, focus$'),
             (agenda(events=[{**event("09:00", "09:30"), "where": "Room 2"}]), r"^data\.events\[0\]\.where: unknown field$"),
             (agenda(events=[event("09:00", "09:30")] * 13), r"^data\.events: expected at most 12 items$"),
             (agenda(dayStart=8, dayEnd=8), r"^data\.dayEnd: expected an hour after dayStart, at most 14 hours later$"),

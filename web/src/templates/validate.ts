@@ -2,7 +2,7 @@ export class TemplateDataError extends Error {}
 
 export type Parser<T> = (value: unknown, path: string) => T
 
-const fail = (path: string, expected: string): never => {
+export const fail = (path: string, expected: string): never => {
   throw new TemplateDataError(`${path}: expected ${expected}`)
 }
 
@@ -31,6 +31,15 @@ export const integer = (min: number, max: number): Parser<number> => (value, pat
   Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max
     ? (value as number)
     : fail(path, `a whole number from ${min} to ${max}`)
+
+// Comparisons refuse NaN and, with finite bounds, Infinity. -0 becomes 0: Intl prints it as "-0".
+export const range = (min: number, max: number): Parser<number> => (value, path) => {
+  const result = number(value, path)
+  return result >= min && result <= max ? result + 0 : fail(path, `a number from ${min} to ${max}`)
+}
+
+export const oneOf = <V extends string>(...values: V[]): Parser<V> => (value, path) =>
+  values.includes(value as V) ? (value as V) : fail(path, `one of ${values.join(', ')}`)
 
 export const optional = <T>(parse: Parser<T>): Parser<T | undefined> => (value, path) =>
   value === undefined || value === null ? undefined : parse(value, path)

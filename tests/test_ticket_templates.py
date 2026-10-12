@@ -42,6 +42,17 @@ def ticket(**data):
 SHORT_TICKET = ticket(fields=None, comment=None, qr=None)
 
 
+def widest_ticket(glyph):
+    """Every list at its cap and every string at its limit."""
+    return ticket(
+        kind=glyph * 16, time=glyph * 8, id=glyph * 16, title=glyph * 120,
+        status={"from": glyph * 24, "to": glyph * 24},
+        fields=[{"label": glyph * 16, "value": glyph * 32}] * 10,
+        comment={"text": glyph * 280, "author": glyph * 32},
+        qr={"text": "W" * 120, "lines": [glyph * 40] * 3},
+    )
+
+
 # No web/dist needed: the template list is the only thing check_envelope reads from the build.
 @mock.patch("ticket_templates.template_names", lambda: ["ticket"])
 class EnvelopeTest(unittest.TestCase):
@@ -137,13 +148,44 @@ class RenderTest(unittest.TestCase):
         self.assert_template_error(ticket(qr={"text": "https://x.io/a\u2192b"}),
                                    r"^data\.qr\.text: expected ASCII \(percent-encode the URL\)$")
 
-    def test_blank_required_text_is_refused(self):
-        for field, value in (("id", ""), ("title", " ")):
-            with self.subTest(field=field), \
-                    self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
-                render_template(self.page, ticket(**{field: value}))
-        with self.assertRaisesRegex(TemplateError, r"^data\.status\.to: expected non-blank text$"):
-            render_template(self.page, ticket(status={"from": "OPEN", "to": ""}))
+    def test_blank_visible_text_is_refused(self):
+        for data, field in (
+            ({"id": ""}, "id"),
+            ({"title": " "}, "title"),
+            ({"kind": " "}, "kind"),
+            ({"time": ""}, "time"),
+            ({"status": {"from": "OPEN", "to": ""}}, r"status\.to"),
+            ({"fields": [{"label": "\u200b", "value": "b"}]}, r"fields\[0\]\.label"),
+            ({"comment": {"text": "c", "author": " "}}, r"comment\.author"),
+            ({"qr": {"text": ""}}, r"qr\.text"),
+            ({"qr": {"text": "x", "lines": ["a", " "]}}, r"qr\.lines\[1\]"),
+        ):
+            with self.subTest(field), self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected non-blank text$"):
+                render_template(self.page, ticket(**data))
+
+    def test_text_past_its_cap_is_refused(self):
+        widest = widest_ticket("W")["data"]
+        for data, field, cap in (
+            ({"kind": "W" * 17}, "kind", 16),
+            ({"time": "W" * 9}, "time", 8),
+            ({"id": "W" * 17}, "id", 16),
+            ({"title": "W" * 121}, "title", 120),
+            ({"status": {"from": "W" * 25, "to": "W"}}, r"status\.from", 24),
+            ({"fields": [{"label": "W" * 17, "value": "W"}]}, r"fields\[0\]\.label", 16),
+            ({"fields": [{"label": "W", "value": "W" * 33}]}, r"fields\[0\]\.value", 32),
+            ({"comment": {"text": "W" * 281}}, r"comment\.text", 280),
+            ({"comment": {"text": "W", "author": "W" * 33}}, r"comment\.author", 32),
+            ({"qr": {**widest["qr"], "lines": ["W" * 41]}}, r"qr\.lines\[0\]", 40),
+        ):
+            with self.subTest(field), self.assertRaisesRegex(TemplateError, rf"^data\.{field}: expected at most {cap} characters$"):
+                render_template(self.page, ticket(**data))
+
+    def test_worst_case_fits_under_the_length_limit(self):
+        for glyph in ("W", "\u6f22"):
+            with self.subTest(glyph):
+                image = render_template(self.page, widest_ticket(glyph))
+                self.assertEqual(image.width, 384)
+                self.assertLess(image.height, 4000)
 
     def test_component_that_throws_is_caught_by_the_error_boundary(self):
         with self.failing_transition():
@@ -305,7 +347,7 @@ class RenderTest(unittest.TestCase):
         with self.landscape_page() as page:
             # Wider than the paper is the length of a landscape print; taller is past its edge.
             render_template(page, ticket(title="A title much wider than the paper " * 3, fields=None, comment=None, qr=None))
-            with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "Assignee'):
+            with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "TICKET UPDATE'):
                 render_template(page, TICKET)
             with self.failing_transition(BOX % "{ style: { width: 60, height: 20 } }, 'word '.repeat(80)", page):
                 with self.assertRaisesRegex(TemplateError, r'^content runs past the paper edge: "word word '):
@@ -317,7 +359,6 @@ class RenderTest(unittest.TestCase):
         try:
             render_template(page, SHORT_TICKET)
             self.assertEqual(page.evaluate("document.querySelector('#receipt').dataset.orientation"), "portrait")
-            # No landscape template yet: mark the ticket landscape after it renders.
             page.evaluate("""() => {
               const render = window.renderTemplate;
               window.renderTemplate = async (payload) => {

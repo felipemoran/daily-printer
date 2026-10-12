@@ -43,7 +43,7 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 | `template_names()` | The template names in the last build. |
 | `check_envelope(payload)` | Checks the envelope and the size limit without a browser. It does not check `schemaVersion` against the template. |
 | `open_render_page(browser)` | Opens a Playwright page on `render.html`. Open it once and reuse it: a failed render leaves it usable. The page loads files from `web/dist` only, never from the network. |
-| `render_template(page, payload)` | The print as a mode `"1"` PIL image, 384 dots wide. |
+| `render_template(page, payload, *, max_height_dots=4000)` | The print as a mode `"1"` PIL image, 384 dots wide. `max_height_dots` sets the length limit (see *Render guards*). |
 | `render_text(page, payload)` | The print as native ESC/POS text bytes (see *Native text output*). |
 
 Both render calls run `check_envelope` first. They raise two kinds of error:
@@ -59,7 +59,7 @@ A render that does not finish within 3 seconds raises `TemplateError`. The page 
 
 `render_template` refuses a print that would come out wrong, because a clipped or cut print looks like a good one. Each refusal is a `TemplateError`:
 
-- **Length:** a print longer than 4000 dots (50 cm) is refused before the screenshot.
+- **Length:** a print longer than `max_height_dots` (default 4000 dots, 50 cm) is refused before the screenshot.
 - **Fit:** a box that clips its text, text that spills out of its block, or anything past the 384-dot paper edge is refused, because a clipped value prints as a different value. In landscape the paper edge is the bottom of the layout. The message quotes the text: `text does not fit: "123,456" is wider than its 52px cell`.
 - **Capture length:** the length is measured before the screenshot, in it, and after it. A change refuses the print, because the screenshot keeps its first clip and the print would lose its end or end in a band of page background.
 - **Viewport sizing:** this one prevents a refusal. The page is resized to cover the whole receipt before it is measured, because a screenshot past the viewport can make Chrome draw missing glyphs from another system font and reflow the page.
@@ -106,17 +106,19 @@ The `validate.ts` parsers:
 | `limitedString(max)` | Text of at most `max` characters. It counts code points, so an emoji is one character. |
 | `nonBlank(parser)` | What `parser` accepts, except text that is empty, spaces or zero-width characters. |
 | `integer(min, max)` | A whole number from `min` to `max`. |
+| `range(min, max)` | A number from `min` to `max`. `-0` becomes `0`. |
+| `oneOf(...values)` | One of these strings. |
 | `array(item, max, { min })` | A list of `min` to `max` items. |
 | `object({ … })` | An object with these fields and no others. |
 | `optional(parser)` | The field, or nothing. |
 
-A custom check throws `TemplateDataError` with the field path. A template that throws, also inside an effect, fails the render.
+A custom check calls `fail(path, expected)`, or throws `TemplateDataError` with the field path. A template that throws, also inside an effect, fails the render.
 
-Rules for every new template:
+Rules for every template:
 
-- Cap every string and list so that the worst case stays under 4000 dots. Add a test that renders the worst case.
-- Measure text in the page after the fonts load, as `agenda` and `focus` do. Do not model glyph widths: emoji and CJK come from system fonts.
-- Use `text` or `nonBlank` for text that the print shows. A blank value prints an empty field and still reports success.
+- Cap every string and list so that the worst case stays under 4000 dots. Add a test that renders the worst case: every list full, every string at its cap, in `W` and in CJK.
+- Measure text in the page after `facesLoaded(faces)` (`web/src/templates/faults.ts`) resolves, as `agenda` and `focus` do. Do not model glyph widths: emoji and CJK come from system fonts.
+- Refuse blank text that the print shows: use `text` or `nonBlank`. Every template does. A blank value prints an empty field and still reports success.
 - Put every edge on a whole pixel.
 - Floor a percentage that would otherwise claim a threshold, such as 100% or a quota.
 

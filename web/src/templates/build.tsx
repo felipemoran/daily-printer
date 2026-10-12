@@ -2,19 +2,10 @@
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { buildLines, type BuildReport } from './textmode-lines'
-import { array, integer, number, object, optional, TemplateDataError, text, type Parser } from './validate'
-
-const oneOf = <V extends string>(...values: V[]): Parser<V> => (value, path) => {
-  if (!values.includes(value as V)) throw new TemplateDataError(`${path}: expected one of ${values.join(', ')}`)
-  return value as V
-}
+import { array, integer, object, oneOf, optional, range, text, type Parser } from './validate'
 
 // 99h59m59s keeps formatSeconds within its 6-column cell.
-const seconds: Parser<number> = (value, path) => {
-  const result = number(value, path)
-  if (!(result >= 0 && result < 360000)) throw new TemplateDataError(`${path}: expected seconds from 0 to 359999`)
-  return result
-}
+const seconds = range(0, 359999)
 
 // 7 digits keep the title (with a 12-character name) and the commits line within their columns.
 const BUILD_MAX = 9_999_999

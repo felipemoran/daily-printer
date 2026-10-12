@@ -132,8 +132,8 @@ class ReportTest(unittest.TestCase):
 
     def test_invalid_data(self):
         for data, pattern in (
-            ({"channels": [{"label": "A", "value": -1, "prev": 0}]}, r"^data\.channels\[0\]\.value: expected a number from 0 to 1e12$"),
-            ({"days": [{"label": "M", "value": 1e12 + 1}]}, r"^data\.days\[0\]\.value: expected a number from 0 to 1e12$"),
+            ({"channels": [{"label": "A", "value": -1, "prev": 0}]}, r"^data\.channels\[0\]\.value: expected a number from 0 to 1000000000000$"),
+            ({"days": [{"label": "M", "value": 1e12 + 1}]}, r"^data\.days\[0\]\.value: expected a number from 0 to 1000000000000$"),
             ({"channels": [{"label": "SOCIAL M", "value": 1, "prev": 1}]}, r"^data\.channels\[0\]\.label: expected at most 7 characters$"),
             ({"days": [{"label": "WEDNE", "value": 1}]}, r"^data\.days\[0\]\.label: expected at most 4 characters$"),
             ({"days": [{"label": "M", "value": "3"}]}, r"^data\.days\[0\]\.value: expected number$"),
@@ -142,9 +142,27 @@ class ReportTest(unittest.TestCase):
             ({"kpis": [{"label": "A", "value": "1"}] * 5}, r"^data\.kpis: expected at most 4 items$"),
             ({"kpis": [{"label": "A", "value": "1234567"}]}, r"^data\.kpis\[0\]\.value: expected at most 6 characters$"),
             ({"week": 54}, r"^data\.week: expected a whole number from 1 to 53$"),
+            ({"range": "W" * 33}, r"^data\.range: expected at most 32 characters$"),
+            ({"title": "W" * 33}, r"^data\.title: expected at most 32 characters$"),
+            ({"kpis": [{"label": "W" * 16, "value": "1"}]}, r"^data\.kpis\[0\]\.label: expected at most 15 characters$"),
+            ({"kpis": [{"label": "A", "value": "1", "note": "W" * 16}]}, r"^data\.kpis\[0\]\.note: expected at most 15 characters$"),
         ):
             with self.subTest(pattern), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, report(**data))
+
+    def test_worst_case_fits_under_the_length_limit(self):
+        # Seven CJK glyphs overflow the 76-dot channel label cell, and the fit guard refuses them.
+        for glyph, kpi_count in (("W", 4), ("W", 3), ("\u6f22", 4), ("\u6f22", 3)):
+            with self.subTest(glyph=glyph, kpis=kpi_count):
+                image = render_template(self.page, report(
+                    week=53, range=glyph * 32, title=glyph * 32,
+                    kpis=[{"label": glyph * 15, "value": "12,345", "note": glyph * 15, "inverted": index % 2 == 1}
+                          for index in range(kpi_count)],
+                    channels=[{"label": "W" * 7, "value": 1e12, "prev": 1e12}] * 8,
+                    days=[{"label": glyph * 4, "value": 1e12}] * 7,
+                ))
+                self.assertEqual(image.width, 384)
+                self.assertLess(image.height, 4000)
 
     def test_blank_text_is_refused(self):
         kpi = {"label": "A", "value": "1", "note": "n"}
