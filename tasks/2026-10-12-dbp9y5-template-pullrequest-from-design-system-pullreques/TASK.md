@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-dbp9y5-template-pullrequest-from-design-system-pullreques
 title: 'Template 1i: review queue'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description

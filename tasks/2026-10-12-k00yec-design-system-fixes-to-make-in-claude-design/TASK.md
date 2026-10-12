@@ -28,5 +28,6 @@ Issues found while building templates that belong in the Claude Design source (d
 
 - 2026-10-12T07:03:33+00:00: (2) BarList previous-period bar (.rp-bar-b) is border-box with a 2px border, so value 0 prints as a 4px outlined stub and any bar under 4px prints at 4px (found building 1e).
 - 2026-10-12T07:09:30+00:00: (3) CellGrid ticks use justify-content: space-between, so tick text lands on fractional x and drifts from the hour columns (found building 1f; the template places its own ticks).
+- 2026-10-12T07:17:04+00:00: (4) CellGrid legend: swatches land on fractional x (69.203, 196.016) from 16px Plex Mono label widths; smeared border and stray dither dots under DEGRADED (found reviewing 1f).
 
 ## Decisions
