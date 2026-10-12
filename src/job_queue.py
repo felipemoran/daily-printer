@@ -172,7 +172,7 @@ def _job(row: tuple) -> Job:
 def _placing(artifacts: Path | None) -> Iterator[Callable[[str], None]]:
     """Yields ``place(job_id)``, which renames ``artifacts`` to the job id inside the caller's transaction.
 
-    The folder goes again when the transaction fails after the rename. A crash after it leaves a folder no job names.
+    The folder is deleted when the transaction fails after the rename. A crash after it leaves a folder no job names.
     """
     placed = []
 
