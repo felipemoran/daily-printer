@@ -144,7 +144,6 @@ def main() -> None:
     payload_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     artifact_payload = artifact_dir / "payload.json"
     artifact_payload.write_text(payload_text, encoding="utf-8")
-    (dist_dir / "payload.json").write_text(payload_text, encoding="utf-8")
 
     if args.template:
         from print_template import render_and_print
@@ -154,6 +153,8 @@ def main() -> None:
         (artifact_dir / "tasks.json").write_text(json.dumps(template_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         render_and_print(template_payload, artifact_dir, args.no_print)
         return
+
+    (dist_dir / "payload.json").write_text(payload_text, encoding="utf-8")
 
     # ---- 4. Screenshot ------------------------------------------------------
     print("Rendering receipt…", flush=True)

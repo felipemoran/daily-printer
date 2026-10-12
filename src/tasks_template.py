@@ -7,7 +7,7 @@ from typing import Any
 
 from todoist_api_python.models import Task
 
-from task_formatter import _strip_markdown_links
+from task_formatter import strip_markdown_links
 from todoist_client import TaskSections
 
 # Mirror the caps in web/src/templates/tasks.tsx. Its limitedString counts UTF-16 code units.
@@ -51,7 +51,7 @@ def _row(task: Task, today: date | None) -> dict[str, Any]:
     elif task.due is not None and isinstance(task.due.date, datetime):
         parts.append(task.due.date.astimezone().strftime("%H:%M"))
     parts += task.labels or []
-    row: dict[str, Any] = {"title": _clip(_strip_markdown_links(task.content), TITLE_MAX)}
+    row: dict[str, Any] = {"title": _clip(strip_markdown_links(task.content), TITLE_MAX)}
     if parts:
         row["meta"] = _clip(" · ".join(parts), META_MAX)
     if task.priority in _PRIORITY_TAGS:

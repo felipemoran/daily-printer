@@ -101,13 +101,13 @@ Block = dict[str, Any]
 _MD_LINK_RE = re.compile(r'\[([^\]]+)\]\([^)]*\)')
 
 
-def _strip_markdown_links(text: str) -> str:
+def strip_markdown_links(text: str) -> str:
     """Replace [label](url) with just label."""
     return _MD_LINK_RE.sub(r'\1', text)
 
 
 def _task_block(task: Task, time: str | None = None, relative: str | None = None) -> Block:
-    block: Block = {"type": "task", "content": _strip_markdown_links(task.content)}
+    block: Block = {"type": "task", "content": strip_markdown_links(task.content)}
     if time:
         block["time"] = time
     if relative:
