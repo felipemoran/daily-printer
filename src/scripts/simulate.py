@@ -70,6 +70,11 @@ def _signals_blocked():
         signal.pthread_sigmask(signal.SIG_UNBLOCK, _STOP_SIGNALS)
 
 
+def _unblock_stop_signals() -> None:
+    """A child inherits the blocked mask, and the SIGTERM from ``stop`` would then never arrive."""
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, _STOP_SIGNALS)
+
+
 class Children:
     """The server and device processes. ``stop`` ends every one of them."""
 
@@ -86,6 +91,7 @@ class Children:
             self.processes[name] = subprocess.Popen(
                 command,
                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+                preexec_fn=_unblock_stop_signals,
             )
 
     def check(self) -> None:

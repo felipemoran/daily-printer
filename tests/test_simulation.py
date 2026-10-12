@@ -177,9 +177,12 @@ class SimulateScriptTest(unittest.TestCase):
 
     def test_sigterm_while_running_stops_the_server_and_both_devices_and_exits_0(self):
         process, running, output = self.start_serving()
+        started = time.monotonic()
         process.send_signal(signal.SIGTERM)
         text = output()
+        self.assertLess(time.monotonic() - started, simulate.STOP_TIMEOUT / 2, "children waited for SIGKILL")
         self.assertEqual(process.returncode, 0, text)
+        self.assertRegex((self.workdir() / "server.log").read_text(), r"INFO \S+ stopped\n?$", "no clean server stop")
         self.assertNoTokenIn(text)
         self.assertStopped(running)
 
