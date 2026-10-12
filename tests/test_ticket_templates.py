@@ -20,6 +20,24 @@ HAS_WEB = (ROOT / "web" / "node_modules").is_dir()
 EFFECT_THROWS = "() => { window.React.useEffect(() => { throw new Error('effect boom'); }); return null; }"
 NEVER_SETTLES = "() => { throw new Promise(() => {}); }"
 BOX = "() => window.React.createElement('div', %s)"
+KEEPS_GROWING = """() => {
+  const [height, setHeight] = window.React.useState(10);
+  window.React.useEffect(() => {
+    const timer = setTimeout(() => setHeight(height + 1));
+    return () => clearTimeout(timer);
+  }, [height]);
+  return window.React.createElement('div', { style: { height } });
+}"""
+# The element screenshot resizes the viewport: this layout changes while it is captured.
+GROWS_ON_RESIZE = """() => {
+  const [height, setHeight] = window.React.useState(10);
+  window.React.useEffect(() => {
+    const grow = () => setHeight(300);
+    addEventListener('resize', grow);
+    return () => removeEventListener('resize', grow);
+  }, []);
+  return window.React.createElement('div', { style: { height } });
+}"""
 
 
 def setUpModule():
@@ -152,6 +170,16 @@ class RenderTest(unittest.TestCase):
         self.assertIsNotNone(region.convert("L").point(lambda value: 255 - value).getbbox(), "blank QR")
         self.assertEqual(qr()[1].tobytes(), region.tobytes())
         self.assertEqual(region.size, (111, 111))
+
+    def test_layout_that_changes_after_the_render_fails(self):
+        with self.failing_transition(KEEPS_GROWING):
+            self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
+        render_template(self.page, TICKET)
+
+    def test_layout_that_changes_during_the_screenshot_fails(self):
+        with self.failing_transition(GROWS_ON_RESIZE):
+            self.assert_template_error(TICKET, r"^render was still changing layout \(measured \d+ dots, then \d+\)$")
+        render_template(self.page, TICKET)
 
     def test_too_tall_fails_before_the_screenshot(self):
         with mock.patch.object(self.page, "locator", side_effect=AssertionError("screenshot taken")):

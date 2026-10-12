@@ -157,6 +157,16 @@ def _check_envelope(payload) -> None:
         raise TemplateError("data: expected object")
 
 
+def _length(page, landscape: bool) -> int:
+    receipt = page.evaluate(_RECEIPT_JS)
+    return receipt["width"] if landscape else receipt["height"]
+
+
+def _check_unchanged(length: int, now: int, verb: str) -> None:
+    if now != length:
+        raise TemplateError(f"render was still changing layout (measured {length} dots, {verb} {now})")
+
+
 def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Image:
     """``payload`` as a mode "1" bitmap, ``PRINT_WIDTH_DOTS`` wide. Raises TemplateError for sender faults."""
     _check_envelope(payload)
@@ -175,7 +185,12 @@ def render_template(page, payload, *, max_height_dots: int = 4000) -> Image.Imag
     misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
     if misfit:
         raise TemplateError(misfit)
+    # A screenshot can resize the viewport and reflow the page, but it keeps the clip it measured
+    # first: the print then ends in a band of page canvas or loses its end.
+    _check_unchanged(length, _length(page, landscape), "then")
     image = Image.open(io.BytesIO(page.locator("#receipt").screenshot(timeout=SCREENSHOT_TIMEOUT_MS)))
+    _check_unchanged(length, image.width if landscape else image.height, "captured")
+    _check_unchanged(length, _length(page, landscape), "then")
     if landscape:
         image = image.transpose(Image.Transpose.ROTATE_270)
     if image.width != PRINT_WIDTH_DOTS:
