@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-enfk3k-queue-robustness-and-doc-fixes-from-the-schema-rev
 title: Queue robustness and doc fixes from the schema review
-status: pending
+status: in-progress
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -9,7 +9,7 @@ labels: []
 type: fix
 parent: null
 scope: null
-phase: null
+phase: implementing
 ---
 
 ## Description
