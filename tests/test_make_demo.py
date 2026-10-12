@@ -1,9 +1,12 @@
 import base64
 import http.server
 import json
+import os
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -18,9 +21,9 @@ import simulate  # noqa: E402
 TEMPLATES = ROOT / "samples" / "templates"
 
 
-def make(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["make", "--no-print-directory", "-C", str(ROOT), *args],
-                          capture_output=True, text=True, timeout=120)
+def make(*args: str, cwd: Path = ROOT, env: dict | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run([shutil.which("make"), "--no-print-directory", "-f", str(ROOT / "Makefile"), "-C", str(cwd),
+                           *args], capture_output=True, text=True, timeout=120, env=env)
 
 
 class MakeDemoTest(unittest.TestCase):
@@ -85,6 +88,28 @@ class MakeDemoTest(unittest.TestCase):
             self.assertIn(f" {name}", result.stderr)
         self.assertEqual(self.requests, [])
 
+    def test_a_name_with_shell_code_is_refused_before_any_shell_runs(self):
+        marker = f"injected-{os.getpid()}"
+        self.addCleanup(lambda: (ROOT / marker).unlink(missing_ok=True))
+        result = make(f"demo-$(touch {marker})", self.server)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"Unknown demo '$(touch {marker})'. Valid names: agenda ", result.stderr)
+        self.assertFalse((ROOT / marker).exists())
+        self.assertEqual(self.requests, [])
+
+    def test_a_missing_curl_is_named(self):
+        result = make("demo-ticket", self.server, env={"PATH": ""})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("curl is missing; make demo-ticket needs it", result.stderr)
+        self.assertNotIn("not running", result.stderr)
+
+    def test_demo_without_web_dependencies_says_to_run_make_setup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = make("demo", cwd=Path(folder))
+            self.assertEqual(os.listdir(folder), [])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("web/node_modules is missing, so web/dist cannot be built. Run make setup first.", result.stderr)
+
     def test_a_stopped_simulation_says_to_run_make_demo(self):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -97,8 +122,7 @@ class MakeDemoTest(unittest.TestCase):
     def test_help_lists_demo_and_every_demo_name(self):
         result = make("help")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertRegex(result.stdout, r"\n  demo +Run make simulate")
-        self.assertIn("demo-<name>", result.stdout)
+        self.assertRegex(result.stdout, r"\n  demo +Run make simulate[^\n]*\n  demo-<name> +Send one sample")
         for name in [path.stem for path in TEMPLATES.glob("*.json")] + ["text", "image", "receipt"]:
             self.assertRegex(result.stdout, rf"\s{name}(\s|$)")
 

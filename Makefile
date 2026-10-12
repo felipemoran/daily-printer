@@ -5,10 +5,12 @@
 
 # Default: show help
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
-	@printf "  %-20s %s\n" "demo-<name>" "Send one sample to the running demo; <name> is one of:"
-	@echo "$(DEMO_NAMES)" | fold -s -w 72 | sed 's/ *$$//; s/^/                         /'
+	@grep -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk -v names="$(DEMO_NAMES)" 'BEGIN {FS = ":.*?## "}; {sub("%", "<name>", $$1); printf "  %-20s %s\n", $$1, $$2} \
+		$$1 == "demo-<name>" {n = split(names, word, " "); line = ""; \
+			for (i = 1; i <= n; i++) {if (length(line) + length(word[i]) > 70) {printf "%25s%s\n", "", line; line = ""} \
+				line = line (line == "" ? "" : " ") word[i]} \
+			printf "%25s%s\n", "", line}'
 
 # ── Daily workflow ────────────────────────────────────────────────────────────
 
@@ -56,11 +58,12 @@ DEMO_FILE_image := samples/test-pattern.png
 DEMO_FILE_receipt := samples/receipt-sample.json
 
 demo: ## Run make simulate, building web/dist first when it is missing
-	@test -f web/dist/index.html || $(MAKE) web-build
+	@test -f web/dist/index.html || { test -d web/node_modules || { echo "web/node_modules is missing, so web/dist cannot be built. Run make setup first." >&2; exit 2; }; $(MAKE) web-build; }
 	uv run src/scripts/simulate.py
 
-demo-%:
-	@case " $(DEMO_NAMES) " in *" $* "*) ;; *) echo "Unknown demo '$*'. Valid names: $(DEMO_NAMES)" >&2; exit 2;; esac
+demo-%: ## Send one sample to the running demo; <name> is one of:
+	$(if $(and $(filter 1,$(words $*)),$(filter $*,$(DEMO_NAMES))),,$(error Unknown demo '$*'. Valid names: $(DEMO_NAMES)))
+	@command -v curl > /dev/null || { echo "curl is missing; make demo-$* needs it to find the simulation. Install curl." >&2; exit 2; }
 	@curl -s -o /dev/null --max-time 5 "$(DEMO_SERVER)/" || { echo "The simulation is not running at $(DEMO_SERVER). Start it with make demo, then run make demo-$* in another terminal." >&2; exit 1; }
 	@PRINT_ADMIN_TOKEN=$(DEMO_TOKEN) uv run src/scripts/printctl.py --server "$(DEMO_SERVER)" \
 		send $(if $(DEMO_FILE_$*),$*,template) $(or $(DEMO_FILE_$*),samples/templates/$*.json) --printer home --title $*
