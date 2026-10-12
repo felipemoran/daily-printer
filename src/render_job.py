@@ -22,6 +22,7 @@ from raster_capture import capture_receipt
 
 KINDS = ("receipt", "image")
 MAX_HEIGHT_DOTS = 4000  # 50 cm at 8 dots/mm
+MAX_SOURCE_PIXELS = 25_000_000
 DIST_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
 
 _REJECT = "RENDER_JOB_REJECT:"
@@ -126,13 +127,18 @@ def _image_bitmap(data: bytes | None) -> Image.Image:
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
         raise RenderError(f"the upload is not a readable image: {error}") from error
     width, height = picture.size
-    if width * height > Image.MAX_IMAGE_PIXELS:
-        raise RenderError(f"the image has {width * height:,} pixels; the limit is {Image.MAX_IMAGE_PIXELS:,}")
+    limit = min(MAX_SOURCE_PIXELS, Image.MAX_IMAGE_PIXELS)
+    if width * height > limit:
+        raise RenderError(f"the image has {width * height:,} pixels; the limit is {limit:,}")
     try:
         # PngImagePlugin decodes the pixels here when no eXIf chunk precedes the image data.
-        if picture.getexif().get(ExifTags.Base.Orientation) in (5, 6, 7, 8):
+        rotated = picture.getexif().get(ExifTags.Base.Orientation) in (5, 6, 7, 8)
+        if rotated:
             width, height = height, width
         _check_height("image", max(1, round(height * PRINT_WIDTH_DOTS / width)))
+        if picture.format == "JPEG":
+            # Decodes at 1/2, 1/4 or 1/8 scale, never below the requested size.
+            picture.draft(None, (1, PRINT_WIDTH_DOTS) if rotated else (PRINT_WIDTH_DOTS, 1))
         picture.load()
     except OSError as error:
         raise RenderError(f"the upload is not a readable image: {error}") from error

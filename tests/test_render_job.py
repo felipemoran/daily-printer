@@ -17,7 +17,7 @@ sys.path.insert(0, str(_ROOT / "src"))
 import render_job  # noqa: E402
 from fake_printer import decode  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
-from render_job import MAX_HEIGHT_DOTS, RenderError, escpos_from_png, render  # noqa: E402
+from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, RenderError, escpos_from_png, render  # noqa: E402
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 SAMPLE_TASK = next(block for block in SAMPLE_PAYLOAD["blocks"] if block["type"] == "task")
@@ -146,6 +146,27 @@ class HeightCapTest(unittest.TestCase):
         with mock.patch.object(Image, "MAX_IMAGE_PIXELS", 10_000):
             with self.assertRaises(RenderError):
                 render("image", image=upload)
+
+    def test_source_over_the_pixel_cap_is_rejected_from_its_header_before_decoding(self):
+        side = int(MAX_SOURCE_PIXELS ** 0.5) + 1
+        out = io.BytesIO()
+        Image.new("1", (side, side), 1).save(out, format="PNG")
+        self.assertLess(len(out.getvalue()), 1_000_000)
+        with mock.patch.object(ImageFile.ImageFile, "load") as load:
+            with self.assertRaisesRegex(RenderError, f"limit is {MAX_SOURCE_PIXELS:,}"):
+                render("image", image=out.getvalue())
+        load.assert_not_called()
+
+    def test_large_jpeg_is_decoded_near_print_width(self):
+        cases = {"landscape": (_photo((4000, 3000), "RGB", "JPEG"), 0),
+                 "rotated by EXIF": (_photo((4000, 3000), "RGB", "JPEG", exif=_rotated_exif()), 1)}
+        for name, (upload, printed_side) in cases.items():
+            with self.subTest(name), mock.patch.object(render_job, "prepare", wraps=render_job.prepare) as prepare:
+                rendered = render("image", image=upload)
+                decoded = prepare.call_args.args[0].size
+                self.assertGreaterEqual(decoded[printed_side], PRINT_WIDTH_DOTS)
+                self.assertLess(decoded[printed_side], 2 * PRINT_WIDTH_DOTS)
+                self.assertEqual(rendered.width, PRINT_WIDTH_DOTS)
 
     def test_receipt_taller_than_the_cap_is_rejected_before_the_screenshot(self):
         long_payload = {**SAMPLE_PAYLOAD, "blocks": SAMPLE_PAYLOAD["blocks"] + [SAMPLE_TASK] * 2000}
