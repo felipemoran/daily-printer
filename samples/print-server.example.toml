@@ -1,0 +1,36 @@
+# Print server config. Copy it out of the repo, replace every token, then: chmod 600 <file>
+# The server refuses to start when other users can read this file.
+# Every token must be unique and at least 24 characters. Make one with:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+[server]
+host = "127.0.0.1"                  # listen address; the Cloudflare Tunnel connects here
+port = 8787
+database = "data/print-server.db"   # SQLite queue; a relative path starts at this file's directory
+admin_token = "REPLACE-ME-admin-token-0000000000"   # for printctl and the admin API
+
+# Optional. Without [access], the server refuses every web sender.
+[access]
+team_domain = "your-team.cloudflareaccess.com"      # Zero Trust team domain
+audience = "REPLACE-ME-application-audience-tag"    # the Access application's AUD tag
+web_rate_limit = 10                 # jobs per sender email per 10 minutes
+# Logins that may open the admin web UI; default none. Case does not matter.
+# admin_emails = ["you@example.com"]
+
+# One table per printer. The id after "printers." goes in job requests:
+# lowercase letters, digits and single hyphens.
+[printers.home]
+name = "Home"                       # shown in the web form and printctl
+place = "Home office"
+token = "REPLACE-ME-home-printer-token-000"         # the device logs in with this
+public = true                       # web senders may print here; default false
+
+[printers.office]
+name = "Office"
+place = "Desk at work"
+token = "REPLACE-ME-office-printer-token-0"
+
+# One table per job producer: a cron job, a script, a webhook.
+# The id is recorded as the job's source.
+[clients.morning-brief]
+token = "REPLACE-ME-morning-brief-token-00"
