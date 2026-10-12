@@ -137,7 +137,26 @@ class TemplateRenderErrorTest(unittest.TestCase):
     def test_render_taller_than_the_server_cap_is_a_render_error(self):
         # The ticket sample is far shorter than 4000 dots, so the test lowers the cap below it.
         with mock.patch.object(render_job, "MAX_HEIGHT_DOTS", 100):
-            with self.assertRaisesRegex(RenderError, "dots long; the limit is 100$"):
+            with self.assertRaisesRegex(RenderError, "cm long; the limit is 1.25 cm$"):
+                render("template", payload=TICKET)
+
+    def test_envelope_faults_are_render_errors_before_chromium_launches(self):
+        cases = {
+            "unknown template": ({**TICKET, "template": "nope"}, '^unknown template "nope"'),
+            "70 KB payload": ({**TICKET, "data": {**TICKET["data"], "note": "x" * 70_000}},
+                              r"^payload: \d+ bytes; the limit is 65536$"),
+            "data not an object": ({**TICKET, "data": ["not", "a", "dict"]}, "^data: expected object$"),
+        }
+        for name, (payload, message) in cases.items():
+            with self.subTest(name), mock.patch.object(render_job, "sync_playwright") as playwright:
+                with self.assertRaisesRegex(RenderError, message):
+                    render("template", payload=payload)
+                playwright.assert_not_called()
+
+    def test_server_fault_from_render_template_stays_a_runtime_error(self):
+        fault = RuntimeError("server fault: render.html has no renderTemplate; rebuild web/dist")
+        with mock.patch.object(render_job, "render_template", side_effect=fault):
+            with self.assertRaisesRegex(RuntimeError, "^server fault: "):
                 render("template", payload=TICKET)
 
 

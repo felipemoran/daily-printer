@@ -19,7 +19,7 @@ from photo_dither import dither, prepare
 from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, to_bitmap
 from printer import DOTS_PER_MM, PRINT_WIDTH_DOTS
 from raster_capture import capture_receipt
-from ticket_templates import TemplateError, open_render_page, render_template
+from ticket_templates import TemplateError, check_envelope, open_render_page, render_template
 
 KINDS = ("receipt", "image", "template")
 MAX_HEIGHT_DOTS = 500 * DOTS_PER_MM
@@ -123,17 +123,19 @@ def _receipt_bitmap(payload: dict | None) -> Image.Image:
 
 
 def _template_bitmap(payload: dict | None) -> Image.Image:
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            return render_template(open_render_page(browser), payload, max_height_dots=MAX_HEIGHT_DOTS)
-        except TemplateError as error:
-            raise RenderError(str(error)) from None
-        # Playwright serializes the payload recursively; about 900 levels exhaust Python's stack.
-        except RecursionError:
-            raise RenderError("the payload is nested too deeply") from None
-        finally:
-            browser.close()
+    try:
+        check_envelope(payload)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                return render_template(open_render_page(browser), payload, max_height_dots=MAX_HEIGHT_DOTS)
+            finally:
+                browser.close()
+    except TemplateError as error:
+        raise RenderError(str(error)) from None
+    # Playwright serializes the payload recursively; about 900 levels exhaust Python's stack.
+    except RecursionError:
+        raise RenderError("the payload is nested too deeply") from None
 
 
 def _image_bitmap(data: bytes | None) -> Image.Image:

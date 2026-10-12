@@ -372,6 +372,20 @@ class IntakeTest(ServerTestCase):
         self.assertIn("Traceback", self.logs.text())
         self.assertEqual(self.queue.jobs(), [])
 
+    async def test_template_envelope_fault_is_422_and_server_fault_is_generic_500(self):
+        ticket = json.loads((_TESTS.parent / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
+        job = {"printer": "home", "kind": "template", "payload": {**ticket, "template": "nope"}}
+        status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
+        self.assertEqual(status, 422, body)
+        self.assertIn('unknown template "nope"', body["error"])
+        fault = RuntimeError("server fault: render.html has no renderTemplate; rebuild web/dist")
+        with mock.patch("render_job.render_template", side_effect=fault):
+            job = {**job, "payload": ticket}
+            status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
+        self.assertEqual(status, 500, body)
+        self.assertEqual(body["error"], "rendering failed on the server")
+        self.assertEqual(self.queue.jobs(), [])
+
     async def test_body_over_10_mb_is_413(self):
         oversized = json.dumps(self.image_job(image="A" * (10 * 1024 * 1024))).encode()
         status, body = await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), data=io.BytesIO(oversized))
