@@ -18,7 +18,7 @@ import usb.core
 from escpos.exceptions import DeviceNotFoundError
 from escpos.printer import Usb
 
-from fake_printer import decode
+from fake_printer import RASTER, decode
 from printer import PRODUCT_ID, VENDOR_ID
 
 CLIENT_VERSION = "python/1"
@@ -87,7 +87,7 @@ class UsbSink:
 
 
 class FakeSink:
-    """Saves each job as ``<out_dir>/<job_id>.png`` (and the raw ``.bin``) in place of printing."""
+    """Saves each job as ``<out_dir>/<job_id>.bin``, and its raster as ``.png``, in place of printing."""
 
     def __init__(self, out_dir: Path) -> None:
         self.out_dir = out_dir
@@ -107,6 +107,8 @@ class FakeSink:
         data = bytes(self._buffer)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         (self.out_dir / f"{self._job_id}.bin").write_bytes(data)
+        if RASTER not in data:
+            return
         try:
             page = decode(data)
         except ValueError as error:

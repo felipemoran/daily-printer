@@ -231,7 +231,7 @@ class _Api:
         if not number or not 1 <= expires_in <= MAX_EXPIRES_IN:
             raise ApiError(400, f"expires_in must be a number of seconds from 1 to {MAX_EXPIRES_IN}")
         payload = image = None
-        if kind in ("receipt", "template"):
+        if kind in ("receipt", "template", "text"):
             payload = body.get("payload")
             if not isinstance(payload, dict):
                 raise ApiError(400, f"a {kind} job needs a payload object")

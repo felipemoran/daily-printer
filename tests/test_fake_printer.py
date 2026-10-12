@@ -82,12 +82,22 @@ class FakeSinkTest(_ImageTestCase):
             self.assertEqual((Path(tmp) / "job-2.bin").read_bytes(), second)
             self.assertFalse((Path(tmp) / "job-1.bin").exists())
 
-    def test_undecodable_bytes_are_a_sink_error(self):
+    def test_a_job_without_a_raster_saves_its_bytes_and_no_png(self):
+        data = b"\x1b@\x1c.\x1b3\x18\x1bt\x00 BUILD FAILED\n api    \xdb\xdb\xb0\n\x1b2\n\n\n"
         with tempfile.TemporaryDirectory() as tmp:
             sink = FakeSink(Path(tmp))
             sink.start("job-1")
-            sink.write(b"\x1b@hello\n")
-            with self.assertRaisesRegex(SinkError, "no GS v 0"):
+            sink.write(data)
+            sink.finish()
+            self.assertEqual((Path(tmp) / "job-1.bin").read_bytes(), data)
+            self.assertFalse((Path(tmp) / "job-1.png").exists())
+
+    def test_truncated_raster_is_a_sink_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = FakeSink(Path(tmp))
+            sink.start("job-1")
+            sink.write(_escpos_bytes(_pattern(50))[:-200])
+            with self.assertRaisesRegex(SinkError, "cut short"):
                 sink.finish()
             self.assertFalse((Path(tmp) / "job-1.png").exists())
 

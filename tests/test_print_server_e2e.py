@@ -40,6 +40,7 @@ from test_http_api import (  # noqa: E402
 TIMEOUT = 30
 SCRIPT = _TESTS.parent / "src" / "scripts" / "print_server.py"
 TICKET = json.loads((_TESTS.parent / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
+BUILD = json.loads((_TESTS.parent / "samples" / "templates" / "build.json").read_text(encoding="utf-8"))
 
 
 class RecordingSink(FakeSink):
@@ -178,6 +179,19 @@ class EndToEndTest(ServerTestCase):
         self.assertIn('unknown template "nope"', str(body))
         self.assertEqual([job.id for job in self.queue.jobs()], [job_id])
         self.assertEqual(home.printed, [job_id])
+        self.assertAllEventsMatchStatus()
+
+    async def test_a_text_job_delivers_its_exact_bytes_and_is_confirmed_printed(self):
+        _, home = self.start_device(HOME_TOKEN, "home")
+        await self.until(lambda: self.hub.online("home"))
+
+        job_id = await self.submit("home", kind="text", title="NIGHTLY 1184", payload=BUILD)
+        await self.until(lambda: self.status(job_id) == "printed")
+        self.assertEqual((home.out_dir / f"{job_id}.bin").read_bytes(), self.queued[job_id])
+        self.assertTrue(self.queued[job_id].startswith(b"\x1b@"))
+        self.assertFalse((home.out_dir / f"{job_id}.png").exists())
+        self.assertEqual(home.printed, [job_id])
+        self.assertEqual((self.queue.job(job_id).kind, self.queue.job(job_id).width), ("text", 384))
         self.assertAllEventsMatchStatus()
 
     async def test_a_restart_mid_job_delivers_the_job_again_as_a_duplicate(self):

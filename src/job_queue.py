@@ -290,6 +290,8 @@ class JobQueue:
                 raise JobNotFinal(f"job {job_id} is still {status}")
             if png is None:
                 return None
+            # The copy prints the stored PNG as a raster, so a text job comes back as a template one.
+            kind = "template" if kind == "text" else kind
             job = self._insert(printer, data, kind=kind, title=title, source=source, ingress=ingress, png=png,
                                width=width, height=height, render_ms=render_ms, expires_at=now + lifetime, now=now)
             self._event(job.id, now, Event.RECEIVED, f"{source} via {ingress}, reprint of {job_id}")

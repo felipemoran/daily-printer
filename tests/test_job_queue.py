@@ -327,6 +327,17 @@ class ReprintTest(QueueTestCase):
         self.assertEqual([e.event for e in events[:2]], [Event.RECEIVED, Event.RENDERED])
         self.assertEqual(events[0].detail, f"admin via cli, reprint of {original.id}")
 
+    def test_reprint_of_a_text_job_is_a_template_job_because_it_prints_the_png_raster(self):
+        original = self.queue.add("home", b"\x1b@ BUILD FAILED\n\n\n\n", kind="text", title="NIGHTLY",
+                                  source="ci", ingress="api", png=PNG, width=PRINT_WIDTH_DOTS,
+                                  height=RASTER.height, render_ms=900, expires_in=3600, now=0)
+        self.queue.take("home", now=1)
+        self.queue.confirm(original.id, now=2)
+
+        copy = self.reprint(original.id, "home", _escpos(RASTER), now=100)
+        self.assertEqual((copy.kind, self.queue.job(original.id, now=100).kind), ("template", "text"))
+        self.assertEqual(self.queue.png(copy.id), PNG)
+
     def test_reprint_refuses_a_job_that_is_still_queued_or_sending(self):
         queued = self.add("home", now=0)
         sending = self.add("work", now=0)

@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from PIL import Image
 
-_RASTER = b"\x1dv0"  # GS v 0
-_HEADER_SIZE = len(_RASTER) + 5  # m xL xH yL yH
+RASTER = b"\x1dv0"  # GS v 0
+_HEADER_SIZE = len(RASTER) + 5  # m xL xH yL yH
 
 
 def decode(data: bytes) -> Image.Image:
     """Stack every GS v 0 raster in ``data``, top to bottom. Other commands are skipped."""
     blocks = []
-    start = data.find(_RASTER)
+    start = data.find(RASTER)
     while start != -1:
-        header = data[start + len(_RASTER):start + _HEADER_SIZE]
+        header = data[start + len(RASTER):start + _HEADER_SIZE]
         if len(header) < 5:
             raise ValueError("GS v 0 header is cut short")
         mode, xl, xh, yl, yh = header
@@ -25,7 +25,7 @@ def decode(data: bytes) -> Image.Image:
             raise ValueError("GS v 0 pixel data is cut short")
         # ESC/POS uses 1 for black; Pillow's "1;I" raw mode reads that bit order.
         blocks.append(Image.frombytes("1", (width_bytes * 8, height), data[start + _HEADER_SIZE:end], "raw", "1;I"))
-        start = data.find(_RASTER, end)
+        start = data.find(RASTER, end)
     if not blocks:
         raise ValueError("no GS v 0 raster image in the data")
 

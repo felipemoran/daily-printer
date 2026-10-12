@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from escpos.constants import HW_INIT
 from PIL import Image, ImageChops, ImageDraw, ImageFile
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, sync_playwright
@@ -17,12 +18,15 @@ sys.path.insert(0, str(_ROOT / "src"))
 import render_job  # noqa: E402
 from fake_printer import decode  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
-from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, RenderError, escpos_from_png, render  # noqa: E402
+from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, TEXT_FEED, RenderError, escpos_from_png, render  # noqa: E402
+from ticket_templates import open_render_page, render_template, render_text  # noqa: E402
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 SAMPLE_TASK = next(block for block in SAMPLE_PAYLOAD["blocks"] if block["type"] == "task")
 TEMPLATE_SAMPLES = sorted((_ROOT / "samples" / "templates").glob("*.json"))
 TICKET = json.loads((_ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
+BUILD = json.loads((_ROOT / "samples" / "templates" / "build.json").read_text(encoding="utf-8"))
+BUILD_PASSED = {**BUILD, "data": {**BUILD["data"], "status": "passed", "failures": []}}
 # A Chromium launch plus a rejected render; far below the 30 s screenshot wait.
 FAST_REJECT_SECONDS = 10
 
@@ -104,6 +108,51 @@ class TicketTemplateRenderTest(RenderInvariants, unittest.TestCase):
         cls.rendered = render("template", payload=TICKET)
 
 
+class TextRenderTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cases = {"failed": BUILD, "passed": BUILD_PASSED}
+        cls.rendered = {name: render("text", payload=payload) for name, payload in cls.cases.items()}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = open_render_page(browser)
+                cls.expected = {
+                    name: (render_template(page, payload, max_height_dots=MAX_HEIGHT_DOTS), render_text(page, payload))
+                    for name, payload in cls.cases.items()
+                }
+            finally:
+                browser.close()
+
+    def test_text_bytes_are_init_then_body_then_the_feed(self):
+        for name, rendered in self.rendered.items():
+            with self.subTest(name):
+                self.assertTrue(rendered.escpos.startswith(HW_INIT))
+                self.assertTrue(rendered.escpos.endswith(b"\x1b2" + TEXT_FEED))
+                self.assertEqual(rendered.escpos, HW_INIT + self.expected[name][1] + TEXT_FEED)
+
+    def test_text_bytes_hold_no_raster(self):
+        for name, rendered in self.rendered.items():
+            with self.subTest(name):
+                self.assertNotIn(b"\x1dv0", rendered.escpos)
+
+    def test_preview_png_equals_the_render_template_bitmap(self):
+        for name, rendered in self.rendered.items():
+            with self.subTest(name):
+                bitmap = self.expected[name][0]
+                png = Image.open(io.BytesIO(rendered.png))
+                self.assertEqual((rendered.width, rendered.height), bitmap.size)
+                self.assertEqual(png.size, bitmap.size)
+                self.assertIsNone(ImageChops.difference(png.convert("L"), bitmap.convert("L")).getbbox())
+
+    def test_the_two_statuses_print_different_bodies(self):
+        self.assertNotEqual(self.rendered["failed"].escpos, self.rendered["passed"].escpos)
+
+    def test_template_without_a_text_mode_is_a_render_error(self):
+        with self.assertRaisesRegex(RenderError, '^template "ticket" has no text mode$'):
+            render("text", payload=TICKET)
+
+
 class TemplateSamplesTest(unittest.TestCase):
     def test_every_template_sample_prints_exactly_its_bitmap_at_print_width(self):
         self.assertGreater(len(TEMPLATE_SAMPLES), 1)
@@ -147,11 +196,12 @@ class TemplateRenderErrorTest(unittest.TestCase):
                               r"^payload: \d+ bytes; the limit is 65536$"),
             "data not an object": ({**TICKET, "data": ["not", "a", "dict"]}, "^data: expected object$"),
         }
-        for name, (payload, message) in cases.items():
-            with self.subTest(name), mock.patch.object(render_job, "sync_playwright") as playwright:
-                with self.assertRaisesRegex(RenderError, message):
-                    render("template", payload=payload)
-                playwright.assert_not_called()
+        for kind in ("template", "text"):
+            for name, (payload, message) in cases.items():
+                with self.subTest(kind=kind, case=name), mock.patch.object(render_job, "sync_playwright") as playwright:
+                    with self.assertRaisesRegex(RenderError, message):
+                        render(kind, payload=payload)
+                    playwright.assert_not_called()
 
     def test_server_fault_from_render_template_stays_a_runtime_error(self):
         fault = RuntimeError("server fault: render.html has no renderTemplate; rebuild web/dist")

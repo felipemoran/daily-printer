@@ -4,7 +4,7 @@ A print server takes jobs over HTTP, renders each one to a 1-bit image, and send
 
 ## Run it locally
 
-Receipt and template jobs render in Chromium from the built web app. On a fresh clone, run `make setup` and `make web-build` first.
+Receipt, template and text jobs render in Chromium from the built web app. On a fresh clone, run `make setup` and `make web-build` first.
 
 | Command | Does |
 |---|---|
@@ -62,6 +62,7 @@ The page at `/` lets a person send a message (printed as a receipt) or a photo. 
 | `receipt` | Receipt JSON, as in `samples/receipt-sample.json` | `payload` |
 | `image` | A photo or picture, dithered to 384 dots wide | `image`, the file as base64 |
 | `template` | `{template, schemaVersion, data}`; templates and their rules: `docs/feature-ticket-templates.md` | `payload` |
+| `text` | The `template` envelope, printed as native ESC/POS text; only a template with a text mode (`build`) | `payload` |
 
 ## Watch and control
 

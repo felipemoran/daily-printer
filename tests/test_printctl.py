@@ -257,6 +257,20 @@ class SendTest(PrintctlTestCase):
         self.assertIn("(HTTP 422)", err)
         self.assertEqual([queued.id for queued in self.server.call(self.server.queue.jobs)], [job.id])
 
+    def test_send_text_queues_native_text_and_refuses_a_template_without_a_text_mode(self):
+        templates = _TESTS.parent / "samples" / "templates"
+        out = self.ok("send", "text", str(templates / "build.json"), "--printer", "home", "--title", "NIGHTLY")
+        job = self.job(re.search(r"Queued (\w+) for home", out)[1])
+        self.assertEqual((job.kind, job.title, job.width), ("text", "NIGHTLY", 384))
+        data = self.server.call(self.server.queue.take, "home").data
+        self.assertTrue(data.startswith(b"\x1b@"))
+        self.assertNotIn(b"\x1dv0", data)
+
+        err = self.fails("send", "text", str(templates / "ticket.json"), "--printer", "home")
+        self.assertIn('template "ticket" has no text mode', err)
+        self.assertIn("(HTTP 422)", err)
+        self.assertEqual([queued.id for queued in self.server.call(self.server.queue.jobs)], [job.id])
+
     def test_expires_accepts_minutes_hours_and_days_only(self):
         for text, seconds in {"30m": 1800, "2h": 7200, "1d": 86400, "45M": 2700}.items():
             self.assertEqual(printctl.expiry_seconds(text), seconds)
