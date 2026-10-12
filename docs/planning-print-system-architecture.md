@@ -51,7 +51,7 @@ These rules go into device firmware, so they are expensive to change later.
 - Each device has its own token. Every job is addressed to one printer id.
 - The server sends a job as a series of small binary frames, about 4 KB each. The device writes each frame to USB as it arrives. An ESP32 never holds a whole job in memory.
 - The device confirms a job after the last frame is written to the printer.
-- The device sends a heartbeat, and reconnects with a growing delay when the connection drops.
+- The server sends `ping` every 20 s, and the device answers `pong`. The device reconnects with a growing delay when the connection drops.
 
 ## Job lifecycle
 
@@ -131,6 +131,8 @@ Tokens are plain text. The config file must have mode 0600.
 
 The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token or an Access email in `admin_emails`. A web sender may print only on `public` printers.
 
+An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403.
+
 ### HTTP API (JSON)
 
 | Method and path | Who | Does |
@@ -141,7 +143,7 @@ The tunnel makes every request arrive from localhost, so the server never trusts
 | `GET /api/jobs/{id}/image` | admin | The rendered 1-bit PNG |
 | `POST /api/jobs/{id}/cancel` | admin | Cancel |
 | `POST /api/jobs/{id}/reprint` | admin | Body: optional `printer`. Queues a new job from the stored PNG, recorded with the admin as `source`. 409 when the original is still queued or sending. |
-| `POST /api/printers/{id}/clear` | admin | Cancel every queued job of the printer |
+| `POST /api/printers/{id}/clear` | admin | Cancel every queued and sending job of the printer |
 | `POST /api/printers/{id}/move` | admin | Body: `to`. Moves the queued jobs to another printer. |
 | `GET /api/printers` | admin | Printer state (see below) |
 | `GET /api/stats` | admin | Aggregates (see below) |
