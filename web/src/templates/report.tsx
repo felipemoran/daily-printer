@@ -3,9 +3,12 @@ import T from '../thermal'
 import { defineTemplate } from './define'
 import { array, boolean, limitedString, number, object, optional, string, TemplateDataError, type Parser } from './validate'
 
+// Up to 1e12 every amount fits in 4 characters, as compact notation at worst ("1T").
+const MAX_AMOUNT = 1e12
+
 const amount: Parser<number> = (value, path) => {
   const parsed = number(value, path)
-  if (!Number.isFinite(parsed) || parsed < 0) throw new TemplateDataError(`${path}: expected a non-negative number`)
+  if (!(parsed >= 0 && parsed <= MAX_AMOUNT)) throw new TemplateDataError(`${path}: expected a number from 0 to 1e12`)
   return parsed
 }
 
@@ -20,14 +23,31 @@ const parse = object({
   range: string,
   title: string,
   kpis: array(object({ label: string, value: limitedString(6), note: optional(string), inverted: optional(boolean) }), 4),
-  channels: array(object({ label: string, value: amount, prev: amount }), 8),
-  days: array(object({ label: string, value: amount }), 7),
+  channels: array(object({ label: limitedString(7), value: amount, prev: amount }), 8),
+  days: array(object({ label: limitedString(4), value: amount }), 7),
 })
 
-const format = (value: number) => value.toLocaleString('en-US')
+// Plex Mono 16px is 9.6px a glyph: 5 fit the 52px BarList value cell, 4 the 46px column of 7 days.
+const BAR_VALUE_CHARS = 5
+const COLUMN_CHARS = 4
+
+const FORMATS = ([
+  { maximumFractionDigits: 2 }, { maximumFractionDigits: 1 }, { maximumFractionDigits: 0 },
+  { notation: 'compact', maximumSignificantDigits: 3 }, { notation: 'compact', maximumSignificantDigits: 2 },
+  { notation: 'compact', maximumSignificantDigits: 1 },
+] as const).map((options) => new Intl.NumberFormat('en-US', options))
+
+// The most precise form that fits: a clipped number would print as a different number.
+const fit = (value: number, chars: number) => {
+  const texts = FORMATS.map((format) => format.format(value))
+  return texts.find((text) => text.length <= chars) ?? texts[texts.length - 1]
+}
 
 // The largest value spans the full bar; all zeros draw no bars.
 const fraction = (value: number, max: number) => (max > 0 ? value / max : 0)
+const sectionGap = { marginTop: 'var(--space-8)' }
+// A 3-up tile is 90px wide: too narrow for a 6-character value. An odd count stacks 1-up.
+const kpiColumns = (count: number) => (count % 2 ? 1 : 2)
 const widest = (values: number[]) => Math.max(0, ...values)
 
 export default defineTemplate({
@@ -42,15 +62,15 @@ export default defineTemplate({
         {data.kpis.length ? (
           <>
             <div style={{ height: 'var(--space-6)' }} />
-            <T.StatTiles columns={2} items={data.kpis} />
+            <T.StatTiles columns={kpiColumns(data.kpis.length)} items={data.kpis} />
           </>
         ) : null}
         {data.channels.length ? (
           <>
-            <T.SectionLabel>BY CHANNEL</T.SectionLabel>
+            <T.SectionLabel style={sectionGap}>BY CHANNEL</T.SectionLabel>
             <T.BarList
               rows={data.channels.map(({ label, value, prev }) => ({
-                label, value: format(value), a: fraction(value, channelMax), b: fraction(prev, channelMax),
+                label, value: fit(value, BAR_VALUE_CHARS), a: fraction(value, channelMax), b: fraction(prev, channelMax),
               }))}
               legend={['THIS WEEK', 'LAST WEEK']}
             />
@@ -58,9 +78,9 @@ export default defineTemplate({
         ) : null}
         {data.days.length ? (
           <>
-            <T.SectionLabel>DAILY VOLUME</T.SectionLabel>
+            <T.SectionLabel style={sectionGap}>DAILY VOLUME</T.SectionLabel>
             {/* Columns scales by max(values, 1): fractions make the tallest day full height. */}
-            <T.Columns data={data.days.map(({ label, value }) => ({ label, value: fraction(value, dayMax), label2: format(value) }))} />
+            <T.Columns data={data.days.map(({ label, value }) => ({ label, value: fraction(value, dayMax), label2: fit(value, COLUMN_CHARS) }))} />
           </>
         ) : null}
       </>

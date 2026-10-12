@@ -24,10 +24,26 @@ _GEOMETRY_JS = """
     a: widths('#receipt .rp-bar-a'),
     b: widths('#receipt .rp-bar-b'),
     columns: [...document.querySelectorAll('#receipt .rp-col-bar')].map((bar) => bar.getBoundingClientRect().height),
+    bars: [...document.querySelectorAll('#receipt .rp-barrow-v')].map((label) => label.textContent),
     values: [...document.querySelectorAll('#receipt .rp-col > span')].map((label) => label.textContent),
+    kpiColumns: [...document.querySelectorAll('#receipt .rp-tiles')].map((grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length)[0],
   };
 }
 """
+
+# Text that is clipped by its cell, spills out of its parent, or runs off the paper.
+_OVERFLOW_JS = """
+() => {
+  const paper = document.querySelector('#receipt').getBoundingClientRect();
+  const selector = '.rp-barrow-l, .rp-barrow-v, .rp-col > span, .rp-cols-x span, .rp-tile-v';
+  return [...document.querySelectorAll(selector)].filter((cell) => {
+    const box = cell.getBoundingClientRect(), parent = cell.parentElement.getBoundingClientRect();
+    return cell.scrollWidth > cell.clientWidth || box.left < parent.left || box.right > parent.right
+      || box.left < paper.left || box.right > paper.left + 384;
+  }).map((cell) => `${cell.className || cell.parentElement.className}: ${cell.textContent}`);
+}
+"""
+BIG = [9999, 12345, 123456, 1234567, 999.5, 0.25, 1e12]
 
 
 def setUpModule():
@@ -91,9 +107,30 @@ class ReportTest(unittest.TestCase):
     def test_empty_lists_still_render_the_masthead(self):
         self.geometry(report(kpis=[], channels=[], days=[]))
 
+    def test_large_numbers_fit_their_cells(self):
+        image = render_template(self.page, report(
+            kpis=[{"label": "TICKETS IN", "value": "12,345"}] * 3,
+            channels=[{"label": "WWWWWWW", "value": value, "prev": 0} for value in BIG],
+            days=[{"label": "WWWW", "value": value} for value in BIG],
+        ))
+        self.assertEqual(image.width, 384)
+        self.assertEqual(self.page.evaluate(_OVERFLOW_JS), [])
+        geometry = self.page.evaluate(_GEOMETRY_JS)
+        self.assertEqual(geometry["bars"], ["9,999", "12.3K", "123K", "1.23M", "999.5", "0.25", "1T"])
+        self.assertEqual(geometry["values"], ["10K", "12K", "123K", "1.2M", "1K", "0.25", "1T"])
+
+    def test_kpi_grid_has_no_empty_tile(self):
+        for count, columns in ((1, 1), (2, 2), (3, 1), (4, 2)):
+            with self.subTest(count):
+                geometry = self.geometry(report(kpis=REPORT["data"]["kpis"][:count]))
+                self.assertEqual(geometry["kpiColumns"], columns)
+
     def test_invalid_data(self):
         for data, pattern in (
-            ({"channels": [{"label": "A", "value": -1, "prev": 0}]}, r"^data\.channels\[0\]\.value: expected a non-negative number$"),
+            ({"channels": [{"label": "A", "value": -1, "prev": 0}]}, r"^data\.channels\[0\]\.value: expected a number from 0 to 1e12$"),
+            ({"days": [{"label": "M", "value": 1e12 + 1}]}, r"^data\.days\[0\]\.value: expected a number from 0 to 1e12$"),
+            ({"channels": [{"label": "SOCIAL M", "value": 1, "prev": 1}]}, r"^data\.channels\[0\]\.label: expected at most 7 characters$"),
+            ({"days": [{"label": "WEDNE", "value": 1}]}, r"^data\.days\[0\]\.label: expected at most 4 characters$"),
             ({"days": [{"label": "M", "value": "3"}]}, r"^data\.days\[0\]\.value: expected number$"),
             ({"days": [{"label": "M", "value": 1}] * 8}, r"^data\.days: expected at most 7 items$"),
             ({"channels": [{"label": "A", "value": 1, "prev": 1}] * 9}, r"^data\.channels: expected at most 8 items$"),
