@@ -301,7 +301,9 @@ class _Api:
 
     async def get_job(self, request: web.Request) -> web.Response:
         await self.admin(request)
-        return web.json_response(_job_json(self.job(request), events=True))
+        job = self.job(request)
+        folder = self.artifacts.folder(job.id)
+        return web.json_response({**_job_json(job, events=True), "artifacts": str(folder) if folder.is_dir() else None})
 
     async def job_image(self, request: web.Request) -> web.Response:
         await self.admin(request)

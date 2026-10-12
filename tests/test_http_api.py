@@ -544,6 +544,7 @@ class AdminTest(ServerTestCase):
         self.assertEqual(status, 200)
         self.assertEqual([event["event"] for event in body["events"]], ["received", "rendered"])
         self.assertEqual(body["events"][0]["job_id"], job.id)
+        self.assertEqual(body["artifacts"], str(artifacts_root(self.config.database) / job.id))
         status, _ = await self.call("GET", "/api/jobs/00000000", self.admin)
         self.assertEqual(status, 404)
 

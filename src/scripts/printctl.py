@@ -250,7 +250,7 @@ def _parser() -> argparse.ArgumentParser:
     jobs.add_argument("--status", help="only this status: queued, sending, printed, failed, expired, cancelled")
     jobs.add_argument("--limit", type=int, default=20, help="at most this many jobs (default: 20)")
 
-    show = commands.add_parser("show", help="show a job and its event timeline")
+    show = commands.add_parser("show", help="show a job, its artifact folder on the server and its event timeline")
     show.add_argument("id")
 
     image = commands.add_parser("image", help="save the rendered PNG of a job")
@@ -370,6 +370,7 @@ def cmd_show(args, client: Client, out: TextIO, style: Style) -> None:
         ("rendered in", f"{job['render_ms']} ms"),
         ("created", f"{local_time(job['created_at'])} ({age(job['created_at'])})"),
         ("expires", f"{local_time(job['expires_at'])} ({age(job['expires_at'])})"),
+        ("artifacts", job["artifacts"] or style("missing on the server", "red")),
     ]
     if job["printed_at"] is not None:
         pairs.append(("printed", f"{local_time(job['printed_at'])} ({age(job['printed_at'])})"))

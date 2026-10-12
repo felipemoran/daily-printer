@@ -347,6 +347,13 @@ class JobCommandsTest(PrintctlTestCase):
         self.assertEqual(timeline[-1], "printed")
         self.assertIn(printctl.local_time(self.job(job.id).printed_at), out)
 
+    def test_show_prints_the_artifact_folder_or_says_it_is_missing(self):
+        job = self.add_job()
+        folder = artifacts_root(self.server.config.database) / job.id
+        self.assertRegex(self.ok("show", job.id), rf"\nartifacts +{re.escape(str(folder))}\n")
+        shutil.rmtree(folder)
+        self.assertRegex(self.ok("show", job.id), r"\nartifacts +missing on the server\n")
+
     def test_show_reports_an_unknown_job(self):
         self.assertIn("unknown job (HTTP 404)", self.fails("show", "nosuchjob"))
 
