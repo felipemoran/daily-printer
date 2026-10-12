@@ -89,7 +89,7 @@ The server keeps every job as it was created, in `<directory of the database>/ar
 
 | File | What it is | Kinds |
 |---|---|---|
-| `payload.json` | The `payload` of the request, as JSON | receipt, template, text |
+| `payload.json` | The `payload` of the request, as compact JSON | receipt, template, text |
 | `source.<ext>` | The uploaded file, byte for byte; `<ext>` from its format, e.g. `jpg` | image |
 | `page.mhtml` | The rendered page with its style sheets, images and web fonts, as Chromium's MHTML. For `text`, the preview page. Chrome opens it offline. | receipt, template, text |
 | `screenshot.png` | Chromium's capture of `#receipt`, before rotation and the 1-bit conversion. A landscape template's capture runs along the paper. | receipt, template, text |
@@ -99,8 +99,6 @@ The server keeps every job as it was created, in `<directory of the database>/ar
 
 Chromium's MHTML writer leaves web fonts out. Before the snapshot, the server adds a copy of each fetched `@font-face` rule with the font file as a `data:` URL, so the fonts travel in a style sheet part. The receipt app draws in system fonts (Tahoma, Verdana), which no archive carries: its `page.mhtml` shows in the fonts of the machine that opens it.
 
-The server reads `web/dist` for `web_dist_sha256` once, at the first job after start. Restart the server after `make web-build`, or later jobs record the old digest.
-
 Disk use per job, measured 2026-10-12 on the samples in `samples/templates/` and `samples/receipt-sample.json`:
 
 | Job | Disk |
@@ -109,7 +107,7 @@ Disk use per job, measured 2026-10-12 on the samples in `samples/templates/` and
 | `text` (`build`) | 180 KB |
 | `receipt` (the sample) | 110 KB |
 | `image` | the upload, plus `print.png` and `job.escpos` |
-| reprint | one new `meta.json`; the other files are hard links to the original's |
+| reprint | the same as the original: the reprint holds its own copy of every file |
 
 ## Run a real device
 

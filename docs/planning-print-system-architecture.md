@@ -176,10 +176,12 @@ Write order:
 
 1. The server writes the files into `artifacts/.tmp-<random>/`.
 2. It inserts the job, and renames the folder to the job id in the same SQLite transaction.
-3. A failed write or rename refuses the job with 500, and leaves no folder and no job.
+3. A failed write, rename or commit refuses the job with 500, and leaves no folder and no job.
 4. At start, the server deletes every `.tmp-*` folder.
 
-A crash after the rename and before the commit leaves a folder that no job names. Nothing reads it. A later job that draws the same id is then refused with 500. A job without a folder comes only from outside the server, for example a folder deleted by hand. Its image is then a 404 and a reprint a 409.
+A crash after the rename and before the commit leaves a folder that no job names. Nothing reads it. A later job that draws the same id is then refused with 500.
+
+A job without a folder has a 404 for its image and a 409 for a reprint. Jobs created before artifact folders have none. No database from that time exists: the server was not deployed before this change. A folder deleted by hand has the same result.
 
 ### Printer state
 
