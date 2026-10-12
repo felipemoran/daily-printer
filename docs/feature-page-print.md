@@ -8,11 +8,11 @@ Settings come from `print_profile.DEFAULT_PROFILE`, the same profile `daily_prin
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--page DIR` | `samples/photo-page` | Folder to render; `web/dist` renders the receipt app |
+| `--page DIR` or `FILE.html` | `samples/photo-page` | Folder to render, or one HTML file served with its folder; `web/dist` renders the receipt app, `web/dist/thermal.html` the Thermal example |
 | `--dither page/photo/none` | `page` | Dither the whole render; only the `--photo`; or threshold at 200 |
 | `--method` | `atkinson` | Dithering method; `all` prints one page per method |
 | `--anti-aliased-text` | off | Keep text anti-aliasing (default: aliased 1-bit glyphs) |
-| `--weight normal/bold/faux-bold/auto` | `auto` | `auto`: bold below 18.5 px, regular above, for 2-dot stems |
+| `--weight normal/bold/faux-bold/auto` | `auto` | `auto`: bold below 18.5 px, regular above, for 2-dot stems. Thermal pages keep their CSS weights; the printed label still says `weight auto` |
 | `--font`, `--font-file` | page fonts | Override every font; `--font-file` serves a font that is not installed |
 | `--font-scale` | `1.0` | Multiply font sizes; sizes round to whole pixels (except `--legacy` at 1.0) |
 | `--no-halo` | off | Skip the black outline around light text |
