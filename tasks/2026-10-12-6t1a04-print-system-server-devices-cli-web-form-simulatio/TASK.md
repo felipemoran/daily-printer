@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-6t1a04-print-system-server-devices-cli-web-form-simulatio
 title: 'Print system: server, devices, CLI, web form, simulation — orchestrator mission log'
-status: operator
+status: done
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -37,6 +37,7 @@ Build docs/planning-print-system-architecture.md end to end. Full system simulat
 - 2026-10-12T09:42:38+00:00: FINAL STATE. Built, reviewed and gated: store, render (receipt/image/template/text), config + Access, device client (USB + fake), server (hub + HTTP API), printctl, web form, admin UI, simulation, deploy files + wizard, docs; three design-system merges. Every task reviewed by a reviewer != builder (security surfaces twice). Not done (operator-gated): push and draft PR (SSH approval); deploy (wizard never run); real-printer test. Resume: push felipe/print-system with jrepush, open the draft PR with the body in the handoff; if the design-system PR squash-merges first, merge main into this branch once.
 - 2026-10-12T17:17:30+00:00: Follow-up round 2026-10-12, all on felipe/print-system: npm audit fix (8jwfzz), device install without Playwright (jco3n5), admin Geist fonts, per-ticket scroll and Connections tab (e4d0a7), frozen ticket artifacts (axvgf8), demo samples and make targets with the fixed admin token (gnfjvm), queue robustness (enfk3k), schema page in docs/. History linearized: one line from main through the design-system tip. Each change had an independent review (security surfaces two). Final gate on swnsuy: 10/10 pass, 633 tests twice. Open: failure-mode study i5vpli (pending), drafts jbm42h, jjnbce, 2k961c; not pushed, waiting on the operator.
 - 2026-10-25T22:46:36+00:00: 2026-10-25: landing plan changed from 'merge main into this branch once' to a rebase. After the design-system PR squash-merges, the print-system commits move onto main with jj rebase -s 'roots(felipe/design-system-templates..felipe/print-system)' -d main@origin (steps in notes/handoff-print-system-pr.md). Whole-branch PR reviews of both branches ran on 2026-10-25; their fixes are on the branches.
+- 2026-10-25T23:24:53+00:00: Landed on main 2026-10-25 through PR 1 (design-system templates, merge commit) and PR 2 (print system). Closing the mission; follow-up work is filed as separate tasks.
 
 ## Decisions
 

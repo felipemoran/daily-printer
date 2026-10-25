@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-vsz7c3-template-recipe-from-design-system-recipetemplate
-title: 'Template: Recipe (from design-system RecipeTemplate)'
-status: draft
+title: 'Template: recipe with amounts from mise-en-place'
+status: pending
 priority: 2
 created_date: 2026-10-12
 dependencies: []
@@ -14,7 +14,7 @@ phase: null
 
 ## Description
 
-Port design-system/components/RecipeTemplate/preview.html into a named template with typed data, following the infrastructure's template convention. Sample payload = the preview's own content. Render must match the preview's layout.
+Operator request 2026-10-25: print a mise-en-place recipe with its ingredient amounts and its steps (~/projects/mise-en-place, dados/receitas/<id>.json, schema in dados/esquemas/receita.schema.json). Amounts must follow the chosen portions, as the site's card shows them; book recipes carry componentes with their own quantidades. The design system's RecipeTemplate preview is a starting point for the layout. Open: who sends the payload (the site at the shown portions, or the server from catalogo.json), and long recipes past the 50 cm print limit.
 
 ## Acceptance check
 
