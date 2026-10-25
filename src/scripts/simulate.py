@@ -186,7 +186,7 @@ def sample_jobs() -> list[tuple[str, str, Path]]:
                         ("receipt", "receipt", SAMPLE_RECEIPT)]
 
 
-def _request(printer: str, kind: str, name: str, path: Path) -> dict:
+def sample_request(printer: str, kind: str, name: str, path: Path) -> dict:
     body = {"printer": printer, "kind": kind, "title": name}
     if kind == "image":
         body["image"] = base64.b64encode(path.read_bytes()).decode()
@@ -242,7 +242,7 @@ def _run(workdir: Path, port: int, children: Children) -> tuple[str, list[dict]]
     ids = []
     for number, (kind, name, path) in enumerate(samples, 1):
         printer = PRINTERS[(number - 1) % len(PRINTERS)][0]
-        job_id = _call(sender, "POST", "/api/jobs", _request(printer, kind, name, path))["id"]
+        job_id = _call(sender, "POST", "/api/jobs", sample_request(printer, kind, name, path))["id"]
         ids.append(job_id)
         print(f"  {number:>2}/{len(samples)}  {printer:<5} {kind:<8} {name:<{width}}  accepted as {job_id}", flush=True)
 

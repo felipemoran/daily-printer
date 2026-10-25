@@ -1,0 +1,23 @@
+# TEST ONLY: `make compose-test` runs the print server with this config. Never deploy it.
+# Every token here is public, in the repo. The admin token is the demo token of src/scripts/simulate.py.
+# The printers and the client match simulate.PRINTERS and simulate.CLIENT.
+
+[server]
+host = "0.0.0.0"
+port = 8787
+database = "/data/print-server.db"
+admin_token = "moranlindo"
+
+[printers.home]
+name = "Home"
+place = "Home office"
+token = "test-only-home-printer-token"
+public = true
+
+[printers.work]
+name = "Work"
+place = "Desk at work"
+token = "test-only-work-printer-token"
+
+[clients.sim-client]
+token = "test-only-sim-client-token"

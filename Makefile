@@ -1,7 +1,7 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample template photo-compare photo-strip test server simulate demo device-fake web-dev web-build design-sync setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample template photo-compare photo-strip test server simulate demo device-fake web-dev web-build design-sync setup setup-web setup-playwright compose-up compose-down compose-test
 
 # Default: show help
 help:
@@ -82,6 +82,28 @@ web-build: ## Build web/dist (runs automatically during print)
 
 design-sync: ## Mirror the design system and regenerate web files: make design-sync SRC=<downloaded project/>
 	uv run src/scripts/sync_design_system.py $(SRC)
+
+# ── Docker Compose ────────────────────────────────────────────────────────────
+
+COMPOSE_TEST_PORT ?= 18787
+COMPOSE_TEST := PRINT_SERVER_CONFIG=./deploy/compose-test/server.toml PRINT_SERVER_PORT=$(COMPOSE_TEST_PORT) \
+	docker compose -p daily-printer-test
+COMPOSE_TEST_ALL := $(COMPOSE_TEST) --profile test --profile check
+
+compose-up: ## Build and run the print server in Docker: make compose-up [CONFIG=~/print-server/config.toml]
+	$(if $(CONFIG),PRINT_SERVER_CONFIG=$(CONFIG) )docker compose up -d --build --wait server
+
+compose-down: ## Stop the Docker print server and its tunnel; keeps the data volume
+	PRINT_SERVER_CONFIG=$${PRINT_SERVER_CONFIG:-unused} docker compose --profile tunnel down
+
+compose-test: ## Print every sample on two fake printers in Docker, check the output, tear down
+	@# A checkout writes the file as 0644, and the server refuses a config that other users can read.
+	chmod 600 deploy/compose-test/server.toml
+	$(COMPOSE_TEST_ALL) down -v --remove-orphans
+	@trap 'status=$$?; [ $$status -eq 0 ] || $(COMPOSE_TEST_ALL) logs --tail 30; \
+		$(COMPOSE_TEST_ALL) down -v --remove-orphans; exit $$status' EXIT; \
+	$(COMPOSE_TEST) --profile test build && $(COMPOSE_TEST) --profile test up -d --wait && \
+	$(COMPOSE_TEST) run --rm check
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
