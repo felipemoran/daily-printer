@@ -1,0 +1,15 @@
+# deploy/wizard.sh writes this to /etc/cloudflared/config.yml, with each placeholder filled in.
+tunnel: __TUNNEL_ID__
+credentials-file: /etc/cloudflared/__TUNNEL_ID__.json
+
+ingress:
+  # Devices: the WebSocket endpoint only. No Cloudflare Access; devices log in with their tokens.
+  - hostname: __DEVICE_HOST__
+    path: ^/device$
+    service: http://127.0.0.1:__PORT__
+  - hostname: __DEVICE_HOST__
+    service: http_status:404
+  # Senders: every path, behind a Cloudflare Access application.
+  - hostname: __SENDER_HOST__
+    service: http://127.0.0.1:__PORT__
+  - service: http_status:404

@@ -44,6 +44,7 @@ BLE_BYTES_PER_SECOND = 800
 
 # Print width: confirmed 384 dots by physical calibration (48 mm at 203 DPI).
 PRINT_WIDTH_DOTS = 384
+DOTS_PER_MM = 8
 
 
 # ---------------------------------------------------------------------------

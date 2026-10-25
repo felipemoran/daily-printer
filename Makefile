@@ -1,12 +1,16 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample template photo-compare photo-strip test web-dev web-build design-sync setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample template photo-compare photo-strip test server simulate demo device-fake web-dev web-build design-sync setup setup-web setup-playwright
 
 # Default: show help
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk -v names="$(DEMO_NAMES)" 'BEGIN {FS = ":.*?## "}; {sub("%", "<name>", $$1); printf "  %-20s %s\n", $$1, $$2} \
+		$$1 == "demo-<name>" {n = split(names, word, " "); line = ""; \
+			for (i = 1; i <= n; i++) {if (length(line) + length(word[i]) > 70) {printf "%25s%s\n", "", line; line = ""} \
+				line = line (line == "" ? "" : " ") word[i]} \
+			printf "%25s%s\n", "", line}'
 
 # ── Daily workflow ────────────────────────────────────────────────────────────
 
@@ -32,6 +36,41 @@ photo-strip: ## Print a band per dither method: make photo-strip PHOTO=me.jpg
 
 test: ## Run the unit tests
 	uv run python -m unittest discover -s tests
+
+# ── Print server ──────────────────────────────────────────────────────────────
+
+server: ## Run the print server: make server CONFIG=~/print-server/config.toml
+	@test -n "$(CONFIG)" || { echo "Set CONFIG to the server config, e.g. make server CONFIG=~/print-server/config.toml (format: samples/print-server.example.toml)"; exit 2; }
+	uv run src/scripts/print_server.py --config $(CONFIG)
+
+simulate: ## Run the server and two fake printers locally, print one job per sample (needs make web-build)
+	uv run src/scripts/simulate.py
+
+# ── Demo ──────────────────────────────────────────────────────────────────────
+
+DEMO_SERVER ?= http://127.0.0.1:8787
+# Must equal ADMIN_TOKEN in src/scripts/simulate.py; tests/test_make_demo.py checks it.
+DEMO_TOKEN := moranlindo
+DEMO_TEMPLATES := $(sort $(basename $(notdir $(wildcard samples/templates/*.json))))
+DEMO_NAMES := $(DEMO_TEMPLATES) text image receipt
+DEMO_FILE_text := samples/templates/build.json
+DEMO_FILE_image := samples/test-pattern.png
+DEMO_FILE_receipt := samples/receipt-sample.json
+
+demo: ## Run make simulate, building web/dist first when it is missing
+	@test -f web/dist/index.html || { test -d web/node_modules || { echo "web/node_modules is missing, so web/dist cannot be built. Run make setup first." >&2; exit 2; }; $(MAKE) web-build; }
+	uv run src/scripts/simulate.py
+
+demo-%: ## Send one sample to the running demo; <name> is one of:
+	$(if $(and $(filter 1,$(words $*)),$(if $(filter-out $(DEMO_NAMES),$*),,known)),,$(error Unknown demo '$*'. Valid names: $(DEMO_NAMES)))
+	@command -v curl > /dev/null || { echo "curl is missing; make demo-$* needs it to find the simulation. Install curl." >&2; exit 2; }
+	@curl -s -o /dev/null --max-time 5 "$(DEMO_SERVER)/" || { echo "The simulation is not running at $(DEMO_SERVER). Start it with make demo, then run make demo-$* in another terminal." >&2; exit 1; }
+	@PRINT_ADMIN_TOKEN=$(DEMO_TOKEN) uv run src/scripts/printctl.py --server "$(DEMO_SERVER)" \
+		send $(if $(DEMO_FILE_$*),$*,template) $(or $(DEMO_FILE_$*),samples/templates/$*.json) --printer home --title $*
+
+device-fake: ## Fake printer device: make device-fake TOKEN_FILE=path [SERVER=ws://...] [OUT=dir]
+	@test -n "$(TOKEN_FILE)" || { echo "Set TOKEN_FILE to a file holding the printer token, e.g. make device-fake TOKEN_FILE=~/.print-token"; exit 2; }
+	uv run --script src/scripts/print_device.py --server "$(or $(SERVER),ws://127.0.0.1:8787/device)" --token-file $(TOKEN_FILE) --fake "$(or $(OUT),data/fake-printer)"
 
 # ── Web UI ────────────────────────────────────────────────────────────────────
 

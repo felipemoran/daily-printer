@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Published copy: https://claude.ai/artifact/CXL4KRu3umoSesuRNydFmb -->
+<title>Print Queue Schema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column on thermal-paper grey; diagrams and wide tables scroll inside their own frames. */
+:root {
+  --bg: #f1f2ee;
+  --surface: #fbfbf8;
+  --head: #e3e6df;
+  --fg: #1b1e1c;
+  --muted: #59605b;
+  --line: #c9cec6;
+  --accent: #3a3fb4;
+  --accent-soft: #e4e5f7;
+  --blob: #f3e7cf;
+  --ok: #2b7a4b;
+  --bad: #b3261e;
+  --warn: #8a5f00;
+  --idle: #626a75;
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121413; --surface: #1a1d1b; --head: #252a26; --fg: #e5e8e2; --muted: #9ca39d; --line: #343a35;
+    --accent: #a4a8ff; --accent-soft: #24264a; --blob: #3a2f1a;
+    --ok: #6fca93; --bad: #ff8b80; --warn: #e2b445; --idle: #a3aab4; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121413; --surface: #1a1d1b; --head: #252a26; --fg: #e5e8e2; --muted: #9ca39d; --line: #343a35;
+  --accent: #a4a8ff; --accent-soft: #24264a; --blob: #3a2f1a;
+  --ok: #6fca93; --bad: #ff8b80; --warn: #e2b445; --idle: #a3aab4; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.6 var(--font-body);
+  padding-inline: 16px; padding-block: 24px 64px;
+}
+main { max-width: 860px; margin-inline: auto; display: grid; gap: 48px; }
+section { display: grid; gap: 16px; min-width: 0; }
+.prose { max-width: 66ch; }
+h1, h2, h3 { font-family: var(--font-display); font-stretch: 85%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2.2rem, 7vw, 3.4rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; font-weight: 700; padding-top: 8px; border-top: 2px solid var(--fg); }
+h3 { font-size: 1.2rem; font-weight: 700; }
+p { margin: 0; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--head); padding: 0.05em 0.3em; border-radius: 3px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.byline { font-size: 0.95rem; color: var(--muted); }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 12px; }
+.lede { font-size: 1.1rem; max-width: 62ch; }
+nav ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.92rem; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.facts div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.facts b { font-family: var(--font-display); font-stretch: 85%; font-size: 1.25rem; }
+.facts span { font-size: 0.85rem; color: var(--muted); }
+.frame { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); padding: 12px; }
+.frame svg { display: block; max-width: none; }
+.hint { font-size: 0.85rem; color: var(--muted); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { background: var(--head); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+.tables { display: grid; gap: 24px; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+dt { font-weight: 600; }
+dd { margin: 0; min-width: 0; }
+@media (max-width: 560px) { dl { grid-template-columns: 1fr; } dd { margin-bottom: 6px; } }
+details { border: 1px solid var(--line); background: var(--surface); }
+summary { cursor: pointer; padding: 10px 12px; font-weight: 600; }
+details .table-wrap { border: 0; border-top: 1px solid var(--line); }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 0.8rem; padding: 0 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+.s-queued { color: var(--accent); } .s-sending { color: var(--warn); } .s-printed { color: var(--ok); }
+.s-failed { color: var(--bad); } .s-expired, .s-cancelled { color: var(--idle); }
+.points { display: grid; gap: 14px; }
+.point { display: grid; gap: 4px; padding-left: 14px; border-left: 3px solid var(--line); }
+.point.warnpt { border-left-color: var(--warn); }
+.point h3 { font-size: 1.05rem; }
+.why { color: var(--muted); }
+.why::before { content: "Why it matters: "; font-weight: 600; color: var(--fg); }
+.tag { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+ul.plain, ol.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.receipt {
+  font-family: var(--font-mono); font-size: 0.82rem; background: var(--surface); border: 1px solid var(--line);
+  max-width: 420px; padding: 14px 16px 18px; display: grid; gap: 2px;
+  -webkit-mask: radial-gradient(circle 5px at 50% 100%, #0000 98%, #000) 50% 100% / 14px 100% repeat-x;
+          mask: radial-gradient(circle 5px at 50% 100%, #0000 98%, #000) 50% 100% / 14px 100% repeat-x;
+}
+.receipt .r { display: flex; justify-content: space-between; gap: 12px; }
+.receipt .r span:last-child { text-align: right; overflow-wrap: anywhere; }
+.receipt hr { border: 0; border-top: 1px dashed var(--line); margin: 6px 0; width: 100%; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cmp > div { min-width: 0; }
+@media (max-width: 560px) { .cmp { grid-template-columns: 1fr; } }
+/* SVG parts take every colour from the tokens. */
+svg text { font-family: var(--font-mono); fill: var(--fg); }
+svg .t-name { font-size: 12px; }
+svg .t-small { font-size: 11px; fill: var(--muted); }
+svg .t-head { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+svg .box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.5; }
+svg .box-head { fill: var(--head); }
+svg .box-folder { fill: var(--surface); stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 6 4; }
+svg .rowline { stroke: var(--line); stroke-width: 1; }
+svg .blob { fill: var(--blob); }
+svg .key { fill: var(--accent); font-size: 10px; font-weight: 500; }
+svg .edge { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+svg .edge-dash { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .st { fill: var(--surface); stroke-width: 2; }
+svg .st-final { fill: var(--surface); stroke-width: 2; }
+svg .st-ring { fill: none; stroke-width: 1; }
+svg .lbl { font-size: 11px; fill: var(--fg); }
+svg .start { fill: var(--fg); }
+svg .c-queued { stroke: var(--accent); } svg .c-sending { stroke: var(--warn); } svg .c-printed { stroke: var(--ok); }
+svg .c-failed { stroke: var(--bad); } svg .c-idle { stroke: var(--idle); }
+svg .t-state { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+</style>
+
+<main>
+<header>
+  <p class="byline">🤖 Written by Claude.</p>
+  <p class="eyebrow">Print server · SQLite · read on 2026-10-12</p>
+  <h1>Print Queue Schema</h1>
+  <p class="lede">The print server keeps its jobs, their history and the printer connection state in one SQLite file. Each job also has a folder of files on disk, frozen when the job comes in. This page shows that storage as the code builds it today, and what you should know before you change it, back it up or query it by hand.</p>
+  <p class="byline">Source: <code>src/job_queue.py</code> (class <code>JobQueue</code>) and <code>src/job_artifacts.py</code> (class <code>ArtifactStore</code>), with their callers in <code>src/device_hub.py</code>, <code>src/http_api.py</code> and <code>src/scripts/print_server.py</code>.</p>
+  <nav aria-label="Sections">
+    <ul>
+      <li><a href="#diagram">Entity diagram</a></li>
+      <li><a href="#tables">Tables and folders</a></li>
+      <li><a href="#lifecycle">Job lifecycle</a></li>
+      <li><a href="#retention">Storage and retention</a></li>
+      <li><a href="#design">Design points</a></li>
+    </ul>
+  </nav>
+  <div class="facts" role="list">
+    <div role="listitem"><b>3 tables + folders</b><span><code>jobs</code>, <code>job_events</code>, <code>printers</code>; one folder per job</span></div>
+    <div role="listitem"><b>Schema version 1</b><span>In <code>PRAGMA user_version</code>; one migration step, from 0</span></div>
+    <div role="listitem"><b>WAL, 2 s, FK on</b><span>Journal mode, busy timeout, foreign keys</span></div>
+    <div role="listitem"><b>No deletes</b><span>Rows and folders stay forever; only the BLOB gets cleared</span></div>
+  </div>
+</header>
+
+<section id="diagram">
+  <h2>Entity diagram</h2>
+  <p class="prose">Each box with a solid outline is one table. The dashed box is a folder on disk, not a table. A BLOB (binary large object) column has a tinted row. <span class="mono">PK</span> is the primary key. <span class="mono">FK</span> is a declared foreign key, a column that points to a row in another table.</p>
+  <div class="frame">
+    <svg width="800" height="610" viewBox="0 0 800 610" role="img" aria-labelledby="erd-title">
+      <title id="erd-title">Three tables and one folder. job_events.job_id points to jobs.id. jobs.printer matches printers.id with no declared key. Each job has a folder, artifacts/job id, named by jobs.id.</title>
+      <!-- jobs -->
+      <rect class="box" x="20" y="20" width="370" height="404"/>
+      <rect class="box-head" x="21" y="21" width="368" height="31"/>
+      <text class="t-head" x="32" y="42">jobs</text>
+      <text class="t-small" x="380" y="42" text-anchor="end">one row per print job</text>
+      <rect class="blob" x="21" y="396" width="368" height="20"/>
+      <g>
+        <text class="key" x="30" y="70">PK</text><text class="t-name" x="58" y="70">id</text><text class="t-small" x="170" y="70">TEXT</text><text class="t-small" x="245" y="70">PRIMARY KEY</text>
+        <text class="t-name" x="58" y="90">printer</text><text class="t-small" x="170" y="90">TEXT</text><text class="t-small" x="245" y="90">NOT NULL</text>
+        <text class="t-name" x="58" y="110">kind</text><text class="t-small" x="170" y="110">TEXT</text><text class="t-small" x="245" y="110">NOT NULL</text>
+        <text class="t-name" x="58" y="130">title</text><text class="t-small" x="170" y="130">TEXT</text><text class="t-small" x="245" y="130">NOT NULL</text>
+        <text class="t-name" x="58" y="150">source</text><text class="t-small" x="170" y="150">TEXT</text><text class="t-small" x="245" y="150">NOT NULL</text>
+        <text class="t-name" x="58" y="170">ingress</text><text class="t-small" x="170" y="170">TEXT</text><text class="t-small" x="245" y="170">NOT NULL</text>
+        <text class="t-name" x="58" y="190">status</text><text class="t-small" x="170" y="190">TEXT</text><text class="t-small" x="245" y="190">NOT NULL</text>
+        <text class="t-name" x="58" y="210">attempts</text><text class="t-small" x="170" y="210">INTEGER</text><text class="t-small" x="245" y="210">NOT NULL DEFAULT 0</text>
+        <text class="t-name" x="58" y="230">created_at</text><text class="t-small" x="170" y="230">REAL</text><text class="t-small" x="245" y="230">NOT NULL</text>
+        <text class="t-name" x="58" y="250">expires_at</text><text class="t-small" x="170" y="250">REAL</text><text class="t-small" x="245" y="250">NOT NULL</text>
+        <text class="t-name" x="58" y="270">render_ms</text><text class="t-small" x="170" y="270">INTEGER</text><text class="t-small" x="245" y="270">NOT NULL</text>
+        <text class="t-name" x="58" y="290">width</text><text class="t-small" x="170" y="290">INTEGER</text><text class="t-small" x="245" y="290">NOT NULL</text>
+        <text class="t-name" x="58" y="310">height</text><text class="t-small" x="170" y="310">INTEGER</text><text class="t-small" x="245" y="310">NOT NULL</text>
+        <text class="t-name" x="58" y="330">size_bytes</text><text class="t-small" x="170" y="330">INTEGER</text><text class="t-small" x="245" y="330">NOT NULL</text>
+        <text class="t-name" x="58" y="350">frames</text><text class="t-small" x="170" y="350">INTEGER</text><text class="t-small" x="245" y="350">NOT NULL</text>
+        <text class="t-name" x="58" y="370">sent_at</text><text class="t-small" x="170" y="370">REAL</text><text class="t-small" x="245" y="370">null allowed</text>
+        <text class="t-name" x="58" y="390">printed_at</text><text class="t-small" x="170" y="390">REAL</text><text class="t-small" x="245" y="390">null allowed</text>
+        <text class="t-name" x="58" y="410">data</text><text class="t-small" x="170" y="410">BLOB</text><text class="t-small" x="245" y="410">ESC/POS bytes</text>
+      </g>
+      <!-- job_events -->
+      <rect class="box" x="460" y="40" width="320" height="144"/>
+      <rect class="box-head" x="461" y="41" width="318" height="31"/>
+      <text class="t-head" x="472" y="62">job_events</text>
+      <text class="t-small" x="770" y="62" text-anchor="end">one row per event</text>
+      <text class="key" x="470" y="90">PK</text><text class="t-name" x="496" y="90">id</text><text class="t-small" x="618" y="90">INTEGER</text><text class="t-small" x="688" y="90">PRIMARY KEY</text>
+      <text class="key" x="470" y="110">FK</text><text class="t-name" x="496" y="110">job_id</text><text class="t-small" x="618" y="110">TEXT</text><text class="t-small" x="688" y="110">NOT NULL</text>
+      <text class="t-name" x="496" y="130">at</text><text class="t-small" x="618" y="130">REAL</text><text class="t-small" x="688" y="130">NOT NULL</text>
+      <text class="t-name" x="496" y="150">event</text><text class="t-small" x="618" y="150">TEXT</text><text class="t-small" x="688" y="150">NOT NULL</text>
+      <text class="t-name" x="496" y="170">detail</text><text class="t-small" x="618" y="170">TEXT</text><text class="t-small" x="688" y="170">null allowed</text>
+      <!-- printers -->
+      <rect class="box" x="460" y="260" width="320" height="184"/>
+      <rect class="box-head" x="461" y="261" width="318" height="31"/>
+      <text class="t-head" x="472" y="282">printers</text>
+      <text class="t-small" x="770" y="282" text-anchor="end">one row per printer id</text>
+      <text class="key" x="470" y="310">PK</text><text class="t-name" x="496" y="310">id</text><text class="t-small" x="618" y="310">TEXT</text><text class="t-small" x="688" y="310">PRIMARY KEY</text>
+      <text class="t-name" x="496" y="330">last_seen</text><text class="t-small" x="618" y="330">REAL</text><text class="t-small" x="688" y="330">null allowed</text>
+      <text class="t-name" x="496" y="350">connected_since</text><text class="t-small" x="618" y="350">REAL</text><text class="t-small" x="688" y="350">null allowed</text>
+      <text class="t-name" x="496" y="370">address</text><text class="t-small" x="618" y="370">TEXT</text><text class="t-small" x="688" y="370">null allowed</text>
+      <text class="t-name" x="496" y="390">route</text><text class="t-small" x="618" y="390">TEXT</text><text class="t-small" x="688" y="390">null allowed</text>
+      <text class="t-name" x="496" y="410">latency_ms</text><text class="t-small" x="618" y="410">REAL</text><text class="t-small" x="688" y="410">null allowed</text>
+      <text class="t-name" x="496" y="430">client_version</text><text class="t-small" x="618" y="430">TEXT</text><text class="t-small" x="688" y="430">null allowed</text>
+      <!-- artifact folder: on disk, not a table -->
+      <rect class="box-folder" x="20" y="470" width="760" height="122"/>
+      <rect class="box-head" x="21" y="471" width="758" height="31"/>
+      <text class="t-head" x="32" y="492">artifacts/&lt;job id&gt;/</text>
+      <text class="t-small" x="770" y="492" text-anchor="end">one folder per job, on disk</text>
+      <text class="t-name" x="58" y="522">request.json</text><text class="t-small" x="200" y="522">receipt, template, text</text>
+      <text class="t-name" x="58" y="542">source.&lt;ext&gt;</text><text class="t-small" x="200" y="542">image</text>
+      <text class="t-name" x="58" y="562">page.mhtml</text><text class="t-small" x="200" y="562">receipt, template, text</text>
+      <text class="t-name" x="58" y="582">screenshot.png</text><text class="t-small" x="200" y="582">receipt, template, text</text>
+      <text class="t-name" x="496" y="522">print.png</text><text class="t-small" x="618" y="522">all kinds</text>
+      <text class="t-name" x="496" y="542">job.escpos</text><text class="t-small" x="618" y="542">all kinds</text>
+      <text class="t-name" x="496" y="562">meta.json</text><text class="t-small" x="618" y="562">all kinds</text>
+      <!-- relation: one job, many events -->
+      <path class="edge" d="M390 66 H430 V106 H460"/>
+      <line class="edge" x1="398" y1="60" x2="398" y2="72"/>
+      <line class="edge" x1="448" y1="106" x2="460" y2="99"/>
+      <line class="edge" x1="448" y1="106" x2="460" y2="113"/>
+      <!-- logical match only: jobs.printer = printers.id -->
+      <path class="edge-dash" d="M390 86 H410 V306 H460"/>
+      <text class="t-small" x="416" y="300">no key</text>
+      <!-- folder named by jobs.id -->
+      <path class="edge-dash" d="M110 424 V470"/>
+      <text class="t-small" x="118" y="452">folder name = jobs.id</text>
+    </svg>
+  </div>
+  <p class="hint">On a phone, scroll the diagram sideways.</p>
+  <ul class="plain prose">
+    <li><b>Solid line, one to many.</b> One job has many <code>job_events</code> rows. The schema declares <code>job_id REFERENCES jobs (id)</code>, and SQLite enforces it: the server turns on <code>PRAGMA foreign_keys</code> at each start, so an event for a missing job is refused. The pragma holds for one connection only. A <code>sqlite3</code> shell does not enforce the key unless you turn it on there too.</li>
+    <li><b>Dashed line, no key.</b> <code>jobs.printer</code> holds the same text as <code>printers.id</code>, but no constraint links them. The list of printers comes from the TOML config, not from this table.</li>
+    <li><b>Dashed line to the folder.</b> The database stores no path. <code>ArtifactStore.folder</code> builds it from the job id: <code>&lt;database folder&gt;/artifacts/&lt;job id&gt;/</code>.</li>
+    <li><b>Not a column.</b> The API field <code>paper_mm</code> is computed in each query as <code>height / 8</code> (8 dots per mm). The database does not store it.</li>
+  </ul>
+
+  <h3>Indexes</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Index</th><th>Table and columns</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td><code>jobs_printer_status</code></td><td><code>jobs (printer, status)</code></td><td><code>take</code>, <code>clear</code>, <code>move</code>; <code>jobs</code> and <code>stats</code> for one printer</td></tr>
+        <tr><td><code>jobs_queued_expiry</code></td><td><code>jobs (expires_at)</code>, only rows with <code>status = 'queued'</code> (a partial index)</td><td><code>_expire</code>; the queued count in <code>stats</code> for all printers</td></tr>
+        <tr><td><code>jobs_source</code></td><td><code>jobs (ingress, source, created_at)</code></td><td><code>activity</code></td></tr>
+        <tr><td><code>job_events_job</code></td><td><code>job_events (job_id)</code></td><td><code>job</code> (the event list of one job); the failed count in <code>stats</code> for one printer</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tables">
+  <h2>Tables and folders</h2>
+  <div class="tables">
+    <article class="card">
+      <h3><code>jobs</code></h3>
+      <dl>
+        <dt>One row is</dt><dd>One print job: one ticket, rendered once, for one printer.</dd>
+        <dt>Inserted by</dt><dd><code>JobQueue.add</code> (from <code>POST /api/jobs</code>) and <code>JobQueue.reprint</code> (from <code>POST /api/jobs/{id}/reprint</code>).</dd>
+        <dt>Updated by</dt><dd>The device hub: <code>take</code>, <code>mark_sent</code>, <code>confirm</code>, <code>release</code>, <code>release_all</code>. The admin API: <code>cancel</code>, <code>clear</code>, <code>move</code>. Internal: <code>_expire</code>.</dd>
+        <dt>Read by</dt><dd>The admin API: job list, job detail, printers, stats and clients pages (<code>jobs</code>, <code>job</code>, <code>stats</code>, <code>activity</code>). The hub reads a job back after it releases it.</dd>
+        <dt>Deleted</dt><dd>Never. <code>data</code> becomes NULL when the job reaches a final status.</dd>
+      </dl>
+      <details>
+        <summary>All 18 columns</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Column</th><th>Holds</th><th>Set by</th></tr></thead>
+            <tbody>
+              <tr><td><code>id</code></td><td>8 random hex characters; also the name of the job's folder</td><td><code>_insert</code></td></tr>
+              <tr><td><code>printer</code></td><td>Printer id from the config</td><td><code>_insert</code>, <code>move</code></td></tr>
+              <tr><td><code>kind</code></td><td><code>receipt</code>, <code>image</code>, <code>template</code> or <code>text</code>; a reprint keeps the original's kind</td><td><code>_insert</code></td></tr>
+              <tr><td><code>title</code></td><td>Sender's title, can be empty</td><td><code>_insert</code></td></tr>
+              <tr><td><code>source</code></td><td>Who sent it: <code>admin</code>, a client id, or an email</td><td><code>_insert</code></td></tr>
+              <tr><td><code>ingress</code></td><td>How it came in: <code>cli</code>, <code>api</code>, <code>admin-web</code> or <code>web</code></td><td><code>_insert</code></td></tr>
+              <tr><td><code>status</code></td><td>One of the six statuses below</td><td>Every transition</td></tr>
+              <tr><td><code>attempts</code></td><td>Delivery attempts so far</td><td><code>take</code> adds 1</td></tr>
+              <tr><td><code>created_at</code></td><td>Epoch seconds</td><td><code>_insert</code></td></tr>
+              <tr><td><code>expires_at</code></td><td>Epoch seconds; default 1 hour after creation, at most 7 days</td><td><code>_insert</code></td></tr>
+              <tr><td><code>render_ms</code></td><td>Render time in milliseconds</td><td><code>_insert</code></td></tr>
+              <tr><td><code>width</code>, <code>height</code></td><td>Image size in dots</td><td><code>_insert</code></td></tr>
+              <tr><td><code>size_bytes</code></td><td>Length of the ESC/POS bytes</td><td><code>_insert</code></td></tr>
+              <tr><td><code>frames</code></td><td>Number of 4096-byte WebSocket frames</td><td><code>_insert</code></td></tr>
+              <tr><td><code>sent_at</code></td><td>When the last frame went out (latest attempt)</td><td><code>mark_sent</code>, only while <code>sending</code></td></tr>
+              <tr><td><code>printed_at</code></td><td>When the device confirmed the print, also after a cancel</td><td><code>confirm</code></td></tr>
+              <tr><td><code>data</code></td><td>ESC/POS bytes (the printer command stream), a working copy for delivery. <code>job.escpos</code> in the folder keeps them.</td><td><code>_insert</code>; cleared at a final status</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+
+    <article class="card">
+      <h3><code>job_events</code></h3>
+      <dl>
+        <dt>One row is</dt><dd>One thing that happened to one job, with a time and an optional detail text.</dd>
+        <dt>Inserted by</dt><dd><code>JobQueue._event</code>, inside the same transaction as each job change. The foreign key refuses an event for a missing job. Nothing updates a row after that.</dd>
+        <dt>Read by</dt><dd><code>JobQueue.job</code>, for the job detail page, in <code>id</code> order. <code>JobQueue.stats</code>, to count <code>failed</code> events in the last 24 hours.</dd>
+        <dt>Deleted</dt><dd>Never.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><code>printers</code></h3>
+      <dl>
+        <dt>One row is</dt><dd>The last known connection state of one printer device.</dd>
+        <dt>Written by</dt><dd><code>JobQueue.update_printer_state</code>, an upsert (insert, or update on a duplicate id). <code>DeviceHub.start</code> clears <code>connected_since</code> and <code>address</code> for every configured printer, so each one gets a row at the first start. <code>DeviceHub.handle</code> sets the connection fields on connect and clears <code>connected_since</code> and <code>address</code> on disconnect. Each ping reply sets <code>latency_ms</code> and <code>last_seen</code>.</dd>
+        <dt>Read by</dt><dd><code>JobQueue.printer_state</code>, for <code>GET /api/printers</code>. <code>JobQueue.stats</code> uses the ids as keys for the hourly chart.</dd>
+        <dt>Deleted</dt><dd>Never. A printer that you remove from the config keeps its row.</dd>
+        <dt>Not stored here</dt><dd><code>name</code>, <code>place</code>, <code>public</code> and the token come from the config. <code>online</code>, <code>current_job</code> and <code>paused_until</code> live in <code>DeviceHub</code> memory and reset on restart. <code>queued</code> and <code>printed_today</code> are computed from <code>jobs</code>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h3><code>artifacts/&lt;job id&gt;/</code>, a folder</h3>
+      <dl>
+        <dt>One folder is</dt><dd>The input and every output of one job, written once at intake. A later template, font or code change does not alter it. Nothing re-renders a past job.</dd>
+        <dt>Where</dt><dd>In <code>artifacts/</code>, in the same folder as the database file (<code>artifacts_root</code>).</dd>
+        <dt>Written by</dt><dd><code>ArtifactStore.stage</code> (from <code>POST /api/jobs</code>) and <code>ArtifactStore.stage_reprint</code> (from a reprint), in a worker thread, into a <code>.tmp-&lt;random&gt;</code> folder. <code>JobQueue.add</code> or <code>JobQueue.reprint</code> then renames it to the job id inside the insert transaction. Nothing changes it after that.</dd>
+        <dt>Read by</dt><dd><code>GET /api/jobs/{id}/image</code> reads <code>print.png</code> (404 without it). A reprint reads <code>job.escpos</code> (409 without it) and <code>meta.json</code>. <code>GET /api/jobs/{id}</code> returns the folder path as <code>artifacts</code>, or null when the folder is missing.</dd>
+        <dt>Deleted</dt><dd>Never. Only staging folders are deleted: see "Storage and retention".</dd>
+      </dl>
+      <details>
+        <summary>All 7 files</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>File</th><th>Holds</th><th>Kinds</th></tr></thead>
+            <tbody>
+              <tr><td><code>request.json</code></td><td>The HTTP request body, byte for byte as received</td><td>receipt, template, text</td></tr>
+              <tr><td><code>source.&lt;ext&gt;</code></td><td>The uploaded image, byte for byte. <code>&lt;ext&gt;</code> comes from its format, for example <code>jpg</code>, or <code>bin</code> when Pillow cannot read it.</td><td>image</td></tr>
+              <tr><td><code>page.mhtml</code></td><td>The rendered page, as Chromium's MHTML</td><td>receipt, template, text</td></tr>
+              <tr><td><code>screenshot.png</code></td><td>Chromium's capture, before rotation and the 1-bit conversion</td><td>receipt, template, text</td></tr>
+              <tr><td><code>print.png</code></td><td>The 1-bit image. For <code>text</code>, the preview: that kind prints native ESC/POS text.</td><td>all</td></tr>
+              <tr><td><code>job.escpos</code></td><td>The exact bytes sent to the printer</td><td>all</td></tr>
+              <tr><td><code>meta.json</code></td><td><code>kind</code>, <code>template</code>, <code>created_at</code>, <code>width</code>, <code>height</code>, <code>render_ms</code>, <code>web_dist_sha256</code> (a digest of every file in <code>web/dist</code>), and <code>reprint_of</code> for a reprint</td><td>all</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <p class="hint">Disk use, as measured in the "Job artifacts" section of <code>docs/feature-print-system.md</code>: 110 KB for the sample receipt, 210-280 KB for a template job. A reprint holds its own full copy.</p>
+    </article>
+
+    <article class="card">
+      <h3>Sample: one printed job</h3>
+      <p class="hint">Invented values. The shape matches the code.</p>
+      <div class="cmp">
+        <div class="receipt" aria-label="Sample jobs row">
+          <div class="r"><span>id</span><span>3f9a0c1e</span></div>
+          <div class="r"><span>printer</span><span>kitchen</span></div>
+          <div class="r"><span>kind</span><span>receipt</span></div>
+          <div class="r"><span>title</span><span>Groceries for Saturday</span></div>
+          <div class="r"><span>source / ingress</span><span>shopping-list / api</span></div>
+          <div class="r"><span>status</span><span>printed</span></div>
+          <div class="r"><span>attempts</span><span>1</span></div>
+          <hr>
+          <div class="r"><span>created_at</span><span>1791802927.0</span></div>
+          <div class="r"><span>expires_at</span><span>1791806527.0</span></div>
+          <div class="r"><span>sent_at</span><span>1791802929.4</span></div>
+          <div class="r"><span>printed_at</span><span>1791802933.1</span></div>
+          <hr>
+          <div class="r"><span>width x height</span><span>384 x 1210 dots</span></div>
+          <div class="r"><span>size_bytes / frames</span><span>58410 / 15</span></div>
+          <div class="r"><span>render_ms</span><span>842</span></div>
+          <div class="r"><span>data</span><span>NULL</span></div>
+          <hr>
+          <div class="r"><span>on disk</span><span>artifacts/3f9a0c1e/</span></div>
+          <div class="r"><span>files</span><span>6, about 110 KB</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>event</th><th>detail</th></tr></thead>
+            <tbody>
+              <tr><td><code>received</code></td><td>shopping-list via api</td></tr>
+              <tr><td><code>rendered</code></td><td>384x1210 dots in 842 ms</td></tr>
+              <tr><td><code>sending</code></td><td>attempt 1</td></tr>
+              <tr><td><code>sent</code></td><td>(none)</td></tr>
+              <tr><td><code>printed</code></td><td>(none)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section id="lifecycle">
+  <h2>Job lifecycle</h2>
+  <p class="prose">A job has one of six statuses. Two are live: <span class="pill s-queued">queued</span> waits for its printer, and <span class="pill s-sending">sending</span> is going to the device now. Four are final: <span class="pill s-printed">printed</span>, <span class="pill s-failed">failed</span>, <span class="pill s-expired">expired</span> and <span class="pill s-cancelled">cancelled</span>. One move leaves a final status: <code>confirm</code> takes a job cancelled while it was sending to <span class="pill s-printed">printed</span>, when the device prints it after all. A reprint makes a new job.</p>
+  <div class="frame">
+    <svg width="760" height="320" viewBox="0 0 760 320" role="img" aria-labelledby="sd-title">
+      <title id="sd-title">State diagram. add or reprint creates a queued job. take moves queued to sending. release moves sending back to queued, or to failed after the third attempt, or to expired when past expiry. confirm moves sending to printed, and also cancelled to printed. _expire moves queued to expired. cancel and clear move queued or sending to cancelled.</title>
+      <defs>
+        <marker id="m-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+      <!-- start -->
+      <circle class="start" cx="40" cy="150" r="6"/>
+      <path class="edge" d="M46 150 H88" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="18" y="194">add</text>
+      <text class="lbl" x="18" y="208">reprint</text>
+      <!-- live states -->
+      <rect class="st c-queued" x="90" y="128" width="120" height="44" rx="4"/>
+      <text class="t-state" x="150" y="155" text-anchor="middle">queued</text>
+      <rect class="st c-sending" x="380" y="128" width="120" height="44" rx="4"/>
+      <text class="t-state" x="440" y="155" text-anchor="middle">sending</text>
+      <!-- final states: double outline -->
+      <rect class="st-final c-idle" x="235" y="12" width="120" height="40" rx="4"/>
+      <rect class="st-ring c-idle" x="231" y="8" width="128" height="48" rx="6"/>
+      <text class="t-state" x="295" y="37" text-anchor="middle">cancelled</text>
+      <rect class="st-final c-idle" x="235" y="268" width="120" height="40" rx="4"/>
+      <rect class="st-ring c-idle" x="231" y="264" width="128" height="48" rx="6"/>
+      <text class="t-state" x="295" y="293" text-anchor="middle">expired</text>
+      <rect class="st-final c-printed" x="620" y="60" width="120" height="40" rx="4"/>
+      <rect class="st-ring c-printed" x="616" y="56" width="128" height="48" rx="6"/>
+      <text class="t-state" x="680" y="85" text-anchor="middle">printed</text>
+      <rect class="st-final c-failed" x="620" y="200" width="120" height="40" rx="4"/>
+      <rect class="st-ring c-failed" x="616" y="196" width="128" height="48" rx="6"/>
+      <text class="t-state" x="680" y="225" text-anchor="middle">failed</text>
+      <!-- queued <-> sending -->
+      <path class="edge" d="M210 142 H378" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="295" y="136" text-anchor="middle">take</text>
+      <path class="edge" d="M380 160 H212" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="295" y="177" text-anchor="middle">release</text>
+      <!-- to cancelled -->
+      <path class="edge" d="M150 128 V32 H229" marker-end="url(#m-tip)"/>
+      <path class="edge" d="M440 128 V32 H361" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="295" y="84" text-anchor="middle">cancel, clear</text>
+      <!-- the one move out of a final status -->
+      <path class="edge-dash" d="M359 20 H680 V54" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="520" y="14" text-anchor="middle">confirm, "after the cancel"</text>
+      <!-- to expired -->
+      <path class="edge" d="M150 172 V288 H229" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="158" y="244">_expire (lazy)</text>
+      <path class="edge" d="M440 172 V288 H361" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="432" y="244" text-anchor="end">release, too late</text>
+      <!-- to printed and failed -->
+      <path class="edge" d="M500 140 H560 V80 H614" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="566" y="74">confirm</text>
+      <path class="edge" d="M500 160 H560 V220 H614" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="566" y="180">release,</text>
+      <text class="lbl" x="566" y="193">3rd try</text>
+      <!-- self loops -->
+      <path class="edge" d="M108 172 C100 214 140 214 132 174" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="120" y="228" text-anchor="middle">move</text>
+      <path class="edge" d="M468 172 C460 214 500 214 492 174" marker-end="url(#m-tip)"/>
+      <text class="lbl" x="480" y="228" text-anchor="middle">mark_sent</text>
+    </svg>
+  </div>
+  <p class="hint">On a phone, scroll the diagram sideways. A double outline marks a final status. The dashed arrow is the one move out of a final status.</p>
+
+  <h3>Transitions</h3>
+  <p class="prose">Every transition runs in one transaction with its <code>job_events</code> rows. "Clears data" means the method sets <code>jobs.data</code> to NULL.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>From → to</th><th>Method</th><th>Caller</th><th><code>job_events</code> written</th><th>Other changes</th></tr></thead>
+      <tbody>
+        <tr><td>new → <span class="pill s-queued">queued</span></td><td><code>add</code></td><td><code>POST /api/jobs</code></td><td><code>received</code> "&lt;source&gt; via &lt;ingress&gt;"; <code>rendered</code> "&lt;w&gt;x&lt;h&gt; dots in &lt;n&gt; ms"</td><td>Stores <code>data</code>. Renames the staged folder to the job id before the commit.</td></tr>
+        <tr><td>new → <span class="pill s-queued">queued</span></td><td><code>reprint</code></td><td><code>POST /api/jobs/{id}/reprint</code></td><td>New job: <code>received</code> "&lt;source&gt; via &lt;ingress&gt;, reprint of &lt;old id&gt;", <code>rendered</code> "&lt;w&gt;x&lt;h&gt; dots, the bytes of &lt;old id&gt;". Old job: <code>reprinted</code> "&lt;new id&gt;"</td><td>Sends the old job's <code>job.escpos</code>; nothing re-renders. Copies the old folder, with <code>reprint_of</code> in <code>meta.json</code>. Same kind; same lifetime as the old job. 409 while the old job is live or has no <code>job.escpos</code>.</td></tr>
+        <tr><td><span class="pill s-queued">queued</span> → <span class="pill s-sending">sending</span></td><td><code>take</code></td><td><code>DeviceHub._deliver_loop</code></td><td><code>sending</code> "attempt &lt;n&gt;"</td><td><code>attempts</code> + 1; oldest <code>created_at</code> first</td></tr>
+        <tr><td><span class="pill s-sending">sending</span> (no change)</td><td><code>mark_sent</code></td><td><code>DeviceHub._deliver</code>, after the last frame</td><td><code>sent</code></td><td>Sets <code>sent_at</code>. Does nothing after a cancel.</td></tr>
+        <tr><td><span class="pill s-sending">sending</span> → <span class="pill s-printed">printed</span></td><td><code>confirm</code></td><td><code>DeviceHub._deliver</code>, on a <code>printed</code> reply</td><td><code>printed</code></td><td>Sets <code>printed_at</code>; clears data</td></tr>
+        <tr><td><span class="pill s-cancelled">cancelled</span> → <span class="pill s-printed">printed</span></td><td><code>confirm</code></td><td>Same, for a job cancelled while it was sending</td><td><code>printed</code> "after the cancel"</td><td>Sets <code>printed_at</code></td></tr>
+        <tr><td><span class="pill s-sending">sending</span> → <span class="pill s-queued">queued</span></td><td><code>release</code>, <code>release_all</code></td><td><code>DeviceHub._release</code> after a failed delivery; <code>DeviceHub.start</code> at server start</td><td><code>released</code> with the reason: "connection lost", "no reply within 120 s", "device error: …", "server shutdown"; no detail from <code>release_all</code></td><td>None</td></tr>
+        <tr><td><span class="pill s-sending">sending</span> → <span class="pill s-failed">failed</span></td><td><code>release</code>, <code>release_all</code></td><td>Same, when <code>attempts</code> ≥ 3</td><td><code>failed</code> with the reason</td><td>Clears data</td></tr>
+        <tr><td><span class="pill s-sending">sending</span> → <span class="pill s-expired">expired</span></td><td><code>release</code>, <code>release_all</code></td><td>Same, when <code>attempts</code> &lt; 3 and <code>expires_at</code> has passed</td><td><code>expired</code> with the reason</td><td>Clears data</td></tr>
+        <tr><td><span class="pill s-queued">queued</span> → <span class="pill s-expired">expired</span></td><td><code>_expire</code></td><td>First step of <code>take</code>, <code>cancel</code>, <code>clear</code>, <code>move</code>, <code>reprint</code>, <code>job</code>, <code>jobs</code>, <code>stats</code></td><td><code>expired</code>, with <code>at</code> = the job's <code>expires_at</code></td><td>Clears data</td></tr>
+        <tr><td><span class="pill s-queued">queued</span> or <span class="pill s-sending">sending</span> → <span class="pill s-cancelled">cancelled</span></td><td><code>cancel</code></td><td><code>POST /api/jobs/{id}/cancel</code></td><td><code>cancelled</code></td><td>Clears data. A job in sending can still print; a later failed delivery leaves it cancelled.</td></tr>
+        <tr><td><span class="pill s-queued">queued</span> or <span class="pill s-sending">sending</span> → <span class="pill s-cancelled">cancelled</span></td><td><code>clear</code></td><td><code>POST /api/printers/{id}/clear</code></td><td><code>cancelled</code>, one per job</td><td>Clears data. Same as <code>cancel</code> for a job in sending.</td></tr>
+        <tr><td><span class="pill s-queued">queued</span> (no change)</td><td><code>move</code></td><td><code>POST /api/printers/{id}/move</code></td><td><code>moved</code> "&lt;from&gt; -&gt; &lt;to&gt;"</td><td>Sets <code>printer</code>; jobs in sending stay</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="retention">
+  <h2>Storage and retention</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>What</th><th>Where</th><th>Kept until</th><th>Removed by</th></tr></thead>
+      <tbody>
+        <tr><td>ESC/POS bytes, working copy</td><td><code>jobs.data</code></td><td>The job reaches a final status</td><td><code>_finish</code> (printed, failed, expired, cancelled), <code>_expire</code>, <code>clear</code>. A queued job past its expiry keeps its bytes until the next <code>_expire</code> call.</td></tr>
+        <tr><td>Job files</td><td><code>artifacts/&lt;job id&gt;/</code></td><td>Forever</td><td>Nothing</td></tr>
+        <tr><td>Staging folders</td><td><code>artifacts/.tmp-&lt;random&gt;/</code></td><td>The job is queued or refused</td><td>The rename to the job id. <code>ArtifactStore.discard</code> when the job is refused. <code>ArtifactStore.sweep</code>, at each server start, for any that a stopped server left.</td></tr>
+        <tr><td>Job rows</td><td><code>jobs</code></td><td>Forever</td><td>Nothing</td></tr>
+        <tr><td>Events</td><td><code>job_events</code></td><td>Forever</td><td>Nothing</td></tr>
+        <tr><td>Printer state</td><td><code>printers</code></td><td>Forever, one row per id; fields are overwritten in place</td><td>Nothing. <code>connected_since</code> and <code>address</code> become NULL at start and on disconnect. <code>last_seen</code> and <code>latency_ms</code> keep their last value.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose">The code never runs <code>VACUUM</code>, and SQLite's default <code>auto_vacuum</code> is off. So the database file never shrinks. SQLite reuses the pages that a cleared <code>jobs.data</code> frees. The <code>artifacts</code> folder grows with every job and every reprint.</p>
+
+  <h3>How a new job and its folder land together</h3>
+  <ol class="plain prose">
+    <li>A worker thread writes the files into <code>artifacts/.tmp-&lt;random&gt;/</code>. If that fails, the sender gets 500 and nothing is queued.</li>
+    <li><code>JobQueue.add</code> (or <code>reprint</code>) opens a <code>BEGIN IMMEDIATE</code> transaction, inserts the job and its events, and renames the folder to the job id (<code>_placing</code>).</li>
+    <li>The transaction commits. If the insert, the rename or the commit fails, the transaction rolls back and <code>_placing</code> deletes the renamed folder. The API deletes a folder that is still staged. The sender gets 500, and no job and no folder remain.</li>
+    <li>At each start, the server deletes every <code>.tmp-*</code> folder.</li>
+  </ol>
+  <p class="prose">One gap remains. A crash after the rename and before the commit leaves a folder that no job names. Nothing reads or deletes it. A later job that draws the same 8-character id then fails its rename and is refused with 500.</p>
+</section>
+
+<section id="design">
+  <h2>Design points worth knowing</h2>
+  <div class="points">
+    <div class="point">
+      <span class="tag">Concurrency</span>
+      <h3>One process, one connection, one thread</h3>
+      <p><code>JobQueue.__init__</code> opens one <code>sqlite3</code> connection in autocommit mode (<code>isolation_level=None</code>). All calls come from the asyncio event loop thread. The worker threads (<code>asyncio.to_thread</code>) render images and write the staged artifact files; they do not touch the database. The rename into place runs on the event loop thread, inside the transaction.</p>
+      <p class="why">No two queue calls ever overlap. But each query blocks the whole server while it runs, so a slow query delays every device and HTTP request.</p>
+    </div>
+    <div class="point">
+      <span class="tag">Transactions</span>
+      <h3><code>BEGIN IMMEDIATE</code> around each change</h3>
+      <p><code>JobQueue._transaction</code> wraps every method that writes more than one statement, and the reads that expire jobs first (<code>job</code>, <code>jobs</code>, <code>stats</code>). It takes the write lock at the start. On any exception, a failed <code>COMMIT</code> included, it rolls back, so a later <code>COMMIT</code> cannot store half a change. <code>update_printer_state</code>, <code>printer_state</code>, <code>activity</code> and the reads in <code>stats</code> after its expiry step run as single autocommit statements.</p>
+      <p class="why">A job's status and its events always change together, and a new job commits together with its folder name.</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">SQLite settings</span>
+      <h3>WAL, a 2-second busy timeout, foreign keys on</h3>
+      <p><code>JobQueue._open</code> sets <code>journal_mode = WAL</code> (write-ahead log) and <code>foreign_keys = ON</code> at each start. The connection waits up to <code>BUSY_TIMEOUT_SECONDS</code>, 2 s, for a write lock that another program holds. In WAL mode, readers and the writer do not block each other. Only a second writer blocks.</p>
+      <p class="why">A <code>sqlite3</code> shell can read while the server runs. Do not leave a write transaction open in it. Most queue calls take the write lock, reads too, because they expire jobs first. Each one then waits 2 s with the event loop stopped, so every device and HTTP request waits too. One admin poll makes several calls, so one stall costs several timeouts. The timeout is small to keep that sum far below the 60 s device receive timeout.</p>
+    </div>
+    <div class="point">
+      <span class="tag">Ids</span>
+      <h3>Short random job ids, sequential event ids</h3>
+      <p><code>_new_id</code> returns <code>secrets.token_hex(4)</code>: 8 hex characters, 32 random bits. <code>_insert</code> tries again on a primary-key collision, up to 5 times, then raises. The job's folder takes the same id. <code>job_events.id</code> is an <code>INTEGER PRIMARY KEY</code>, which SQLite numbers in insert order.</p>
+      <p class="why">A job id is short enough to read off paper. It carries no order, so sort jobs by <code>created_at</code>.</p>
+    </div>
+    <div class="point">
+      <span class="tag">Time</span>
+      <h3>REAL Unix seconds; "today" uses the server's time zone</h3>
+      <p>Every time column is a <code>REAL</code>: seconds since 1970-01-01 UTC, with fractions, from <code>time.time()</code>. No zone is stored. <code>stats</code> and <code>activity</code> compute "today" from midnight in the server's system zone, because the HTTP API passes no <code>tz</code>.</p>
+      <p class="why">If you move the server to another zone, the stored data stays correct, but the "today" counts change. Use <code>datetime(created_at, 'unixepoch')</code> in SQL to read a time.</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Expiry</span>
+      <h3>Expiry is lazy</h3>
+      <p>No dedicated timer expires jobs. <code>_expire</code> runs as the first step of most queue calls, and it expires the queued jobs of every printer. While a printer is connected and not paused, its delivery loop calls <code>take</code> at least every 30 s (<code>RECHECK_INTERVAL</code>). The <code>expired</code> event has <code>at</code> set to the job's <code>expires_at</code>, not to the time it noticed.</p>
+      <p class="why">In raw SQL, a job past its expiry can still show <code>queued</code>, most often when no printer is connected. The API is correct, because it calls <code>_expire</code> first.</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Indexes</span>
+      <h3>Some frequent queries scan the whole table</h3>
+      <p>I ran <code>EXPLAIN QUERY PLAN</code> on each query, with real status values, on an empty copy of the schema (SQLite 3.50.4, no <code>ANALYZE</code>). These use an index: <code>take</code>, <code>_expire</code>, <code>clear</code>, <code>move</code>, the lookups by id, one job's events, <code>activity</code>, the queued count, and <code>jobs</code> or <code>stats</code> for one printer. These read every row: <code>jobs</code> with no filter (the admin list) and <code>jobs</code> with only a status filter, the printed-jobs query and the printer-name list in <code>stats</code> for all printers, the 24-hour failed count for all printers (it scans all of <code>job_events</code>), and <code>release_all</code> (only at start). The failed count for one printer reads every job of that printer.</p>
+      <p class="why">Rows are never deleted, so these scans grow with history. I did not measure timings, and plans on real data can differ.</p>
+    </div>
+    <div class="point">
+      <span class="tag">Restart</span>
+      <h3>Jobs in flight go back to the queue</h3>
+      <p>On a clean stop, <code>DeviceHub.shutdown</code> cancels each delivery, and <code>_deliver</code> releases the job with the detail "server shutdown". After a crash, the job stays <code>sending</code> in the file. At the next start, <code>DeviceHub.start</code> calls <code>release_all</code>. Each such job goes back to <code>queued</code>, or to <code>failed</code> if it used 3 attempts, or to <code>expired</code> if it is past its expiry. The start also deletes the <code>.tmp-*</code> staging folders.</p>
+      <p class="why">A ticket that printed but had no confirmation yet prints again after a restart. The interrupted attempt counts toward the limit of 3.</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Versioning</span>
+      <h3>Schema version in <code>PRAGMA user_version</code></h3>
+      <p><code>SCHEMA_VERSION</code> is the length of <code>_MIGRATIONS</code>, now 1. Step n takes a database from version n to n + 1. Version 0 is the schema from before versioning. At each start, <code>JobQueue._open</code> reads the version before any write, also before it sets WAL. A newer version raises <code>SchemaTooNew</code>. The server then exits with code 1 and prints "Cannot open the job database &lt;path&gt;: its schema version is N, and this server knows versions up to 1. Run a newer server, or restore a backup from before the upgrade."</p>
+      <p>Otherwise, in one transaction, a file with no <code>jobs</code> table gets <code>_SCHEMA</code>. Any other file gets each step from its version up. Then the version becomes <code>SCHEMA_VERSION</code>. The step from 0 (<code>_from_unversioned</code>) runs every <code>CREATE … IF NOT EXISTS</code> in <code>_SCHEMA</code> and drops the <code>png</code> column if it exists.</p>
+      <p class="why">To change the schema, edit <code>_SCHEMA</code> and append a step to <code>_MIGRATIONS</code>. A database at the current version never runs <code>_SCHEMA</code> again, so a change made only there reaches new files but not existing ones. The step from 0 deletes the old PNG images; it does not move them into folders. A job without a folder has no image (404) and cannot be reprinted (409).</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Backups</span>
+      <h3>Back up the database with <code>.backup</code>, then the <code>artifacts</code> folder</h3>
+      <p>The database is the file named by <code>database</code> in the <code>[server]</code> table of the TOML config. A relative path is relative to the config file's folder. The server creates the parent folder at start. In WAL mode the file has two companions, <code>&lt;name&gt;-wal</code> and <code>&lt;name&gt;-shm</code>. Committed writes can stay in the <code>-wal</code> file until SQLite copies them into the main file. The <code>artifacts</code> folder sits beside the database file. The repo has no backup script.</p>
+      <p class="why">While the server runs, use <code>sqlite3 &lt;database&gt; ".backup &lt;copy&gt;"</code>. It uses SQLite's online backup, which also reads the writes in the <code>-wal</code> file. Then copy the <code>artifacts</code> folder: in this order, a job added in between gets a spare folder, not a missing one. Never copy the main file without its <code>-wal</code> file, because the copy can miss committed jobs. <span class="tag">recommendation, restore not tested here</span></p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Surprise</span>
+      <h3>A cancelled job can still print</h3>
+      <p><code>cancel</code> and <code>clear</code> accept a <code>sending</code> job. The hub already holds the bytes in memory and keeps sending them. After the cancel, <code>mark_sent</code> does nothing, so no <code>sent</code> event appears. If the device then confirms, <code>confirm</code> moves the job from <code>cancelled</code> to <code>printed</code>, with the detail "after the cancel" on its <code>printed</code> event. If the delivery fails, <code>release</code> does nothing and the job stays <code>cancelled</code>.</p>
+      <p class="why">A cancel does not stop paper that is on its way, but the job detail shows what happened. <code>confirm</code> accepts any cancelled job. Only the hub, which confirms just the job it is delivering, keeps a job cancelled while queued from becoming <code>printed</code>.</p>
+    </div>
+    <div class="point warnpt">
+      <span class="tag">Surprise</span>
+      <h3>The <code>printers</code> table is not the printer list</h3>
+      <p>The config defines the printers. The table only keeps connection state, and it keeps rows for removed printers. <code>jobs.printer</code> has no key. The move API returns 404 for a printer that is not in the config.</p>
+      <p class="why">If you remove a printer from the config, its queued jobs stay until they expire, and you cannot move them with the API.</p>
+    </div>
+    <div class="point">
+      <span class="tag">Detail</span>
+      <h3>Smaller things</h3>
+      <ul class="plain">
+        <li><code>_release</code> checks the attempt count before the expiry. A third-attempt job past its expiry becomes <code>failed</code>, not <code>expired</code>.</li>
+        <li><code>sent_at</code> is not cleared when a job goes back to <code>queued</code>. It holds the time of the latest send.</li>
+        <li><code>size_bytes</code> and <code>frames</code> stay after <code>data</code> is cleared, so the history keeps the job size.</li>
+        <li>A reprint's <code>meta.json</code> keeps the original's <code>template</code> and <code>web_dist_sha256</code>, with a new <code>created_at</code> and <code>reprint_of</code>.</li>
+        <li>The code uses <code>RETURNING</code>, window functions and <code>ALTER TABLE … DROP COLUMN</code>, so it needs SQLite 3.35 or newer. The workspace's Python links SQLite 3.50.4. I did not check the deployed server's Python.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+
+</html>

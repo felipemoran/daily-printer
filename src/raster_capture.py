@@ -8,7 +8,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Error as PlaywrightError, sync_playwright
 
 
 def _pick_free_port(host: str = "127.0.0.1") -> int:
@@ -87,6 +87,49 @@ _SNAP_JS = """
 # threshold neither fattens nor thins strokes.
 ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
 
+# Chromium's MHTML writer keeps images and style sheets but drops web fonts (seen on Chromium 145).
+# A copy of each fetched @font-face rule with its file as a data: URL puts the font into a style sheet part.
+_INLINE_FONTS_JS = """
+async () => {
+  const fetched = new Set(performance.getEntriesByType('resource').map((entry) => entry.name));
+  const rules = [];
+  for (const sheet of document.styleSheets) {
+    for (const rule of sheet.cssRules) {
+      if (!(rule instanceof CSSFontFaceRule)) continue;
+      const source = /url\\((["']?)([^"')]+)\\1\\)/.exec(rule.style.getPropertyValue('src'));
+      const url = source && new URL(source[2], sheet.href ?? document.baseURI).href;
+      if (!url || !fetched.has(url)) continue;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`the font ${url} answered HTTP ${response.status}`);
+      const blob = await response.blob();
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      rules.push(rule.cssText.replace(source[0], `url("${data}")`));
+    }
+  }
+  const style = document.createElement('style');
+  style.textContent = rules.join('\\n');
+  document.head.append(style);
+}
+"""
+
+
+def snapshot_mhtml(page) -> bytes:
+    """The page with its style sheets, images and the fonts it fetched, as Chromium's MHTML."""
+    try:
+        page.evaluate(_INLINE_FONTS_JS)
+    except PlaywrightError as error:
+        raise RuntimeError(f"cannot put the page's fonts in its MHTML snapshot: {error.message}") from None
+    session = page.context.new_cdp_session(page)
+    try:
+        return session.send("Page.captureSnapshot", {"format": "mhtml"})["data"].encode()
+    finally:
+        session.detach()
+
 
 def capture_receipt(
     dist_dir: Path,
@@ -94,6 +137,7 @@ def capture_receipt(
     host: str = "127.0.0.1",
     index_path: str = "/index.html",
     out_png: Path,
+    out_mhtml: Path | None = None,
     device_scale_factor: float = 1.0,
     measure_selector: str | None = None,
     snap_selector: str | None = None,
@@ -101,8 +145,8 @@ def capture_receipt(
     extra_css: str | None = None,
     prepare_js: str | None = None,
 ) -> tuple[str, list[dict]]:
-    """Serve ``dist_dir``, screenshot ``#receipt`` to ``out_png``; return the page URL and
-    CSS-pixel boxes (relative to ``#receipt``) of every element matching ``measure_selector``. Elements matching
+    """Serve ``dist_dir``, screenshot ``#receipt`` to ``out_png``, and snapshot the page to ``out_mhtml`` when given.
+    Return the page URL and CSS-pixel boxes (relative to ``#receipt``) of every element matching ``measure_selector``. Elements matching
     ``snap_selector`` are nudged onto whole pixels before the screenshot.
     ``aliased_text`` turns off text anti-aliasing; ``extra_css`` is injected after load; ``prepare_js`` (a function
     expression) runs after that, before snapping and the screenshot."""
@@ -133,6 +177,8 @@ def capture_receipt(
                     page.locator("#receipt").screenshot(path=str(out_png))
                     if measure_selector:
                         boxes = page.evaluate(_MEASURE_JS, measure_selector)
+                    if out_mhtml:
+                        out_mhtml.write_bytes(snapshot_mhtml(page))
                 finally:
                     browser.close()
         except Exception as e:

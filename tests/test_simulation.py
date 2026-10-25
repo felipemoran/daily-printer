@@ -1,0 +1,349 @@
+import contextlib
+import http.server
+import io
+import os
+import re
+import shutil
+import signal
+import socket
+import stat
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from collections.abc import Callable
+from pathlib import Path
+from unittest import mock
+
+from PIL import Image
+
+_TESTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(_TESTS.parent / "src"))
+sys.path.insert(0, str(_TESTS.parent / "src" / "scripts"))
+
+import simulate  # noqa: E402
+from printer import PRINT_WIDTH_DOTS  # noqa: E402
+
+SCRIPT = _TESTS.parent / "src" / "scripts" / "simulate.py"
+RUN_TIMEOUT = 240
+SUMMARY_LINE = re.compile(
+    r"^\s+(\w+)\s+(template|text|image|receipt)\s+(\S+)\s+(\w+)\s+(\d+) x (\d+) dots\s+[\d.]+ cm\s+(\S+\.(?:png|bin))$", re.M
+)
+
+
+def _free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+class SimulateScriptTest(unittest.TestCase):
+    """simulate.py as a process. Its temp dir lives under a fresh TMPDIR, so every child it starts names that dir."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="simulate-test-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(self.kill_leftovers)
+
+    def leftovers(self) -> dict[int, str]:
+        listing = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, check=True).stdout
+        found = {}
+        for line in listing.splitlines():
+            pid, _, command = line.strip().partition(" ")
+            if self.tmp in command and int(pid) != os.getpid():
+                found[int(pid)] = command
+        return found
+
+    def kill_leftovers(self) -> None:
+        for pid in self.leftovers():
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGKILL)
+
+    def assertNoLeftovers(self) -> None:
+        deadline = time.monotonic() + 5
+        while (found := self.leftovers()) and time.monotonic() < deadline:
+            time.sleep(0.2)
+        self.assertEqual(found, {}, "processes outlived simulate.py")
+
+    def start(self, *args: str) -> subprocess.Popen:
+        process = subprocess.Popen(
+            [sys.executable, str(SCRIPT), *args], env={**os.environ, "TMPDIR": self.tmp},
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+        def close() -> None:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            process.stdout.close()
+            process.stderr.close()
+
+        self.addCleanup(close)
+        return process
+
+    def workdir(self) -> Path:
+        (workdir,) = Path(self.tmp).glob("print-sim-*")
+        return workdir
+
+    def assertNoTokenIn(self, output: str) -> None:
+        """The fixed admin token is printed on purpose; the printer and client tokens never are."""
+        workdir = self.workdir()
+        tokens = [path.read_text().strip() for path in workdir.glob("*.token")]
+        tokens += re.findall(r'token = "([^"]+)"', (workdir / "server.toml").read_text())
+        tokens.remove(simulate.ADMIN_TOKEN)
+        self.assertEqual(len(set(tokens)), 3)
+        for token in tokens:
+            self.assertNotIn(token, output)
+
+    def test_once_prints_every_sample_on_two_fake_printers_and_leaves_no_process(self):
+        process = self.start("--once", "--port", str(_free_port()))
+        stdout, stderr = process.communicate(timeout=RUN_TIMEOUT)
+        self.assertEqual(process.returncode, 0, stderr)
+
+        templates = sorted(path.stem for path in (_TESTS.parent / "samples" / "templates").glob("*.json"))
+        jobs = SUMMARY_LINE.findall(stdout)
+        self.assertEqual([(kind, name) for _, kind, name, *_ in jobs],
+                         [("template", name) for name in templates] + [("text", "text"), ("image", "image"),
+                                                                       ("receipt", "receipt")], stdout)
+        self.assertEqual(stdout.count(" accepted as "), len(jobs))
+        self.assertEqual({printer for printer, *_ in jobs}, {"home", "work"})
+        paper = {}
+        for printer, kind, name, status, width, height, output in jobs:
+            self.assertEqual(status, "printed", name)
+            if kind == "text":
+                self.assertGreater(Path(output).stat().st_size, 0)
+                continue
+            with Image.open(output) as image:
+                paper[name] = image.size
+            self.assertEqual(paper[name], (int(width), int(height)), f"{name} paper differs from the job size")
+        with Image.open(simulate.SAMPLE_IMAGE) as image:
+            image_width, image_height = image.size
+        self.assertEqual(paper["image"], (PRINT_WIDTH_DOTS, image_height * PRINT_WIDTH_DOTS // image_width))
+        self.assertEqual(paper["receipt"][0], PRINT_WIDTH_DOTS)
+        self.assertGreater(paper["receipt"][1], PRINT_WIDTH_DOTS, "the sample receipt is longer than it is wide")
+
+        workdir = self.workdir()
+        for secret in ("server.toml", "home.token", "work.token"):
+            self.assertEqual(stat.S_IMODE((workdir / secret).stat().st_mode), 0o600, secret)
+        self.assertNoTokenIn(stdout + stderr)
+        self.assertNoLeftovers()
+
+    def start_serving(self) -> tuple[subprocess.Popen, dict[int, str], Callable[[], str]]:
+        """Start without --once and wait until both jobs printed. Returns the process, its children and its output."""
+        process = self.start("--port", str(_free_port()))
+        lines: list[str] = []
+        ready = threading.Event()
+
+        def read() -> None:
+            for line in process.stdout:
+                lines.append(line)
+                if "Press Ctrl-C" in line:
+                    ready.set()
+
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        self.addCleanup(reader.join, 10)
+        self.assertTrue(ready.wait(RUN_TIMEOUT), "".join(lines))
+        running = self.leftovers()
+        self.assertGreaterEqual(len(running), 3, "server and two devices should be running")
+
+        def output() -> str:
+            process.wait(timeout=60)
+            reader.join(10)
+            return "".join(lines) + process.stderr.read()
+
+        return process, running, output
+
+    def assertStopped(self, running: dict[int, str]) -> None:
+        for pid in running:
+            with self.assertRaises(ProcessLookupError, msg=f"pid {pid} still runs"):
+                os.kill(pid, 0)
+        self.assertNoLeftovers()
+
+    def test_ctrl_c_while_running_stops_the_server_and_both_devices_and_exits_0(self):
+        process, running, output = self.start_serving()
+        process.send_signal(signal.SIGINT)
+        text = output()
+        self.assertEqual(process.returncode, 0, text)
+        self.assertIn(f"Admin token:   {simulate.ADMIN_TOKEN}\n", text)
+        self.assertRegex(text, r"Admin page: +http://127\.0\.0\.1:\d+/admin\n")
+        self.assertRegex(text, r"make demo-<name> DEMO_SERVER=http://127\.0\.0\.1:\d+\n")
+        self.assertIn("<name> is one of: agenda, ", text)
+        self.assertIn("printctl.py", text)
+        self.assertNoTokenIn(text)
+        self.assertStopped(running)
+
+    def test_sigterm_while_running_stops_the_server_and_both_devices_and_exits_0(self):
+        process, running, output = self.start_serving()
+        started = time.monotonic()
+        process.send_signal(signal.SIGTERM)
+        text = output()
+        self.assertLess(time.monotonic() - started, simulate.STOP_TIMEOUT / 2, "children waited for SIGKILL")
+        self.assertEqual(process.returncode, 0, text)
+        self.assertRegex((self.workdir() / "server.log").read_text(), r"INFO \S+ stopped\n?$", "no clean server stop")
+        self.assertNoTokenIn(text)
+        self.assertStopped(running)
+
+    def test_a_server_that_dies_mid_run_is_reported_with_its_log_and_the_devices_stop(self):
+        process, running, output = self.start_serving()
+        (server,) = [pid for pid, command in running.items() if "print_server.py" in command]
+        os.kill(server, signal.SIGKILL)
+        text = output()
+        self.assertEqual(process.returncode, 1, text)
+        self.assertIn("the server process stopped with exit code -9", text)
+        self.assertIn("server.log", text)
+        self.assertNotIn("Traceback", text)
+        self.assertStopped(running)
+
+    def test_a_taken_port_fails_before_any_request_and_names_the_flag(self):
+        with socket.socket() as taken:
+            taken.bind(("127.0.0.1", 0))
+            taken.listen()
+            port = taken.getsockname()[1]
+            process = self.start("--once", "--port", str(port))
+            stdout, stderr = process.communicate(timeout=RUN_TIMEOUT)
+            taken.setblocking(False)
+            with self.assertRaises(BlockingIOError, msg="simulate.py connected to the foreign listener"):
+                taken.accept()
+        self.assertEqual(process.returncode, 1, stdout)
+        self.assertIn(f"port {port} on 127.0.0.1 is in use; pass --port", stderr)
+        self.assertNotIn("Traceback", stderr)
+        self.assertEqual(list(self.workdir().iterdir()), [], "no config or token is written")
+        self.assertNoLeftovers()
+
+
+class SimulateMainTest(unittest.TestCase):
+    def test_sample_jobs_are_every_template_file_then_text_image_and_receipt(self):
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(simulate, "TEMPLATES", Path(folder)):
+            for name in ("zeta", "alpha"):
+                (Path(folder) / f"{name}.json").write_text("{}")
+            (Path(folder) / "notes.txt").write_text("")
+            jobs = simulate.sample_jobs()
+        self.assertEqual([(kind, name) for kind, name, _ in jobs], [
+            ("template", "alpha"), ("template", "zeta"), ("text", "text"), ("image", "image"), ("receipt", "receipt"),
+        ])
+        for _, _, path in jobs[2:]:
+            self.assertTrue(path.is_file(), path)
+
+    def test_a_missing_uv_fails_before_the_server_starts(self):
+        handlers = {signum: signal.getsignal(signum) for signum in simulate._STOP_SIGNALS}
+        for environment in ({"PATH": ""}, {"PATH": os.environ["PATH"], "UV": "/nonexistent/uv"}):
+            with self.subTest(environment), tempfile.TemporaryDirectory() as workdir, \
+                    mock.patch.dict(simulate.os.environ, environment, clear=True), \
+                    mock.patch.object(simulate.tempfile, "mkdtemp", return_value=workdir), \
+                    mock.patch.object(simulate.Children, "start") as start, \
+                    contextlib.redirect_stderr(io.StringIO()) as stderr:
+                code = simulate.main(["--once", "--port", str(_free_port())])
+            self.assertEqual(code, 1)
+            self.assertIn("uv is missing, so the fake printers cannot start.", stderr.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
+            start.assert_not_called()
+            self.assertEqual({signum: signal.getsignal(signum) for signum in handlers}, handlers)
+
+    def test_the_admin_token_never_reaches_the_front_end(self):
+        files = [path for path in (_TESTS.parent / "src" / "static").rglob("*") if path.is_file()]
+        self.assertTrue(files)
+        for path in files:
+            self.assertNotIn(simulate.ADMIN_TOKEN.encode(), path.read_bytes(), path)
+
+    def test_a_missing_receipt_app_says_how_to_build_it_before_starting_anything(self):
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as missing, \
+                mock.patch.object(simulate, "DIST_DIR", Path(missing) / "dist"), \
+                mock.patch.object(simulate.tempfile, "mkdtemp") as mkdtemp, \
+                contextlib.redirect_stderr(stderr):
+            code = simulate.main(["--once"])
+        self.assertEqual(code, 1)
+        self.assertIn("make web-build", stderr.getvalue())
+        self.assertIn("make setup-web", stderr.getvalue())
+        mkdtemp.assert_not_called()
+
+    def serve(self, handler: type) -> str:
+        server = http.server.HTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_port}"
+
+    def test_an_api_redirect_fails_and_never_carries_the_token_to_the_other_host(self):
+        seen: list[str | None] = []
+
+        class Target(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen.append(self.headers.get("Authorization"))
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *args):
+                pass
+
+        target = self.serve(Target)
+
+        class Redirect(Target):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", f"{target}/stolen")
+                self.end_headers()
+
+        origin = self.serve(Redirect)
+        with self.assertRaisesRegex(simulate.SimulationError, "HTTP 302 and redirected"):
+            simulate._call(simulate.Client(origin, "a-secret-admin-token-0000000000"), "GET", "/api/printers")
+        self.assertEqual(seen, [])
+
+
+    def test_an_api_error_keeps_the_status_and_server_text_without_printctl_hints(self):
+        class Refuse(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "no valid credential"}')
+
+            def log_message(self, *args):
+                pass
+
+        client = simulate.Client(self.serve(Refuse), "a-secret-admin-token-0000000000")
+        with self.assertRaises(simulate.SimulationError) as caught:
+            simulate._call(client, "GET", "/api/printers")
+        self.assertEqual(str(caught.exception), "GET /api/printers failed: no valid credential (HTTP 401).")
+
+    def test_a_non_json_answer_is_a_clear_error_not_a_traceback(self):
+        class Html(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"<html>not the print server</html>")
+
+            def log_message(self, *args):
+                pass
+
+        client = simulate.Client(self.serve(Html), "a-secret-admin-token-0000000000")
+        with self.assertRaisesRegex(simulate.SimulationError, "is it the print server"):
+            simulate._call(client, "GET", "/api/printers")
+
+
+    def test_stop_signals_every_child_when_one_group_refuses_the_signal(self):
+        children = simulate.Children(Path("."))
+        processes = [mock.Mock(pid=pid, **{"poll.return_value": None}) for pid in (101, 102, 103)]
+        children.processes = dict(zip(("server", "device-home", "device-work"), processes))
+        signalled = []
+
+        def killpg(pid, signum):
+            signalled.append(pid)
+            if pid == 101:
+                raise PermissionError(1, "Operation not permitted")
+
+        with mock.patch.object(simulate.os, "killpg", killpg):
+            children.stop()
+        self.assertEqual(signalled, [101, 102, 103])
+        for process in processes:
+            process.wait.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()
