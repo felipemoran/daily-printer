@@ -71,6 +71,87 @@ Placeholders: `render` in `deploy/wizard.sh`.
 
 After a `git pull` on the server, restart the server. When `web/` changed, run `cd web && npm run build` first.
 
+## Docker Compose
+
+The print server can also run in Docker, in place of the server service above. `compose.yaml` and `Dockerfile` are at the repo root. You need Docker with Compose v2 (Docker Desktop on a Mac).
+
+### What runs where
+
+| Service | Profile | Runs |
+|---|---|---|
+| `server` | none, always | the print server with Chromium inside; restarts with Docker |
+| `cloudflared` | `tunnel` | the Cloudflare Tunnel, remotely managed; it reaches `http://server:8787` |
+| `printer-home`, `printer-work` | `test` | fake printers for `make compose-test`; never on a real deploy |
+| `check` | `check` | the `make compose-test` checker; runs once |
+
+Real printers stay outside Docker: Docker Desktop on macOS cannot pass a USB device into a container. Run the device client on the host with `deploy/wizard.sh device`, as above.
+
+All services except `cloudflared` use one image, `daily-printer:local`. Its containers run as user `printer` (uid 10001), not root.
+
+### Ports and volumes
+
+- The server listens on port 8787 in its container. Compose publishes it on the host as `127.0.0.1:8787` only, never on other interfaces. `PRINT_SERVER_PORT` changes the host port.
+- The named volume `daily-printer_data` holds the job database (`print-server.db`, with its `-wal` and `-shm` files) and the `artifacts/` folder. It is a named volume, not a bind mount: SQLite locking and the `-wal` file stay on the Docker VM's own disk, and the image makes the `printer` user its owner.
+
+### Config and secrets
+
+1. Write a server config from `samples/print-server.example.toml`, outside the repo, mode 0600. Three values must differ from the example:
+   ```toml
+   [server]
+   host = "0.0.0.0"                    # 127.0.0.1 is unreachable from outside the container
+   port = 8787
+   database = "/data/print-server.db"  # on the data volume; the config folder is read-only
+   ```
+2. Point Compose at it. Compose mounts it read-only at `/config/server.toml`. Either pass it each time, `make compose-up CONFIG=~/print-server/config.toml`, or put it in `.env` at the repo root:
+   ```sh
+   PRINT_SERVER_CONFIG=/Users/<you>/print-server/config.toml
+   TUNNEL_TOKEN=<the tunnel token>
+   ```
+   `.env` is gitignored. It holds the tunnel token, so keep it mode 0600. `daily_print.py` reads the same file for its own keys.
+3. `make compose-up` builds the image and starts the server. It waits until the healthcheck passes. The healthcheck requests `/admin`, which needs no token, at the container's own hostname: a config that listens on loopback only fails it.
+
+| Task | Command |
+|---|---|
+| Start or upgrade the server | `make compose-up` |
+| Start the tunnel too | `docker compose --profile tunnel up -d` |
+| Server log | `docker compose logs -f server` |
+| Stop the server and the tunnel | `make compose-down`; the data volume stays |
+
+### The tunnel: two ways
+
+- **In Compose, remotely managed.** Create a tunnel in the Zero Trust dashboard (Networks > Tunnels > Create a tunnel > Cloudflared). Put its token in `.env` as `TUNNEL_TOKEN`. In the tunnel's public hostnames, add the device hostname with path `^/device$`, then the sender hostname with no path, both to `http://server:8787`. These are the rules of `deploy/cloudflared/config.example.yml`. Then check that the device hostname answers 404 on every path but `/device`.
+- **On the host, locally managed.** `wizard.sh server` installs `cloudflared` as a host service with `deploy/cloudflared/config.example.yml`. It reaches `http://127.0.0.1:8787`, the server's published port, so it works with the Compose server unchanged. Do not also run the wizard's server service: only one server can own port 8787.
+
+### A host device client
+
+On the server Mac itself, a device client connects to the published port: `--server ws://127.0.0.1:8787/device`. Every other printer machine connects through the tunnel's device hostname, `wss://<device host>/device`, as without Docker. The published port is not reachable from the LAN.
+
+### Backups
+
+The data volume holds the whole job history. Stop the server for a consistent copy, because SQLite keeps recent writes in the `-wal` file:
+
+```sh
+docker compose stop server
+docker compose cp server:/data ./print-server-backup-$(date +%F)
+docker compose start server
+```
+
+Restoring a backup into the volume is untested.
+
+### Upgrades
+
+Pull the new code, then run `make compose-up`. It rebuilds the image and recreates the server container. The server migrates the database schema when it starts. An older server refuses a database that a newer one migrated, so take a backup before you upgrade.
+
+### Test it
+
+`make compose-test` builds the image and starts the server with `deploy/compose-test/server.toml`, a test-only config whose tokens are public. It starts the two fake printers and sends the 14 template samples plus a text, an image and a receipt job. Then it checks that each job printed, and that each fake printer's `.bin` file equals the job's `job.escpos` artifact. At the end it removes its containers, network and volumes, also on failure. It uses its own Compose project, `daily-printer-test`, and host port 18787 (`COMPOSE_TEST_PORT`), so it never touches the real server or its data.
+
+### Untested
+
+- The `cloudflared` service and the dashboard rules: they need a real tunnel token.
+- The image on amd64 (the Intel Mac): it builds with `docker buildx build --platform linux/amd64 .`, but no amd64 machine ran it.
+- Docker on the Intel Mac itself.
+
 ## Limits
 
 - On macOS, newsyslog rotates each log at 10 MB and keeps 5 files. A running service keeps writing to the rotated file (`server.log.0`) until it restarts, because launchd opens the log only when it starts the service.
