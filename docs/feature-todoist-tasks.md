@@ -69,6 +69,8 @@ TodoistAPI (SDK)
                             └── renderers (text / HTML / ESC-POS)
 ```
 
+`uv run src/scripts/daily_print.py --template` prints today's and overdue tasks on the `tasks` print template in place of the daily receipt. `src/tasks_template.py` builds that payload (see `docs/feature-ticket-templates.md`).
+
 ### Module: `src/todoist_client.py`
 
 Thin wrapper around the SDK:
