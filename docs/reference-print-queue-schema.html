@@ -104,9 +104,6 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
 .receipt .r { display: flex; justify-content: space-between; gap: 12px; }
 .receipt .r span:last-child { text-align: right; overflow-wrap: anywhere; }
 .receipt hr { border: 0; border-top: 1px dashed var(--line); margin: 6px 0; width: 100%; }
-.flags { display: grid; gap: 10px; }
-.flag { background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; display: grid; gap: 6px; }
-.flag b { font-family: var(--font-display); font-stretch: 85%; font-size: 1.05rem; }
 .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .cmp > div { min-width: 0; }
 @media (max-width: 560px) { .cmp { grid-template-columns: 1fr; } }
@@ -140,7 +137,7 @@ svg .t-state { font-family: var(--font-display); font-size: 15px; font-weight: 7
   <p class="eyebrow">Print server · SQLite · read on 2026-10-12</p>
   <h1>Print Queue Schema</h1>
   <p class="lede">The print server keeps its jobs, their history and the printer connection state in one SQLite file. Each job also has a folder of files on disk, frozen when the job comes in. This page shows that storage as the code builds it today, and what you should know before you change it, back it up or query it by hand.</p>
-  <p class="byline">Source: <code>src/job_queue.py</code> (class <code>JobQueue</code>) and <code>src/job_artifacts.py</code> (class <code>ArtifactStore</code>), with their callers in <code>src/device_hub.py</code>, <code>src/http_api.py</code> and <code>src/scripts/print_server.py</code>. Where the docs and the code disagree, this page shows the code and flags the difference.</p>
+  <p class="byline">Source: <code>src/job_queue.py</code> (class <code>JobQueue</code>) and <code>src/job_artifacts.py</code> (class <code>ArtifactStore</code>), with their callers in <code>src/device_hub.py</code>, <code>src/http_api.py</code> and <code>src/scripts/print_server.py</code>.</p>
   <nav aria-label="Sections">
     <ul>
       <li><a href="#diagram">Entity diagram</a></li>
@@ -148,7 +145,6 @@ svg .t-state { font-family: var(--font-display); font-size: 15px; font-weight: 7
       <li><a href="#lifecycle">Job lifecycle</a></li>
       <li><a href="#retention">Storage and retention</a></li>
       <li><a href="#design">Design points</a></li>
-      <li><a href="#flags">Flags</a></li>
     </ul>
   </nav>
   <div class="facts" role="list">
@@ -599,20 +595,6 @@ svg .t-state { font-family: var(--font-display); font-size: 15px; font-weight: 7
   </div>
 </section>
 
-<section id="flags">
-  <h2>Flags: docs against code</h2>
-  <p class="prose">I compared the code with the "Job lifecycle", "Job record", "Job storage" and "Printer state" sections of <code>docs/planning-print-system-architecture.md</code>. I found no statement that the code contradicts. The five flags from the earlier version of this page are fixed in the docs, so I removed them. Two gaps remain, where the docs are true but leave out something you need:</p>
-  <div class="flags">
-    <div class="flag">
-      <b>"No timer expires jobs."</b>
-      <p>True, but the docs leave out the 30-second recheck. While a printer is connected and not paused, its delivery loop calls <code>take</code> at least every 30 s, and <code>take</code> expires the queued jobs of every printer.</p>
-    </div>
-    <div class="flag">
-      <b>"A new database gets the current version."</b>
-      <p>True, but the docs do not say that a database at the current version skips <code>_SCHEMA</code>. A table or index added only to <code>_SCHEMA</code> never reaches an existing database. Every schema change needs a step in <code>_MIGRATIONS</code>.</p>
-    </div>
-  </div>
-</section>
 </main>
 
 </html>
