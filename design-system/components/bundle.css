@@ -1,0 +1,149 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap");
+
+/* Thermal — 1 CSS px = 1 printer dot. Whole-pixel sizes and line heights only. ink, paper and the tone-* greys; the print pipeline dithers. */
+body { margin: 0; background: var(--canvas, #d8d5cf); color: var(--canvas-ink, #1c1b19); font-family: var(--font-mono, "IBM Plex Mono", monospace); }
+
+/* Display faces: Archivo condensed. Applied to the generated type classes too. */
+.rp-d, .display-mega, .display-hero, .display-xl, .display-lg, .display-md, .display-stat, .display-sm {
+  font-family: var(--font-display, "Archivo", "Arial Narrow", sans-serif); font-stretch: 62%; font-weight: 900;
+}
+.rp-d-wide { font-stretch: 75%; }
+
+/* ---------- Paper ---------- */
+.rp-stage { padding: 24px; display: flex; justify-content: center; }
+.rp-paper {
+  width: var(--strip-width, 448px); box-sizing: border-box; padding: var(--space-8, 32px) var(--space-8, 32px) var(--space-8, 32px);
+  background: var(--paper, #fff); color: var(--ink, #000);
+  font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: 18px; line-height: 24px; font-weight: 500;
+  -webkit-font-smoothing: none;
+  box-shadow: 0 18px 40px -18px rgba(40,35,25,.35);
+}
+/* Print mode: exactly the 384-dot raster, nothing else (no margins, shadow or desk). */
+.rp-paper.rp-print { width: var(--paper-width, 384px); padding: 0; box-shadow: none; }
+.rp-paper.rp-print.rp-feed { padding-bottom: var(--space-feed, 56px); }
+.rp-paper.rp-feed { padding-bottom: var(--space-feed, 56px); }
+.rp-paper > :first-child { margin-top: 0; }
+
+/* ---------- Structure ---------- */
+.rp-bar { background: var(--ink, #000); color: var(--paper, #fff); display: flex; justify-content: space-between; gap: 12px; padding: 10px 16px; font-weight: 700; letter-spacing: 3px; }
+.rp-bar.rp-outline { background: var(--paper, #fff); color: var(--ink, #000); border: var(--stroke-box, 4px) solid var(--ink, #000); padding: 6px 12px; }
+.rp-mast { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.rp-mast-aside { text-align: right; font-weight: 700; line-height: 21px; flex: none; }
+.rp-mast-sub { font-weight: 700; margin-top: 10px; }
+.rp-label { font-weight: 700; letter-spacing: 3px; margin: var(--space-7, 28px) 0 var(--space-3, 12px); }
+.rp-label:first-child { margin-top: 0; }
+.rp-rule { border: 0; margin: var(--space-6, 24px) 0; border-top-style: solid; border-top-color: var(--ink, #000); }
+.rp-rule-hair   { border-top-width: 2px; border-top-style: dashed; }
+.rp-rule-rule   { border-top-width: 3px; }
+.rp-rule-box    { border-top-width: 4px; }
+.rp-rule-heavy  { border-top-width: 6px; }
+.rp-rule-bar    { border-top-width: 8px; margin: 20px 0; }
+.rp-rule-double { border-top-width: 9px; border-top-style: double; margin: 12px 0; }
+.rp-tear { display: flex; align-items: center; gap: 12px; margin: 40px 0 24px; font-size: 16px; font-weight: 700; }
+.rp-tear::before, .rp-tear::after { content: ""; flex: 1; border-top: 4px dashed var(--ink, #000); }
+.rp-hazard { height: 40px; }
+.rp-foot { margin-top: 20px; font-size: 16px; text-align: center; }
+
+/* ---------- Rows ---------- */
+.rp-leaders { display: flex; flex-direction: column; gap: 10px; }
+.rp-leader { display: flex; align-items: baseline; }
+.rp-leader-dots { flex: 1; border-bottom: 2px dashed var(--ink, #000); margin: 0 10px; min-width: 16px; }
+.rp-leader-v { font-weight: 700; text-align: right; }
+.rp-task { display: flex; gap: 18px; padding: 16px 0; border-bottom: 2px dashed var(--ink, #000); align-items: flex-start; }
+.rp-task-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rp-task-t { font-size: 20px; font-weight: 700; line-height: 24px; }
+.rp-task.rp-done .rp-task-t { font-weight: 500; text-decoration: line-through; text-decoration-thickness: 3px; }
+.rp-task-m { font-size: 16px; }
+.rp-box { flex: none; width: 30px; height: 30px; box-sizing: border-box; border: 4px solid var(--ink, #000); margin-top: 2px; }
+.rp-box.rp-checked { width: 38px; height: 38px; border: 0; background: var(--ink, #000); color: var(--paper, #fff); font-weight: 700; font-size: 20px; line-height: 38px; text-align: center; }
+.rp-log { display: flex; flex-direction: column; gap: 14px; }
+.rp-log-row { display: flex; gap: 16px; }
+.rp-log-t { font-weight: 700; flex: none; width: 76px; }
+.rp-log-x { flex: 1; }
+.rp-step { display: flex; gap: 16px; padding: 14px 0; border-bottom: 2px dashed var(--ink, #000); align-items: flex-start; }
+.rp-step-n { flex: none; width: 48px; font-size: 48px; line-height: 43px; }
+.rp-step-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.rp-step-timer { align-self: flex-start; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; border: 2px solid var(--ink, #000); padding: 2px 10px; }
+.rp-step-timer i { width: 14px; height: 14px; border: 2px solid var(--ink, #000); box-sizing: border-box; display: inline-block; }
+
+/* ---------- Tags & signals ---------- */
+.rp-tag { display: inline-block; flex: none; background: var(--ink, #000); color: var(--paper, #fff); font-weight: 700; font-size: 16px; line-height: 24px; padding: 2px 8px; letter-spacing: 2px; }
+.rp-tag.rp-outline { background: var(--paper, #fff); color: var(--ink, #000); border: 2px solid var(--ink, #000); padding: 0 8px; letter-spacing: 0; }
+.rp-trans { display: flex; align-items: center; gap: 12px; }
+.rp-trans-a { flex: 1; border: 4px solid var(--ink, #000); padding: 14px 8px; text-align: center; font-weight: 700; }
+.rp-trans-b { flex: 1; background: var(--ink, #000); color: var(--paper, #fff); padding: 18px 8px; text-align: center; font-weight: 700; }
+.rp-trans-arrow { font-size: 26px; font-weight: 700; }
+.rp-callout { border: 6px solid var(--ink, #000); padding: 16px 18px; }
+.rp-callout-l { font-size: 16px; font-weight: 700; letter-spacing: 3px; }
+.rp-callout-x { font-size: 22px; font-weight: 700; line-height: 28px; margin-top: 6px; text-wrap: pretty; }
+.rp-callout.rp-split { display: flex; justify-content: space-between; align-items: flex-end; padding: 16px 20px; }
+.rp-callout.rp-split .rp-callout-l { font-size: 18px; letter-spacing: 0; line-height: 22px; }
+.rp-quote-mark { font-family: var(--font-display, "Archivo", sans-serif); font-weight: 900; font-size: 63px; line-height: 50px; height: 52px; }
+.rp-quote-by { font-size: 16px; margin-top: 8px; font-weight: 700; }
+.rp-sev { background: var(--ink, #000); color: var(--paper, #fff); display: flex; align-items: flex-end; gap: 20px; padding: 12px 20px 20px; }
+.rp-sev-k { font-weight: 700; font-size: 26px; letter-spacing: 4px; }
+.rp-sev-side { flex: 1; display: flex; flex-direction: column; gap: 4px; font-weight: 700; padding-bottom: 8px; }
+
+/* ---------- Data ---------- */
+.rp-tiles { display: grid; border: 4px solid var(--ink, #000); }
+.rp-tile { padding: 12px 16px; border-color: var(--ink, #000); border-style: solid; border-width: 0; }
+.rp-tile.rp-inv { background: var(--ink, #000); color: var(--paper, #fff); }
+.rp-tile.rp-inv .rp-tile-n { font-weight: 700; }
+.rp-tile-l { font-size: 16px; font-weight: 700; }
+.rp-tile-v { font-size: 48px; line-height: 48px; }
+.rp-tile-n { font-size: 16px; }
+.rp-bars { display: flex; flex-direction: column; gap: 14px; }
+.rp-barrow { display: grid; gap: 6px 12px; align-items: center; }
+.rp-barrow-l, .rp-barrow-v { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; }
+.rp-barrow-v { text-align: right; }
+.rp-barpair { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.rp-bar-a { height: 22px; box-sizing: border-box; background: var(--ink, #000); }
+.rp-bar-b { height: 12px; box-sizing: border-box; border: 2px solid var(--ink, #000); }
+.rp-mark { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: var(--ink, #000); }
+.rp-legend { display: flex; gap: 24px; font-size: 16px; font-weight: 700; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+.rp-legend > span { display: flex; gap: 8px; align-items: center; }
+.rp-sw { width: 18px; height: 18px; box-sizing: border-box; border: 2px solid var(--ink, #000); display: inline-block; }
+.rp-cols { display: flex; align-items: flex-end; gap: 10px; border-bottom: 4px solid var(--ink, #000); }
+.rp-col { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; justify-content: flex-end; font-size: 16px; font-weight: 700; }
+.rp-col-bar { width: 100%; box-sizing: border-box; background: var(--ink, #000); }
+.rp-cols-x { display: flex; gap: 10px; margin-top: 6px; }
+.rp-cols-x span { flex: none; text-align: center; font-size: 16px; font-weight: 700; }
+.rp-grid { display: flex; flex-direction: column; gap: 4px; }
+.rp-grid-row { display: flex; align-items: center; }
+.rp-grid-l { width: 44px; flex: none; font-size: 16px; font-weight: 700; }
+.rp-grid-cells { display: flex; gap: 3px; flex: 1; }
+.rp-cell { box-sizing: border-box; border: 2px solid var(--ink, #000); flex: none; }
+.rp-cell.rp-solid { border: 0; background: var(--ink, #000); }
+.rp-diff { display: flex; gap: 4px; }
+.rp-diff i { width: 16px; height: 16px; box-sizing: border-box; display: block; }
+.rp-diff i.rp-add { background: var(--ink, #000); }
+.rp-diff i.rp-del { border: 2px solid var(--ink, #000); }
+
+/* ---------- Pen & paper ---------- */
+.rp-lines > div { height: 52px; border-bottom: 2px solid var(--ink, #000); }
+.rp-boxes { display: flex; gap: 12px; }
+.rp-boxes > div { flex: none; box-sizing: border-box; border: 4px solid var(--ink, #000); }
+.rp-qr { display: flex; gap: 20px; align-items: flex-start; }
+.rp-qr-slot { flex: none; box-sizing: border-box; border: 4px solid var(--ink, #000); display: flex; align-items: center; justify-content: center; }
+.rp-qr-slot span { background: var(--paper, #fff); padding: 4px 8px; font-size: 16px; font-weight: 700; }
+.rp-qr-x { font-size: 16px; line-height: 24px; }
+.rp-qr-code { display: block; flex: none; }
+.rp-textmode { font-family: var(--font-text, "JetBrains Mono", monospace); font-size: 20px; line-height: 24px; font-weight: 400; }
+.rp-textmode div { white-space: pre; overflow: hidden; height: 24px; }
+.rp-textmode .rp-tm-double { font-size: 40px; line-height: 48px; height: 48px; }
+.rp-textmode .rp-tm-inv { background: var(--ink, #000); color: var(--paper, #fff); }
+.rp-swatches { display: grid; grid-template-columns: repeat(4, 87px); gap: 14px 12px; font-size: 16px; line-height: 20px; }
+.rp-swatch { display: flex; flex-direction: column; gap: 6px; }
+.rp-swatch > div:first-child { height: 80px; box-sizing: border-box; border: 3px solid var(--ink, #000); }
+.rp-swatch > div:first-child.rp-fill-solid { border: 0; }
+.rp-image { display: block; }
+.rp-image-cap { font-size: 16px; font-weight: 700; margin-top: 8px; }
+
+/* ---------- Tones: real greys, dithered by the print pipeline (last, so they win over element backgrounds) ---------- */
+.rp-fill-solid   { background: var(--ink, #000); }
+.rp-fill-tone-15 { background: var(--tone-15, #d9d9d9); }
+.rp-fill-tone-35 { background: var(--tone-35, #a6a6a6); }
+.rp-fill-tone-50 { background: var(--tone-50, #808080); }
+.rp-fill-tone-65 { background: var(--tone-65, #595959); }
+.rp-fill-hazard  { background: repeating-linear-gradient(-45deg, #000 0 14px, #fff 14px 28px); }
+.rp-fill-none    { background: var(--paper, #fff); }

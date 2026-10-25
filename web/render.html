@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=384, initial-scale=1.0" />
+    <title>Thermal templates</title>
+    <style>
+      /* Turned 90 degrees clockwise onto the paper: the feed goes at the trailing (right) end. */
+      #receipt[data-orientation='landscape'] { width: max-content; height: 384px; padding-bottom: 0; padding-right: var(--space-feed, 56px); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/render-main.tsx"></script>
+  </body>
+</html>

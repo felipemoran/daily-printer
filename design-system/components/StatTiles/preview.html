@@ -1,0 +1,19 @@
+<!-- @dsCard group="Data" height=330 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>StatTiles — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.StatTiles, { columns: 2, items: [{ label: 'TICKETS IN', value: '1,284', note: '▲ 12% vs wk 39' }, { label: 'RESOLVED', value: '1,197', note: '▲ 8%' }, { label: 'FIRST REPLY', value: '42m', note: '▼ 9m faster' }, { label: 'CSAT', value: '94%', note: 'BEST SINCE MAY', inverted: true }] }),
+      h('div', { style: { height: 20 } }),
+      h(T.StatTiles, { columns: 3, valueFirst: true, small: true, items: [{ label: 'MEETINGS', value: '5' }, { label: 'TASKS', value: '7' }, { label: 'DEADLINES', value: '2' }] }))
+  );
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!-- @dsCard group="Layout" height=300 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Rule — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.SectionLabel, null, 'HAIR · 2PX DASHED'),
+      h(T.Rule, { weight: 'hair', style: { margin: '8px 0 16px' } }),
+      h(T.SectionLabel, { style: { marginTop: 8 } }, 'RULE · 3PX'),
+      h(T.Rule, { weight: 'rule', style: { margin: '8px 0 16px' } }),
+      h(T.SectionLabel, { style: { marginTop: 8 } }, 'BAR · 8PX'),
+      h(T.Rule, { weight: 'bar', style: { margin: '8px 0 16px' } }),
+      h(T.SectionLabel, { style: { marginTop: 8 } }, 'DOUBLE · 9PX'),
+      h(T.Rule, { weight: 'double', style: { margin: '8px 0 0' } }))
+  );
+</script>
+</body>
+</html>

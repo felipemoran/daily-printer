@@ -1,0 +1,31 @@
+<!-- @dsCard group="Tests" height=1350 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TestSolids — test strip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>.t-l { font-size: 16px; line-height: 24px; font-weight: 700; } .t-row { display: flex; align-items: center; gap: 12px; min-height: 24px; }</style>
+</head>
+<body>
+<div id="root" style="padding:24px 32px"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { print: true },
+      h(T.HeaderBar, { left: 'TEST · SOLIDS', right: '1/1' }),
+      h(T.SectionLabel, { style: { marginTop: 24 } }, 'BANDS 8 / 16 / 40 / 120'),
+      [8, 16, 40, 120].map(function (b) { return h('div', { key: b, style: { height: b, background: '#000', marginBottom: 16 } }); }),
+      h(T.SectionLabel, null, 'HEADER BAR'),
+      h(T.HeaderBar, { left: 'TICKET UPDATE', right: '14:08' }),
+      h(T.SectionLabel, null, 'REVERSED TILE'),
+      h(T.StatTiles, { columns: 2, items: [{ label: 'RESOLVED', value: '1,197', note: '▲ 8%' }, { label: 'CSAT', value: '94%', note: 'BEST SINCE MAY', inverted: true }] }),
+      h(T.SectionLabel, null, 'SEVERITY'),
+      h(T.Severity, { level: '1', lines: ['INCIDENT', '#INC-0937', 'OPENED 13:52'] }),
+      h(T.SectionLabel, null, 'HAZARD'),
+      h(T.HazardTape),
+      h(T.SectionLabel, null, 'DISPLAY-XL 900'),
+      h('div', { className: 'display-xl' }, 'OPS-2481')
+    )
+  );
+</script>
+</body>
+</html>

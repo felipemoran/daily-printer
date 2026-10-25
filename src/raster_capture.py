@@ -85,7 +85,7 @@ _SNAP_JS = """
 
 # Honoured by headless Chromium on macOS: glyphs come out 1-bit, so the
 # threshold neither fattens nor thins strokes.
-_ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
+ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
 
 
 def capture_receipt(
@@ -122,7 +122,7 @@ def capture_receipt(
                     )
                     page.goto(url, wait_until="networkidle", timeout=60_000)
                     if aliased_text:
-                        page.add_style_tag(content=_ALIASED_TEXT_CSS)
+                        page.add_style_tag(content=ALIASED_TEXT_CSS)
                     if extra_css:
                         page.add_style_tag(content=extra_css)
                         page.evaluate("document.fonts.ready")

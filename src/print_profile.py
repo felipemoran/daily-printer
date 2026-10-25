@@ -72,6 +72,8 @@ _FONT_SCALE_JS = """
 AUTO_WEIGHT_MAX_BOLD_PX = 18.5
 _AUTO_WEIGHT_JS = """
 () => {
+  // Thermal pages (design-system/) set the weight per size themselves.
+  if (document.querySelector('#receipt.rp-paper')) return;
   const sized = [...document.querySelectorAll('#receipt, #receipt *')]
     .map((el) => [el, parseFloat(getComputedStyle(el).fontSize)]);
   for (const [el, size] of sized) el.style.fontWeight = size < %(max_bold)s ? '700' : '400';
@@ -158,8 +160,12 @@ def capture_options(profile: PrintProfile) -> dict:
 
 
 def load_gray(screenshot: Path) -> Image.Image:
+    return to_gray(Image.open(screenshot))
+
+
+def to_gray(image: Image.Image) -> Image.Image:
     """Screenshot as grayscale, alpha flattened on white, ``PRINT_WIDTH_DOTS`` wide."""
-    image = Image.open(screenshot).convert("RGBA")
+    image = image.convert("RGBA")
     flat = Image.new("RGBA", image.size, (255, 255, 255, 255))
     gray = Image.alpha_composite(flat, image).convert("L")
     if gray.width != PRINT_WIDTH_DOTS:

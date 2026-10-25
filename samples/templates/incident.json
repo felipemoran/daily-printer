@@ -1,0 +1,18 @@
+{
+  "template": "incident",
+  "schemaVersion": 1,
+  "data": {
+    "severity": "1",
+    "id": "INC-0937",
+    "openedAt": "13:52",
+    "service": "checkout-api",
+    "summary": "error rate 38% · p99 4.2s",
+    "log": [
+      { "time": "13:52", "text": "Alert fired: 5xx > 20%" },
+      { "time": "13:55", "text": "Paged on-call: R. Chen" },
+      { "time": "13:58", "text": "Escalated to secondary" },
+      { "time": "14:01", "text": "Deploy #8812 suspected" }
+    ],
+    "ackBy": "14:07"
+  }
+}

@@ -15,6 +15,7 @@ With --photo, the page needs one <img data-photo src="photo.png"> inside a
 Examples:
   uv run src/scripts/page_print.py --page samples/ui-elements
   uv run src/scripts/page_print.py --page web/dist --legacy
+  uv run src/scripts/page_print.py --page "web/dist/preview.html?c=TestTones"
   uv run src/scripts/page_print.py --photo data/me.jpg --dither photo
 """
 
@@ -61,7 +62,7 @@ def _parse_args() -> argparse.Namespace:
         "--page",
         type=Path,
         default=DEFAULT_PAGE,
-        help="directory with index.html (default: samples/photo-page)",
+        help="directory with index.html, or an HTML file (query allowed) served with its folder (default: samples/photo-page)",
     )
     parser.add_argument("--legacy", action="store_true", help="start from the pre-2026-10 profile")
     parser.add_argument(
@@ -202,9 +203,14 @@ def profile_from_args(args: argparse.Namespace) -> PrintProfile:
     return base.with_(**changes)
 
 
-def _build_site(page_dir: Path, site_dir: Path, font_file: Path | None) -> None:
-    if not (page_dir / "index.html").is_file():
-        sys.exit(f"ERROR: no index.html in {page_dir}")
+def _site_entry(page: Path) -> tuple[Path, str]:
+    """The folder to serve and the page to open in it (an HTML file name, with its query if any)."""
+    return (page.parent, page.name) if page.name.partition("?")[0].endswith(".html") else (page, "index.html")
+
+
+def _build_site(page_dir: Path, entry: str, site_dir: Path, font_file: Path | None) -> None:
+    if not (page_dir / entry.partition("?")[0]).is_file():
+        sys.exit(f"ERROR: no {entry.partition('?')[0]} in {page_dir}")
     shutil.copytree(page_dir, site_dir, dirs_exist_ok=True)
     shutil.copytree(FONTS, site_dir / "fonts", dirs_exist_ok=True)
     if font_file:
@@ -212,9 +218,10 @@ def _build_site(page_dir: Path, site_dir: Path, font_file: Path | None) -> None:
         shutil.copy2(font_file, site_dir / "fonts" / "override" / font_file.name)
 
 
-def _render(site_dir: Path, out_png: Path, selector: str, profile: PrintProfile) -> list[dict]:
+def _render(site_dir: Path, entry: str, out_png: Path, selector: str, profile: PrintProfile) -> list[dict]:
     _, boxes = capture_receipt(
         site_dir,
+        index_path=f"/{entry}",
         out_png=out_png,
         measure_selector=selector,
         snap_selector=PHOTO_SELECTOR,
@@ -229,9 +236,9 @@ def _one(boxes: list[dict], selector: str) -> dict:
     return boxes[0]
 
 
-def _slot_width(site_dir: Path, work_dir: Path, profile: PrintProfile) -> int:
+def _slot_width(site_dir: Path, entry: str, work_dir: Path, profile: PrintProfile) -> int:
     Image.new("L", (1, 1), 255).save(site_dir / "photo.png")
-    box = _one(_render(site_dir, work_dir / "measure.png", SLOT_SELECTOR, profile), SLOT_SELECTOR)
+    box = _one(_render(site_dir, entry, work_dir / "measure.png", SLOT_SELECTOR, profile), SLOT_SELECTOR)
     if box["width"] != int(box["width"]):
         sys.exit(f"ERROR: {SLOT_SELECTOR} is {box['width']}px wide; make it a whole number of pixels")
     return int(box["width"])
@@ -288,13 +295,14 @@ def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = (args.artifact_dir or _PROJECT_ROOT / "artifacts" / f"page-{stamp}").resolve()
     site_dir = artifact_dir / "site"
-    _build_site(args.page.resolve(), site_dir, profile.font_file)
+    page_dir, entry = _site_entry(args.page.resolve())
+    _build_site(page_dir, entry, site_dir, profile.font_file)
 
     gray = bitmap = None
     if photo is not None:
         gray = prepare(
             photo,
-            width=_slot_width(site_dir, artifact_dir, profile),
+            width=_slot_width(site_dir, entry, artifact_dir, profile),
             gamma=args.gamma,
             sharpen=args.sharpen,
             contrast_cutoff=args.contrast_cutoff,
@@ -305,7 +313,7 @@ def main() -> None:
         (bitmap or gray).save(site_dir / "photo.png")
 
     shot_path = artifact_dir / "page.png"
-    boxes = _render(site_dir, shot_path, PHOTO_SELECTOR, profile)
+    boxes = _render(site_dir, entry, shot_path, PHOTO_SELECTOR, profile)
     shot = Image.open(shot_path)
     print(f"Rendered {shot.width}x{shot.height} px")
     problems = [] if shot.width == PRINT_WIDTH_DOTS else [f"page renders {shot.width}px wide, printer is {PRINT_WIDTH_DOTS} dots"]

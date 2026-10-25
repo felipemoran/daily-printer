@@ -1,0 +1,22 @@
+{
+  "template": "uptime",
+  "schemaVersion": 1,
+  "data": {
+    "service": "API GATEWAY · EU-WEST",
+    "uptimePct": 99.42,
+    "days": [
+      { "label": "MON", "hours": "oooooooooooooooooooooooo" },
+      { "label": "TUE", "hours": "ooooooooooooooxdoooooooo" },
+      { "label": "WED", "hours": "ooooooooodoooooooooooooo" },
+      { "label": "THU", "hours": "oooddooooooooooooooooooo" },
+      { "label": "FRI", "hours": "oooooooooooooooooooooooo" },
+      { "label": "SAT", "hours": "ooooooooooooooooooooxxdo" },
+      { "label": "SUN", "hours": "oooooooooooooooooooooooo" }
+    ],
+    "incidents": [
+      { "when": "TUE 14h", "text": "TLS cert rotation · 62m" },
+      { "when": "THU 03h", "text": "DB failover · degraded" },
+      { "when": "SAT 20h", "text": "Region outage · 2h 40m" }
+    ]
+  }
+}

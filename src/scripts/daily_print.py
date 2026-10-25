@@ -17,14 +17,13 @@ Usage:
   uv run src/scripts/daily_print.py             # gather → render → print
   uv run src/scripts/daily_print.py --no-print  # gather → render (skip printer)
   uv run src/scripts/daily_print.py --no-build  # skip npm build (faster if UI unchanged)
+  uv run src/scripts/daily_print.py --template  # print today's tasks on the `tasks` template
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,31 +36,9 @@ from print_profile import DEFAULT_PROFILE, LEGACY_PROFILE, capture_options, load
 from printer import open_printer  # noqa: E402
 from raster_capture import capture_receipt  # noqa: E402
 from raster_split import split_raster_vertical  # noqa: E402
+from web_build import build_web  # noqa: E402
 
 DEFAULT_MAX_HEIGHT_PX = 4000
-
-
-def _run_web_build(web_dir: Path) -> None:
-    if not (web_dir / "node_modules").is_dir():
-        raise RuntimeError(
-            f"Missing {web_dir / 'node_modules'}. Run: cd web && npm install"
-        )
-    if not shutil.which("npm"):
-        raise RuntimeError(
-            "npm not found on PATH; install Node.js or run `cd web && npm run build` manually."
-        )
-    proc = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=web_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        out = (proc.stdout or "") + (proc.stderr or "")
-        raise RuntimeError(
-            f"`npm run build` failed (exit {proc.returncode}).\n{out.strip() or '(no output)'}"
-        )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -84,6 +61,11 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Directory for artifacts (default: artifacts/<utc-timestamp>)",
+    )
+    p.add_argument(
+        "--template",
+        action="store_true",
+        help="print today's and overdue tasks on the `tasks` template instead of the receipt",
     )
     p.add_argument(
         "--legacy",
@@ -114,8 +96,14 @@ def main() -> None:
     # ---- 1. Gather ----------------------------------------------------------
     print("Gathering data…", flush=True)
     try:
-        from gather import gather
-        payload = gather()
+        if args.template:
+            from task_formatter import sections_to_payload
+            from todoist_client import get_task_sections
+            sections = get_task_sections()
+            payload = sections_to_payload(sections)
+        else:
+            from gather import gather
+            payload = gather()
     except Exception as e:
         print(f"ERROR: gather failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -130,7 +118,7 @@ def main() -> None:
     if not args.no_build:
         print("Building web UI…", flush=True)
         try:
-            _run_web_build(web_dir)
+            build_web(web_dir)
         except RuntimeError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             sys.exit(1)
@@ -156,6 +144,16 @@ def main() -> None:
     payload_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     artifact_payload = artifact_dir / "payload.json"
     artifact_payload.write_text(payload_text, encoding="utf-8")
+
+    if args.template:
+        from print_template import render_and_print
+        from tasks_template import tasks_payload
+
+        template_payload = tasks_payload(sections, datetime.now().astimezone())
+        (artifact_dir / "tasks.json").write_text(json.dumps(template_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        render_and_print(template_payload, artifact_dir, args.no_print)
+        return
+
     (dist_dir / "payload.json").write_text(payload_text, encoding="utf-8")
 
     # ---- 4. Screenshot ------------------------------------------------------

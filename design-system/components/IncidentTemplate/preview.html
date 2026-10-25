@@ -1,0 +1,27 @@
+<!-- @dsCard group="Templates" height=940 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>IncidentTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h(T.HazardTape),
+      h('div', { style: { height: 12 } }),
+      h(T.Severity, { level: '1', lines: ['INCIDENT', '#INC-0937', 'OPENED 13:52'] }),
+      h('div', { className: 'display-sm rp-d-wide', style: { marginTop: 24 } }, 'checkout-api'),
+      h('div', { style: { fontWeight: 700, marginTop: 6 } }, 'error rate 38% · p99 4.2s'),
+      h(T.Rule, { weight: 'box', style: { margin: '24px 0 16px' } }),
+      h(T.LogList, { rows: [['13:52','Alert fired: 5xx > 20%'],['13:55','Paged on-call: R. Chen'],['13:58','Escalated to secondary'],['14:01','Deploy #8812 suspected']] }),
+      h('div', { style: { height: 28 } }),
+      h(T.Callout, { label: h('span', null, 'ACK', h('br'), 'REQUIRED BY'), value: '14:07' }),
+      h('div', { style: { height: 28 } }),
+      h(T.HazardTape))
+  );
+</script>
+</body>
+</html>

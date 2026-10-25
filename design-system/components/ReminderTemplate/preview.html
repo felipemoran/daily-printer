@@ -1,0 +1,22 @@
+<!-- @dsCard group="Templates" height=640 width=496 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ReminderTemplate — template</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, null,
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', fontWeight: 700, letterSpacing: 3 } }, h('span', null, 'REMINDER'), h('span', null, 'SUN 11 OCT')),
+      h(T.Rule, { weight: 'bar', style: { margin: '14px 0 18px' } }),
+      h('div', { className: 'display-lg', style: { textWrap: 'balance' } }, 'WATER THE PLANTS'),
+      h('div', { style: { fontWeight: 700, marginTop: 16 } }, 'every 3 days · next 14 OCT'),
+      h(T.SectionLabel, { style: { marginTop: 32 } }, 'THIS MONTH'),
+      h(T.BoxRow, { count: 10, columns: 10, filled: 3 }))
+  );
+</script>
+</body>
+</html>

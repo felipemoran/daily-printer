@@ -1,0 +1,19 @@
+<!-- @dsCard group="Data" height=330 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>CellGrid — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.CellGrid, { ticks: ['00','06','12','18',''], rows: ['MON','TUE','WED','THU'].map(function (d, r) { var c = []; for (var i = 0; i < 24; i++) c.push(r === 1 && i === 14 ? 'solid' : (r === 1 && i === 15) || (r === 3 && (i === 3 || i === 4)) ? 'tone' : 'empty'); return { label: d, cells: c }; }), legend: [['empty','OK'],['tone','DEGRADED'],['solid','DOWN']] }),
+      h(T.Rule, { weight: 'rule' }),
+      h(T.CellGrid, { labelWidth: 0, spread: true, cellWidth: 10, cellHeight: 20, rowGap: 20, rows: [{ label: 'Read 20 min', right: '25/30', cells: '111011111111111011001111111110' }, { label: 'Stretch', right: '25/30', cells: '111111101111110111111011111-11' }] }))
+  );
+</script>
+</body>
+</html>

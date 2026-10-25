@@ -1,0 +1,30 @@
+{
+  "template": "report",
+  "schemaVersion": 1,
+  "data": {
+    "week": 40,
+    "range": "28 SEP – 04 OCT",
+    "title": "SUPPORT",
+    "kpis": [
+      { "label": "TICKETS IN", "value": "1,284", "note": "▲ 12% vs wk 39" },
+      { "label": "RESOLVED", "value": "1,197", "note": "▲ 8%" },
+      { "label": "FIRST REPLY", "value": "42m", "note": "▼ 9m faster" },
+      { "label": "CSAT", "value": "94%", "note": "BEST SINCE MAY", "inverted": true }
+    ],
+    "channels": [
+      { "label": "EMAIL", "value": 512, "prev": 430 },
+      { "label": "CHAT", "value": 398, "prev": 317 },
+      { "label": "PHONE", "value": 214, "prev": 256 },
+      { "label": "SOCIAL", "value": 160, "prev": 143 }
+    ],
+    "days": [
+      { "label": "MON", "value": 232 },
+      { "label": "TUE", "value": 261 },
+      { "label": "WED", "value": 204 },
+      { "label": "THU", "value": 198 },
+      { "label": "FRI", "value": 176 },
+      { "label": "SAT", "value": 112 },
+      { "label": "SUN", "value": 101 }
+    ]
+  }
+}

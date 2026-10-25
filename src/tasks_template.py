@@ -1,0 +1,70 @@
+"""Map Todoist's TaskSections onto the `tasks` template (web/src/templates/tasks.tsx)."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+from todoist_api_python.models import Task
+
+from task_formatter import strip_markdown_links
+from todoist_client import TaskSections
+
+# Mirror the caps in web/src/templates/tasks.tsx. Its validators count code points.
+TASKS_MAX = 8
+TITLE_MAX = 80
+META_MAX = 40
+
+# Todoist's API numbers priority backwards: 4 is the app's P1. P4 is the default and gets no tag.
+_PRIORITY_TAGS = {4: "P1", 3: "P2", 2: "P3"}
+
+# The template refuses a title that is blank once these go (nonBlank in web/src/templates/validate.ts).
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff"))
+UNTITLED = "(untitled)"
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _due_date(task: Task) -> date | None:
+    if task.due is None:
+        return None
+    due = task.due.date
+    return due.astimezone().date() if isinstance(due, datetime) else due
+
+
+def _row(task: Task, today: date | None) -> dict[str, Any]:
+    """``today`` is set for an overdue task, to print its age."""
+    parts: list[str] = []
+    if today is not None:
+        due = _due_date(task)
+        parts.append(f"OVERDUE {(today - due).days}D" if due else "OVERDUE")
+    elif task.due is not None and isinstance(task.due.date, datetime):
+        parts.append(task.due.date.astimezone().strftime("%H:%M"))
+    parts += task.labels or []
+    title = strip_markdown_links(task.content)
+    if not title.translate(_ZERO_WIDTH).strip():
+        title = UNTITLED
+    row: dict[str, Any] = {"title": _clip(title, TITLE_MAX)}
+    if parts:
+        row["meta"] = _clip(" · ".join(parts), META_MAX)
+    if task.priority in _PRIORITY_TAGS:
+        row["priority"] = _PRIORITY_TAGS[task.priority]
+    return row
+
+
+def tasks_payload(sections: TaskSections, now: datetime) -> dict[str, Any]:
+    """Today's and overdue tasks; upcoming tasks are not today's list."""
+    rows = [_row(task, None) for task in sections.today]
+    rows += [_row(task, now.date()) for task in sections.overdue]
+    data: dict[str, Any] = {
+        "weekday": now.strftime("%a").upper(),
+        "date": now.strftime("%d %b").upper(),
+        "year": now.strftime("%Y"),
+        "tasks": rows[:TASKS_MAX],
+        "printedAt": now.strftime("%H:%M"),
+    }
+    if len(rows) > TASKS_MAX:
+        data["more"] = len(rows) - TASKS_MAX
+    return {"template": "tasks", "schemaVersion": 1, "data": data}

@@ -28,6 +28,7 @@
   /* Same 1-bit glyphs as the print capture, so the dev preview matches paper. */
   -webkit-font-smoothing: none;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 /* Receipt header: date + divider */
@@ -89,7 +90,6 @@
   font-size: calc(16em / 16);
     font-weight: 500;
   line-height: 1.35;
-  word-break: break-word;
   color: #000;
 }
 

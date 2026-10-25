@@ -1,0 +1,13 @@
+{
+  "template": "focus",
+  "schemaVersion": 1,
+  "data": {
+    "id": "BIL-118",
+    "title": "Ship billing migration",
+    "startedAt": "10:02",
+    "estimate": "2h",
+    "pomodoros": 6,
+    "noteLines": 4,
+    "date": "01.10"
+  }
+}

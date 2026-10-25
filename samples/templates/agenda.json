@@ -1,0 +1,17 @@
+{
+  "template": "agenda",
+  "schemaVersion": 1,
+  "data": {
+    "date": "THU 01 OCT",
+    "dayStart": 8,
+    "dayEnd": 18,
+    "now": "14:40",
+    "events": [
+      { "start": "09:00", "end": "09:30", "title": "Standup", "kind": "meeting" },
+      { "start": "10:00", "end": "12:00", "title": "billing migration", "kind": "focus" },
+      { "start": "12:30", "end": "13:15", "title": "Lunch w/ Dana", "kind": "meeting" },
+      { "start": "14:00", "end": "15:00", "title": "Design review", "kind": "meeting" },
+      { "start": "16:00", "end": "16:45", "title": "1:1 Priya", "kind": "meeting" }
+    ]
+  }
+}

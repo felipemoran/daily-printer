@@ -1,7 +1,7 @@
 # daily-printer task runner
 # Usage: make <target>
 
-.PHONY: help print dry-run render-sample photo-compare photo-strip test web-dev web-build setup setup-web setup-playwright
+.PHONY: help print dry-run render-sample template photo-compare photo-strip test web-dev web-build design-sync setup setup-web setup-playwright
 
 # Default: show help
 help:
@@ -21,6 +21,9 @@ dry-run: ## Fetch data and render; skip printer
 render-sample: ## Render the sample payload without printing
 	uv run src/scripts/receipt_print.py samples/receipt-sample.json --no-print
 
+template: ## Render and print a template payload: make template PAYLOAD=samples/templates/ticket.json
+	uv run src/scripts/print_template.py "$(PAYLOAD)"
+
 photo-compare: ## Screen sheet of every dither method: make photo-compare PHOTO=me.jpg
 	uv run src/scripts/photo_print.py "$(PHOTO)" --compare
 
@@ -37,6 +40,9 @@ web-dev: ## Start Vite dev server (edits web/public/payload.json to preview)
 
 web-build: ## Build web/dist (runs automatically during print)
 	cd web && npm run build
+
+design-sync: ## Mirror the design system and regenerate web files: make design-sync SRC=<downloaded project/>
+	uv run src/scripts/sync_design_system.py $(SRC)
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 

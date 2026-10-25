@@ -1,0 +1,14 @@
+{
+  "template": "review-queue",
+  "schemaVersion": 1,
+  "data": {
+    "prs": [
+      { "number": 482, "title": "Retry webhooks with exponential backoff", "area": "api", "added": 312, "removed": 48, "ageDays": 4 },
+      { "number": 479, "title": "Remove legacy invoice renderer", "area": "billing", "added": 22, "removed": 940, "ageDays": 3 },
+      { "number": 488, "title": "Add CSV export to reports", "area": "web", "added": 401, "removed": 120, "ageDays": 1 },
+      { "number": 490, "title": "Bump TLS lib to 3.2", "area": "infra", "added": 14, "removed": 12, "ageDays": 0 },
+      { "number": 491, "title": "Onboarding checklist copy", "area": "web", "added": 88, "removed": 61, "ageDays": 0 },
+      { "number": 492, "title": "Queue worker memory leak", "area": "worker", "added": 37, "removed": 9, "ageDays": 0 }
+    ]
+  }
+}

@@ -1,0 +1,81 @@
+<!-- @dsCard height=320 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thermal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&display=swap">
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--canvas, #d8d5cf); color:var(--canvas-ink, #1c1b19); overflow:hidden; }
+  .cover { position:relative; width:960px; height:320px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:320px; overflow:hidden; }
+  .art svg { display:block; width:480px; height:320px; }
+  .paper { fill:var(--paper, #fff); }
+  .ink { fill:var(--ink, #000); }
+  .cut { fill:var(--paper, #fff); }
+  .sq { rx:var(--radius-none, 0); }
+  .words { position:absolute; left:var(--space-8, 32px); bottom:var(--space-8, 32px); max-width:440px; }
+  .name { margin:0; font-family:var(--font-display, "Archivo", sans-serif); font-stretch:62%; font-weight:900; font-size:104px; line-height:.9; color:var(--ink, #000); }
+  .tag { margin:var(--space-3, 12px) 0 0 2px; font-family:var(--font-mono, "IBM Plex Mono", monospace); font-size:14px; line-height:20px; color:var(--canvas-muted, #4a4740); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 320" width="480" height="320">
+<!--
+  blocks      paper strip 168 wide (strip-width / 8 x 3) bled off the top, the receipt itself · ink slab 248 x 280 bled off right and bottom · ink stroke-bar rule 8px and an ink header plate 136 x 32 on the strip
+  arrangement one tall paper strip left, one heavy ink slab right, both bleeding off the edges like paper feeding out of the printer
+  pattern     checker, from "a dot is burned or it is not": an 8 x 8 checker of space-4 (16px) cells cut into the ink slab in paper, the print head's dot matrix blown up
+  scales      sides and offsets in space-2 / space-4 / space-8 multiples; stroke-bar 8px; corners radius-none
+-->
+<rect class="paper sq" x="32" y="-8" width="168" height="296"/>
+<rect class="ink sq" x="48" y="24" width="136" height="32"/>
+<rect class="ink sq" x="48" y="72" width="136" height="8"/>
+<rect class="ink sq" x="48" y="104" width="96" height="8"/>
+<rect class="ink sq" x="48" y="128" width="120" height="8"/>
+<rect class="ink sq" x="48" y="152" width="72" height="8"/>
+<rect class="ink sq" x="48" y="224" width="40" height="40"/>
+<rect class="ink sq" x="232" y="40" width="248" height="288"/>
+<rect class="cut" x="264" y="72" width="16" height="16"/>
+<rect class="cut" x="296" y="72" width="16" height="16"/>
+<rect class="cut" x="328" y="72" width="16" height="16"/>
+<rect class="cut" x="360" y="72" width="16" height="16"/>
+<rect class="cut" x="280" y="88" width="16" height="16"/>
+<rect class="cut" x="312" y="88" width="16" height="16"/>
+<rect class="cut" x="344" y="88" width="16" height="16"/>
+<rect class="cut" x="376" y="88" width="16" height="16"/>
+<rect class="cut" x="264" y="104" width="16" height="16"/>
+<rect class="cut" x="296" y="104" width="16" height="16"/>
+<rect class="cut" x="328" y="104" width="16" height="16"/>
+<rect class="cut" x="360" y="104" width="16" height="16"/>
+<rect class="cut" x="280" y="120" width="16" height="16"/>
+<rect class="cut" x="312" y="120" width="16" height="16"/>
+<rect class="cut" x="344" y="120" width="16" height="16"/>
+<rect class="cut" x="376" y="120" width="16" height="16"/>
+<rect class="cut" x="264" y="136" width="16" height="16"/>
+<rect class="cut" x="296" y="136" width="16" height="16"/>
+<rect class="cut" x="328" y="136" width="16" height="16"/>
+<rect class="cut" x="360" y="136" width="16" height="16"/>
+<rect class="cut" x="280" y="152" width="16" height="16"/>
+<rect class="cut" x="312" y="152" width="16" height="16"/>
+<rect class="cut" x="344" y="152" width="16" height="16"/>
+<rect class="cut" x="376" y="152" width="16" height="16"/>
+<rect class="cut" x="264" y="168" width="16" height="16"/>
+<rect class="cut" x="296" y="168" width="16" height="16"/>
+<rect class="cut" x="328" y="168" width="16" height="16"/>
+<rect class="cut" x="360" y="168" width="16" height="16"/>
+<rect class="cut" x="280" y="184" width="16" height="16"/>
+<rect class="cut" x="312" y="184" width="16" height="16"/>
+<rect class="cut" x="344" y="184" width="16" height="16"/>
+<rect class="cut" x="376" y="184" width="16" height="16"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Thermal</h1>
+<p class="tag">Tickets, reports and recipes on 384 dots of paper.</p>
+</div>
+</div>
+</body>
+</html>

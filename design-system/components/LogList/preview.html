@@ -1,0 +1,17 @@
+<!-- @dsCard group="Rows" height=220 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>LogList — preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { feed: false },
+      h(T.LogList, { rows: [['13:52','Alert fired: 5xx > 20%'],['13:55','Paged on-call: R. Chen'],['13:58','Escalated to secondary'],['14:01','Deploy #8812 suspected']] }))
+  );
+</script>
+</body>
+</html>

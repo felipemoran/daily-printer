@@ -1,0 +1,35 @@
+<!-- @dsCard group="Tests" height=1200 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TestTones — test strip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>.t-l { font-size: 16px; line-height: 24px; font-weight: 700; } .t-row { display: flex; align-items: center; gap: 12px; min-height: 24px; }</style>
+</head>
+<body>
+<div id="root" style="padding:24px 32px"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  var ramp = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+  function grey(d) { var v = Math.round(255 * (1 - d / 100)); var x = v.toString(16); if (x.length < 2) x = '0' + x; return '#' + x + x + x; }
+  var tones = ['tone-15', 'tone-35', 'tone-50', 'tone-65'];
+  function cells(w, hh) { var states = ['empty', 'light', 'tone', 'solid']; var row = []; for (var i = 0; i < 24; i++) row.push(states[Math.floor(i / 6)]); return row; }
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { print: true },
+      h(T.HeaderBar, { left: 'TEST · TONES', right: '1/1' }),
+      h(T.SectionLabel, { style: { marginTop: 24 } }, 'RAMP · % BLACK'),
+      ramp.map(function (d) { return h('div', { key: d, className: 't-row', style: { height: 32 } }, h('span', { className: 't-l', style: { width: 48 } }, d), h('div', { style: { width: 324, height: 28, background: grey(d) } })); }),
+      h(T.SectionLabel, null, 'TOKENS · BLOCKS'),
+      h('div', { style: { display: 'flex', gap: 12 } }, tones.map(function (t) { return h('div', { key: t, style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h(T.Fill, { pattern: t, width: 87, height: 80 }), h('span', { className: 't-l' }, t)); })),
+      h(T.SectionLabel, null, 'CELLS 11×22 · EMPTY / LIGHT / TONE / SOLID'),
+      h(T.CellGrid, { labelWidth: 0, rows: [{ cells: cells() }] }),
+      h(T.SectionLabel, null, 'CELLS 10×20, SPREAD'),
+      h(T.CellGrid, { labelWidth: 0, spread: true, cellWidth: 10, cellHeight: 20, rows: [{ cells: '0000000-------~~~~~~~1111111111'.slice(0, 30) }] }),
+      h(T.SectionLabel, null, 'BARS · SOLID OVER TONE-50'),
+      h(T.BarList, { rows: [{ label: 'A', value: '100', a: 1, b: .8 }, { label: 'B', value: '60', a: .6, b: .9, solid: false }] }),
+      h(T.SectionLabel, null, 'TEXT ON A PLATE OVER TONE-50'),
+      h(T.Fill, { pattern: 'tone-50', height: 64, style: { padding: 18 } }, h('span', { style: { background: '#fff', padding: '2px 8px', fontWeight: 700 } }, '10:00 FOCUS · billing'))
+    )
+  );
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "template": "build",
+  "schemaVersion": 1,
+  "data": {
+    "name": "NIGHTLY",
+    "number": 1184,
+    "since": 1183,
+    "branch": "main",
+    "commit": "9f3c2ab",
+    "start": "02:00",
+    "duration": "14m22s",
+    "status": "failed",
+    "stages": [
+      { "name": "lint", "time": "0:41", "status": "ok" },
+      { "name": "unit tests", "time": "6:12", "status": "ok" },
+      { "name": "integration", "time": "5:03", "status": "fail" },
+      { "name": "build images", "time": "-:--", "status": "skip" }
+    ],
+    "suites": [
+      { "name": "api", "seconds": 252 },
+      { "name": "web", "seconds": 140 },
+      { "name": "worker", "seconds": 75 },
+      { "name": "e2e", "seconds": 303 }
+    ],
+    "failures": [
+      { "spec": "checkout.spec", "reason": "TIMEOUT", "title": "applies coupon" },
+      { "spec": "refunds.spec", "reason": "HTTP 500", "title": "partial refund" }
+    ],
+    "commits": 3,
+    "url": "ci.local/b/1184"
+  }
+}

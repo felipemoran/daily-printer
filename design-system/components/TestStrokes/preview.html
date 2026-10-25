@@ -1,0 +1,33 @@
+<!-- @dsCard group="Tests" height=1200 width=448 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TestStrokes — test strip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>.t-l { font-size: 16px; line-height: 24px; font-weight: 700; } .t-row { display: flex; align-items: center; gap: 12px; min-height: 24px; }</style>
+</head>
+<body>
+<div id="root" style="padding:24px 32px"></div>
+<script>
+  var T = window.Thermal, h = React.createElement;
+  var widths = [2, 3, 4, 5, 6, 8, 9];
+  function hrow(w, dashed) { return h('div', { key: w + (dashed ? 'd' : ''), className: 't-row', style: { height: 32, alignItems: 'flex-start' } }, h('span', { className: 't-l', style: { width: 120 } }, w + 'px' + (dashed ? ' dashed' : '') + (w >= 3 && !dashed ? ' → ' + (w - 1) + '?' : '')), h('div', { style: { flex: 'none', width: 252, marginTop: 10, borderTop: w + 'px ' + (dashed ? 'dashed' : 'solid') + ' #000' } })); }
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h(T.Paper, { print: true },
+      h(T.HeaderBar, { left: 'TEST · STROKES', right: '1/1' }),
+      h(T.SectionLabel, { style: { marginTop: 24 } }, 'HORIZONTAL · SOLID'),
+      widths.map(function (w) { return hrow(w, false); }),
+      h(T.SectionLabel, null, 'HORIZONTAL · DASHED'),
+      hrow(2, true), hrow(4, true),
+      h(T.SectionLabel, null, 'VERTICAL · 64PX TALL'),
+      h('div', { style: { display: 'flex', gap: 28, alignItems: 'flex-end' } }, widths.map(function (w) { return h('div', { key: w, style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } }, h('div', { style: { width: w, height: 64, background: '#000' } }), h('span', { className: 't-l' }, w)); })),
+      h(T.SectionLabel, null, 'BOX OUTLINES · 64PX'),
+      h('div', { style: { display: 'flex', gap: 24 } }, [2, 3, 4, 6].map(function (w) { return h('div', { key: w, style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' } }, h('div', { style: { width: 64, height: 64, boxSizing: 'border-box', border: w + 'px solid #000' } }), h('span', { className: 't-l' }, w + 'px')); })),
+      h(T.SectionLabel, null, 'CURRENT SCALE 2 / 3 / 4 / 6 / 8'),
+      [2, 3, 4, 6, 8].map(function (w) { return h('div', { key: 'c' + w, style: { borderTop: w + 'px solid #000', margin: '12px 0' } }); }),
+      h(T.SectionLabel, null, 'ALTERNATIVE 2 / 4 / 6 / 9'),
+      [2, 4, 6, 9].map(function (w) { return h('div', { key: 'a' + w, style: { borderTop: w + 'px solid #000', margin: '12px 0' } }); })
+    )
+  );
+</script>
+</body>
+</html>

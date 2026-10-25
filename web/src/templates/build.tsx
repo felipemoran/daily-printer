@@ -1,0 +1,34 @@
+// Strip 1h of designs/receipt-set-1: a CI build report previewed as native 32-column text.
+import T from '../thermal'
+import { defineTemplate } from './define'
+import { buildLines, type BuildReport } from './textmode-lines'
+import { array, integer, object, oneOf, optional, range, text, type Parser } from './validate'
+
+// 99h59m59s keeps formatSeconds within its 6-column cell.
+const seconds = range(0, 359999)
+
+// 7 digits keep the title (with a 12-character name) and the commits line within their columns.
+const BUILD_MAX = 9_999_999
+
+const parse: Parser<BuildReport> = object({
+  name: optional(text(12)),
+  number: integer(1, BUILD_MAX),
+  since: optional(integer(1, BUILD_MAX)),
+  branch: text(80),
+  commit: text(80),
+  start: text(40),
+  duration: text(40),
+  status: oneOf('passed', 'failed'),
+  stages: array(object({ name: text(80), time: text(40), status: oneOf('ok', 'fail', 'skip') }), 12),
+  suites: array(object({ name: text(80), seconds }), 10),
+  failures: array(object({ spec: text(80), reason: text(40), title: text(120) }), 8),
+  commits: integer(0, BUILD_MAX),
+  url: text(200),
+})
+
+export default defineTemplate({
+  schemaVersion: 1,
+  parse,
+  lines: buildLines,
+  Component: ({ data }) => <T.TextMode lines={buildLines(data)} />,
+})
