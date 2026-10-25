@@ -15,7 +15,7 @@ phase: null
 
 ## Description
 
-Port design-system/components/ReminderTemplate/preview.html into a named template with typed data, following the infrastructure's template convention. Sample payload = the preview's own content. Render must match the preview's layout.
+Implement the `focus` template from Receipt Set 1 strip 1n, as a named template with typed data that follows the template convention. Its sample payload is `samples/templates/focus.json`. (The task first planned a port of the design system's ReminderTemplate; Receipt Set 1 replaced that plan.)
 
 ## Acceptance check
 
