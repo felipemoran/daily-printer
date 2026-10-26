@@ -208,6 +208,35 @@ token = "{HOME}"
         not_a_list = EXAMPLE.read_text().replace('# admin_emails = ["you@example.com"]', 'admin_emails = "ok@example.com"')
         self.assertIn("access.admin_emails: must be a list of email addresses", self.problems(not_a_list))
 
+    def with_allowed_origins(self, line: str) -> str:
+        return EXAMPLE.read_text().replace('# allowed_origins = ["https://app.example.com"]', line)
+
+    def test_allowed_origins_default_to_none(self):
+        self.assertEqual(load_config(self.example()).access.allowed_origins, ())
+
+    def test_allowed_origins_keep_exact_origins(self):
+        line = 'allowed_origins = ["https://mise-en-place.felipemoran.com", "http://localhost:5173"]'
+        config = load_config(self.write(self.with_allowed_origins(line)))
+        self.assertEqual(config.access.allowed_origins,
+                         ("https://mise-en-place.felipemoran.com", "http://localhost:5173"))
+
+    def test_allowed_origins_refuse_anything_but_an_exact_origin(self):
+        for origin in [
+            "https://app.example.com/",
+            "https://app.example.com/print",
+            "*",
+            "https://*.example.com",
+            "app.example.com",
+            "https://App.Example.com",
+            "ftp://app.example.com",
+            "https://app.example.com?x=1",
+        ]:
+            with self.subTest(origin=origin):
+                message = self.problems(self.with_allowed_origins(f'allowed_origins = ["{origin}"]'))
+                self.assertIn(f"access.allowed_origins[0]: not an origin: '{origin}'", message)
+        message = self.problems(self.with_allowed_origins('allowed_origins = "https://app.example.com"'))
+        self.assertIn("access.allowed_origins: must be a list of origins", message)
+
     def test_team_domain_must_be_a_bare_hostname(self):
         for team_domain in [
             "https://your-team.cloudflareaccess.com",

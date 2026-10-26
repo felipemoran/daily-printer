@@ -47,13 +47,15 @@ def setUpModule():
     build_web()
 
 
-def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10, extra: str = "") -> Path:
+def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10, extra: str = "",
+                 allowed_origins: tuple[str, ...] = ()) -> Path:
     access_table = f"""
 [access]
 team_domain = "{TEAM}"
 audience = "{AUDIENCE}"
 web_rate_limit = {web_rate_limit}
 admin_emails = ["{ADMIN_EMAIL}"]
+allowed_origins = {json.dumps(list(allowed_origins))}
 """ if access else ""
     path = directory / "server.toml"
     path.write_text(f"""
@@ -147,6 +149,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
     access = True
     web_rate_limit = 10
     extra_config = ""
+    allowed_origins: tuple[str, ...] = ()
 
     async def asyncSetUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="print-server-test-"))
@@ -159,7 +162,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         self.secrets = [ADMIN_TOKEN, HOME_TOKEN, OFFICE_TOKEN, CLIENT_TOKEN]
 
         self.config = load_config(write_config(self.tmp, access=self.access, web_rate_limit=self.web_rate_limit,
-                                                extra=self.extra_config))
+                                                extra=self.extra_config, allowed_origins=self.allowed_origins))
         self.config.database.parent.mkdir()
         self.queue = JobQueue(self.config.database)
         self.addCleanup(self.queue.close)
@@ -637,6 +640,118 @@ class CrossSiteTest(ServerTestCase):
                                     {**self.web(ADMIN_EMAIL), "Content-Type": "application/json"})
         self.assertEqual(status, 200)
         self.assertEqual(self.queue.job(job.id).status, "cancelled")
+
+
+ALLOWED_ORIGIN = "https://mise-en-place.example.com"
+CORS_HEADERS = ("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Vary")
+PREFLIGHT_ONLY = ("Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age")
+
+
+class CorsTest(ServerTestCase):
+    """A page on an allowed origin may call /api/me and /api/jobs with the sender's Access login; no other may."""
+
+    allowed_origins = (ALLOWED_ORIGIN,)
+
+    async def send(self, method: str, path: str, headers: dict, body=None):
+        response = await self.client.request(method, path, headers=headers, json=body)
+        await response.read()
+        return response.status, response.headers
+
+    def cross_site(self, origin: str | None) -> dict:
+        headers = {**self.web(), "Sec-Fetch-Site": "cross-site"}
+        return headers if origin is None else {**headers, "Origin": origin}
+
+    def calls(self, origin: str) -> list[tuple[str, str, dict, object, int]]:
+        """One call per status the page must be able to read."""
+        unknown_template = {"printer": "home", "kind": "template", "payload": {
+            "template": "nope", "schemaVersion": 1, "data": {}}}
+        return [
+            ("GET", "/api/me", {**self.web(), "Origin": origin}, None, 200),
+            ("POST", "/api/jobs", self.cross_site(origin), unknown_template, 422),
+            ("GET", "/api/me", {"Origin": origin}, None, 401),
+            ("POST", "/api/jobs", self.cross_site(origin), self.image_job("office"), 403),
+        ]
+
+    async def test_an_allowed_origin_gets_the_cors_headers_on_success_and_on_errors(self):
+        for method, path, headers, body, expected in self.calls(ALLOWED_ORIGIN):
+            with self.subTest(method=method, path=path, status=expected):
+                status, got = await self.send(method, path, headers, body)
+                self.assertEqual(status, expected)
+                self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
+                self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
+                self.assertEqual(got["Vary"], "Origin")
+
+    async def test_a_disallowed_origin_gets_no_cors_headers(self):
+        for origin in ("https://evil.example.com", ALLOWED_ORIGIN + ":8443", "null"):
+            for method, path, headers, body, _ in self.calls(origin):
+                with self.subTest(origin=origin, method=method, path=path):
+                    _, got = await self.send(method, path, headers, body)
+                    for name in CORS_HEADERS:
+                        self.assertNotIn(name, got)
+
+    async def test_an_allowed_origin_gets_no_cors_headers_on_other_routes(self):
+        _, got = await self.send("GET", "/api/printers", {**self.web(ADMIN_EMAIL), "Origin": ALLOWED_ORIGIN})
+        for name in CORS_HEADERS:
+            self.assertNotIn(name, got)
+
+    async def test_a_preflight_from_an_allowed_origin_is_204_with_the_cors_headers_and_no_credential(self):
+        for path in ("/api/me", "/api/jobs"):
+            with self.subTest(path=path):
+                headers = {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "POST",
+                           "Access-Control-Request-Headers": "content-type"}
+                status, got = await self.send("OPTIONS", path, headers)
+                self.assertEqual(status, 204)
+                self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
+                self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
+                self.assertEqual(got["Access-Control-Allow-Methods"], "GET, POST")
+                self.assertEqual(got["Access-Control-Allow-Headers"], "Content-Type")
+                self.assertEqual(got["Access-Control-Max-Age"], "600")
+
+    async def test_a_preflight_from_another_origin_gets_no_cors_headers(self):
+        for headers in ({"Origin": "https://evil.example.com"}, {}):
+            for path in ("/api/me", "/api/jobs"):
+                with self.subTest(headers=headers, path=path):
+                    status, got = await self.send("OPTIONS", path, headers)
+                    self.assertEqual(status, 403)
+                    for name in CORS_HEADERS + PREFLIGHT_ONLY:
+                        self.assertNotIn(name, got)
+
+    async def test_a_cross_site_post_passes_only_from_an_allowed_origin(self):
+        for site in ("cross-site", "same-site"):
+            for origin, expected in ((ALLOWED_ORIGIN, 201), ("https://evil.example.com", 403), (None, 403)):
+                with self.subTest(site=site, origin=origin):
+                    headers = {**self.cross_site(origin), "Sec-Fetch-Site": site}
+                    status, body = await self.call("POST", "/api/jobs", headers, body=self.image_job())
+                    self.assertEqual(status, expected, body)
+                    if expected == 403:
+                        self.assertEqual(body["error"], "cross-site requests are refused")
+        self.assertEqual(len(self.queue.jobs()), 2)
+
+    async def test_an_allowed_origin_still_needs_a_json_post(self):
+        headers = {**self.cross_site(ALLOWED_ORIGIN), "Content-Type": "text/plain"}
+        status, _ = await self.call("POST", "/api/jobs", headers, data=json.dumps(self.image_job()).encode())
+        self.assertEqual(status, 403)
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_an_allowed_origin_does_not_open_cross_site_posts_on_other_routes(self):
+        job = self.add_job()
+        headers = {**self.cross_site(ALLOWED_ORIGIN), "Sec-Fetch-Site": "cross-site"}
+        status, _ = await self.call("POST", f"/api/jobs/{job.id}/cancel", {**headers, **self.web(ADMIN_EMAIL)}, body={})
+        self.assertEqual(status, 403)
+        self.assertEqual(self.queue.job(job.id).status, "queued")
+
+
+class NoAllowedOriginsTest(ServerTestCase):
+    """Without allowed_origins nothing changes: no CORS headers, and every cross-site POST is refused."""
+
+    async def test_the_default_config_answers_no_origin(self):
+        headers = {**self.web(), "Origin": ALLOWED_ORIGIN, "Sec-Fetch-Site": "cross-site"}
+        response = await self.client.request("POST", "/api/jobs", headers=headers, json=self.image_job())
+        self.assertEqual(response.status, 403)
+        preflight = await self.client.request("OPTIONS", "/api/jobs", headers={"Origin": ALLOWED_ORIGIN})
+        self.assertEqual(preflight.status, 403)
+        for got in (response.headers, preflight.headers):
+            self.assertNotIn("Access-Control-Allow-Origin", got)
 
 
 class AdminTest(ServerTestCase):

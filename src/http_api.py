@@ -35,6 +35,13 @@ RATE_WINDOW_SECONDS = 600
 RENDER_CONCURRENCY = 2
 MAX_TITLE_LENGTH = 200
 MAX_LIST_LIMIT = 1000
+# Routes a page on an `allowed_origins` site may call with the sender's Access login.
+CORS_PATHS = frozenset({"/api/me", "/api/jobs"})
+PREFLIGHT_HEADERS = {
+    "Access-Control-Allow-Methods": "GET, POST",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "600",
+}
 
 
 class _RenderSlots:
@@ -167,13 +174,38 @@ class _Api:
             return Caller(Role.WEB, email, "web", email)
         raise ApiError(401, "no valid credential")
 
-    @staticmethod
-    def check_same_site(request: web.Request) -> None:
+    def check_same_site(self, request: web.Request) -> None:
         """Refuse a cross-site POST that rides on the browser's Access cookie. Bearer callers need no check."""
         if request.content_type != "application/json":
             raise ApiError(403, "send the request with Content-Type: application/json")
-        if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
-            raise ApiError(403, "cross-site requests are refused")
+        site = request.headers.get("Sec-Fetch-Site", "same-origin")
+        if site in ("same-origin", "none"):
+            return
+        if site in ("same-site", "cross-site") and self.allowed_origin(request) is not None:
+            return
+        raise ApiError(403, "cross-site requests are refused")
+
+    def allowed_origin(self, request: web.Request) -> str | None:
+        """The request's Origin when it is in ``allowed_origins`` and the route is in ``CORS_PATHS``."""
+        origin = request.headers.get("Origin")
+        access = self.config.access
+        if origin is None or access is None or request.path not in CORS_PATHS:
+            return None
+        return origin if origin in access.allowed_origins else None
+
+    async def add_cors_headers(self, request: web.Request, response: web.StreamResponse) -> None:
+        """Every response, errors included, so the page can read a 4xx body."""
+        origin = self.allowed_origin(request)
+        if origin is not None:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers.add("Vary", "Origin")
+
+    async def preflight(self, request: web.Request) -> web.Response:
+        """Browsers send no Access cookie on a preflight, so it needs no credential."""
+        if self.allowed_origin(request) is None:
+            raise ApiError(403, "this origin may not call the API")
+        return web.Response(status=204, headers=PREFLIGHT_HEADERS)
 
     async def admin(self, request: web.Request) -> Caller:
         caller = await self.caller(request)
@@ -521,6 +553,8 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/printers", api.printers)
     app.router.add_get("/api/stats", api.stats)
     app.router.add_get("/api/me", api.me)
+    for path in CORS_PATHS:
+        app.router.add_route("OPTIONS", path, api.preflight)
     app.router.add_get("/", api.index)
     app.router.add_get("/admin", api.admin_page)
     app.router.add_get("/admin/{name:.+}", api.admin_asset)
@@ -536,6 +570,7 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     async def stop(_: web.Application) -> None:
         await hub.shutdown()
 
+    app.on_response_prepare.append(api.add_cors_headers)
     app.on_startup.append(start)
     app.on_shutdown.append(stop)
     return app

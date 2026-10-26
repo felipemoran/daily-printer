@@ -14,6 +14,8 @@ from typing import Any
 _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _HOSTNAME = re.compile(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+# Lowercase only: a browser sends the Origin header in lowercase, so another case would never match.
+_ORIGIN = re.compile(r"https?://[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::[0-9]{1,5})?")
 
 
 class ConfigError(Exception):
@@ -41,6 +43,7 @@ class Access:
     audience: str
     web_rate_limit: int
     admin_emails: tuple[str, ...]
+    allowed_origins: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,21 @@ class _Reader:
                 self.problems.append(f"{where}.{key}[{index}]: not an email address: {email!r}")
         return tuple(emails)
 
+    def origins(self, data: dict[str, Any], key: str, where: str) -> tuple[str, ...]:
+        value = data.get(key, [])
+        if not isinstance(value, list):
+            self.problems.append(f"{where}.{key}: must be a list of origins")
+            return ()
+        origins = []
+        for index, origin in enumerate(value):
+            if isinstance(origin, str) and _ORIGIN.fullmatch(origin):
+                origins.append(origin)
+            else:
+                self.problems.append(
+                    f"{where}.{key}[{index}]: not an origin: {origin!r}; write scheme://host[:port] in lowercase, "
+                    f"such as https://app.example.com, with no path, trailing slash or *")
+        return tuple(origins)
+
     def slug(self, name: str, where: str) -> None:
         if not _SLUG.fullmatch(name):
             self.problems.append(f"{where}: id must be lowercase letters, digits and single hyphens")
@@ -179,7 +197,8 @@ def load_config(path: str | Path) -> ServerConfig:
     access = None
     access_table = reader.table(data, "access", "access", required=False)
     if access_table is not None:
-        reader.unknown(access_table, {"team_domain", "audience", "web_rate_limit", "admin_emails"}, "access.")
+        allowed = {"team_domain", "audience", "web_rate_limit", "admin_emails", "allowed_origins"}
+        reader.unknown(access_table, allowed, "access.")
         team_domain = reader.text(access_table, "team_domain", "access")
         if team_domain and not _HOSTNAME.fullmatch(team_domain):
             reader.problems.append("access.team_domain: must be a bare hostname such as <team>.cloudflareaccess.com")
@@ -188,6 +207,7 @@ def load_config(path: str | Path) -> ServerConfig:
             audience=reader.text(access_table, "audience", "access"),
             web_rate_limit=reader.number(access_table, "web_rate_limit", "access", 1, 1_000_000),
             admin_emails=reader.emails(access_table, "admin_emails", "access"),
+            allowed_origins=reader.origins(access_table, "allowed_origins", "access"),
         )
 
     printers = {}

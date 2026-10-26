@@ -108,6 +108,7 @@ team_domain = "<team>.cloudflareaccess.com"
 audience = "<application audience tag>"
 web_rate_limit = 10      # jobs per sender email per 10 minutes
 admin_emails = ["you@example.com"]  # may use the admin web interface
+allowed_origins = ["https://app.example.com"]  # pages that may call /api/me and /api/jobs; default none
 
 [printers.home]
 name = "Home"
@@ -133,7 +134,9 @@ Tokens are plain text. The config file must have mode 0600.
 
 The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token or an Access email in `admin_emails`. A web sender may print only on `public` printers.
 
-An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403.
+An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403. A `same-site` or `cross-site` POST to `/api/jobs` also passes when its `Origin` is in `allowed_origins`.
+
+For a request to `/api/me` or `/api/jobs` whose `Origin` is in `allowed_origins`, every response, errors included, carries `Access-Control-Allow-Origin: <origin>`, `Access-Control-Allow-Credentials: true` and `Vary: Origin`. `OPTIONS` on those paths needs no credential: 204 with `Access-Control-Allow-Methods: GET, POST`, `Access-Control-Allow-Headers: Content-Type` and `Access-Control-Max-Age: 600` for an allowed origin, else 403 with no CORS headers.
 
 ### HTTP API (JSON)
 

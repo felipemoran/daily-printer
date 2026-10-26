@@ -16,6 +16,9 @@ audience = "REPLACE-ME-application-audience-tag"    # the Access application's A
 web_rate_limit = 10                 # jobs per sender email per 10 minutes
 # Logins that may open the admin web UI; default none. Case does not matter.
 # admin_emails = ["you@example.com"]
+# Web pages on other sites that may call /api/me and /api/jobs with the sender's Access login;
+# default none. Exact origins: scheme://host[:port], no path and no trailing slash.
+# allowed_origins = ["https://app.example.com"]
 
 # One table per printer. The id after "printers." goes in job requests:
 # lowercase letters, digits and single hyphens.
