@@ -30,6 +30,8 @@ from job_queue import JobQueue, Status, _local_midnight  # noqa: E402
 from render_job import render  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_access_auth import AUDIENCE, KEY_A, STRANGER, TEAM, FakeCerts, claims, sign  # noqa: E402
+from test_template_recipe import MADALENA, maximal  # noqa: E402
+from tests.web_build import build_web  # noqa: E402
 
 ADMIN_TOKEN = "admin-token-7f3c9a1e5b2d4f6a8c0e"
 HOME_TOKEN = "home-printer-token-2b4d6f8a0c1e3a5c"
@@ -38,6 +40,11 @@ CLIENT_TOKEN = "morning-brief-token-4a6c8e0b2d4f6a8c"
 ADMIN_EMAIL = "boss@example.com"
 SENDER_EMAIL = "friend@example.com"
 SAMPLE_PAYLOAD = json.loads((_TESTS.parent / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
+TOO_LONG_KEYS = ["error", "code", "length_cm", "limit_cm", "acceptable"]
+
+
+def setUpModule():
+    build_web()
 
 
 def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10) -> Path:
@@ -183,7 +190,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         if response.content_type == "application/json":
             parsed = json.loads(raw)
             if response.status >= 400:
-                self.assertEqual(list(parsed), ["error"])
+                self.assertEqual(list(parsed), TOO_LONG_KEYS if parsed.get("code") == "too_long" else ["error"])
                 self.assertNotIn("Traceback", parsed["error"])
             return response.status, parsed
         return response.status, raw
@@ -480,6 +487,65 @@ class IntakeTest(ServerTestCase):
         wake.clear()
         await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=self.image_job())
         self.assertTrue(wake.is_set())
+
+
+class LongTemplateTest(ServerTestCase):
+    """A template job past 50 cm prints only when its sender accepts the length, and never past 1 m."""
+
+    def template_job(self, payload: dict, **extra) -> dict:
+        return {"printer": "home", "kind": "template", "title": "Recipe", "payload": payload, **extra}
+
+    async def post(self, job: dict) -> tuple[int, dict]:
+        return await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
+
+    async def test_a_template_between_50_and_100_cm_is_refused_as_acceptable_with_its_length(self):
+        status, body = await self.post(self.template_job(MADALENA))
+        self.assertEqual(status, 422, body)
+        self.assertIn("52.3 cm long; the limit is 50 cm", body["error"])
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
+                         {"code": "too_long", "length_cm": 52.3, "limit_cm": 50, "acceptable": True})
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_the_same_template_with_accept_long_prints(self):
+        status, job = await self.post(self.template_job(MADALENA, accept_long=True))
+        self.assertEqual(status, 201, job)
+        self.assertGreater(job["height"], 4000)
+
+    async def test_a_template_over_1_m_with_accept_long_is_refused_with_its_true_length(self):
+        status, body = await self.post(self.template_job(maximal("W"), accept_long=True))
+        self.assertEqual(status, 422, body)
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
+                         {"code": "too_long", "length_cm": 189.7, "limit_cm": 100, "acceptable": False})
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_a_template_over_1_m_without_accept_long_is_not_acceptable_and_not_clamped(self):
+        status, body = await self.post(self.template_job(maximal("W")))
+        self.assertEqual(status, 422, body)
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
+                         {"code": "too_long", "length_cm": 189.7, "limit_cm": 50, "acceptable": False})
+
+    async def test_accept_long_must_be_a_boolean_on_a_template_job(self):
+        cases = {
+            "string": self.template_job(MADALENA, accept_long="true"),
+            "number": self.template_job(MADALENA, accept_long=1),
+            "null": self.template_job(MADALENA, accept_long=None),
+            "on a receipt": {"printer": "home", "kind": "receipt", "payload": SAMPLE_PAYLOAD, "accept_long": True},
+            "false on a text job": {**self.template_job(MADALENA), "kind": "text", "accept_long": False},
+            "on an image": self.image_job(accept_long=True),
+        }
+        for name, job in cases.items():
+            with self.subTest(name):
+                status, body = await self.post(job)
+                self.assertEqual(status, 400, body)
+                self.assertIn("accept_long", body["error"])
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_a_receipt_past_50_cm_keeps_its_plain_422(self):
+        long_receipt = {**SAMPLE_PAYLOAD, "blocks": SAMPLE_PAYLOAD["blocks"] * 40}
+        status, body = await self.post({"printer": "home", "kind": "receipt", "payload": long_receipt})
+        self.assertEqual(status, 422, body)
+        self.assertEqual(list(body), ["error"])
+        self.assertIn("the limit is 50 cm", body["error"])
 
 
 class CrossSiteTest(ServerTestCase):

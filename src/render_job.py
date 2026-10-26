@@ -27,6 +27,7 @@ from ticket_templates import (
 
 KINDS = ("receipt", "image", "template", "text")
 MAX_HEIGHT_DOTS = 500 * DOTS_PER_MM
+LONG_MAX_HEIGHT_DOTS = 1000 * DOTS_PER_MM
 MAX_SOURCE_PIXELS = 25_000_000
 DIST_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
 
@@ -49,7 +50,11 @@ _PROBE_JS = """
 
 
 class RenderError(Exception):
-    """A content problem the sender can fix."""
+    """A content problem the sender can fix. ``length_dots`` is set when a template is too long."""
+
+    def __init__(self, message: str, *, length_dots: int | None = None) -> None:
+        super().__init__(message)
+        self.length_dots = length_dots
 
 
 @dataclass(frozen=True)
@@ -72,14 +77,17 @@ class _Output:
     text: bytes | None = None
 
 
-def render(kind: str, *, payload: dict | None = None, image: bytes | None = None) -> Rendered:
+def render(kind: str, *, payload: dict | None = None, image: bytes | None = None,
+           accept_long: bool = False) -> Rendered:
+    """``accept_long`` raises the template limit from ``MAX_HEIGHT_DOTS`` to ``LONG_MAX_HEIGHT_DOTS``."""
     started = time.perf_counter()
     if kind == "receipt":
         output = _receipt_render(payload)
     elif kind == "image":
         output = _Output(_image_bitmap(image))
     elif kind in ("template", "text"):
-        output = _template_render(payload, text=kind == "text")
+        limit = LONG_MAX_HEIGHT_DOTS if accept_long else MAX_HEIGHT_DOTS
+        output = _template_render(payload, text=kind == "text", max_height_dots=limit)
     else:
         raise RenderError(f"unknown kind {kind!r}; expected one of: {', '.join(KINDS)}")
     bitmap = output.bitmap
@@ -136,7 +144,7 @@ def _receipt_render(payload: dict | None) -> _Output:
         return _Output(to_bitmap(gray, DEFAULT_PROFILE), screenshot.read_bytes(), mhtml.read_bytes())
 
 
-def _template_render(payload: dict | None, *, text: bool) -> _Output:
+def _template_render(payload: dict | None, *, text: bool, max_height_dots: int) -> _Output:
     """The preview, with the ESC/POS text body when ``text``."""
     try:
         check_envelope(payload)
@@ -145,12 +153,12 @@ def _template_render(payload: dict | None, *, text: bool) -> _Output:
             try:
                 page = open_render_page(browser)
                 body = render_text(page, payload) if text else None
-                capture = capture_template(page, payload, max_height_dots=MAX_HEIGHT_DOTS)
+                capture = capture_template(page, payload, max_height_dots=max_height_dots)
                 return _Output(bitmap_from_capture(capture), capture.png, snapshot_mhtml(page), body)
             finally:
                 browser.close()
     except TemplateError as error:
-        raise RenderError(str(error)) from None
+        raise RenderError(str(error), length_dots=error.length_dots) from None
 
 
 def _image_bitmap(data: bytes | None) -> Image.Image:

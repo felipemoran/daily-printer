@@ -116,7 +116,16 @@ _FIT_JS = """
 
 
 class TemplateError(ValueError):
-    """The payload is wrong; the message tells the sender what to fix."""
+    """The payload is wrong; the message tells the sender what to fix. ``length_dots`` is set when it is too long."""
+
+    def __init__(self, message: str, *, length_dots: int | None = None) -> None:
+        super().__init__(message)
+        self.length_dots = length_dots
+
+
+def length_cm(dots: int) -> float:
+    """Paper length, rounded up to a tenth of a cm, so a print just over a limit never reads as on it."""
+    return math.ceil(dots / DOTS_PER_CM * 10) / 10
 
 
 def _dist_file(name: str) -> Path:
@@ -244,8 +253,8 @@ def capture_template(page, payload, *, max_height_dots: int = 4000) -> Capture:
     _cover_receipt(page, landscape, min(receipt["width"] if landscape else receipt["height"], max_height_dots))
     length = _length(page, landscape)
     if length > max_height_dots:
-        raise TemplateError(f"the receipt would print {math.ceil(length / DOTS_PER_CM * 10) / 10} cm long; "
-                            f"the limit is {max_height_dots / DOTS_PER_CM:g} cm")
+        raise TemplateError(f"the receipt would print {length_cm(length)} cm long; "
+                            f"the limit is {max_height_dots / DOTS_PER_CM:g} cm", length_dots=length)
     misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
     if misfit:
         raise TemplateError(misfit)

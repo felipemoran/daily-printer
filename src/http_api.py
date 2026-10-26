@@ -24,8 +24,9 @@ from job_artifacts import ESCPOS, PRINT_PNG, ArtifactStore, artifacts_root, job_
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
-from render_job import KINDS, RenderError, render
+from render_job import KINDS, LONG_MAX_HEIGHT_DOTS, MAX_HEIGHT_DOTS, RenderError, render
 from server_config import ServerConfig
+from ticket_templates import DOTS_PER_CM, length_cm
 
 MAX_BODY_BYTES = 10 * 1024 * 1024
 MAX_EXPIRES_IN = 7 * 86400
@@ -71,10 +72,11 @@ _SEND_PAGE_CSP = (
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, message: str) -> None:
+    def __init__(self, status: int, message: str, details: dict | None = None) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
+        self.details = details or {}
 
 
 class Role(StrEnum):
@@ -91,8 +93,8 @@ class Caller:
     email: str | None = None
 
 
-def _error(status: int, message: str) -> web.Response:
-    return web.json_response({"error": message}, status=status)
+def _error(status: int, message: str, details: dict | None = None) -> web.Response:
+    return web.json_response({"error": message, **(details or {})}, status=status)
 
 
 @web.middleware
@@ -100,7 +102,7 @@ async def _errors(request: web.Request, handler) -> web.StreamResponse:
     try:
         return await handler(request)
     except ApiError as error:
-        return _error(error.status, error.message)
+        return _error(error.status, error.message, error.details)
     except web.HTTPRequestEntityTooLarge:
         return _error(413, f"the body is over {MAX_BODY_BYTES // (1024 * 1024)} MB")
     except web.HTTPException as error:
@@ -110,6 +112,16 @@ async def _errors(request: web.Request, handler) -> web.StreamResponse:
     except Exception:
         log.exception("%s %s failed", request.method, request.path)
         return _error(500, "internal server error")
+
+
+def _too_long(length_dots: int, accepted: bool) -> dict:
+    """What a sender needs to decide whether to resend a too-long template job with ``accept_long``."""
+    return {
+        "code": "too_long",
+        "length_cm": length_cm(length_dots),
+        "limit_cm": (LONG_MAX_HEIGHT_DOTS if accepted else MAX_HEIGHT_DOTS) // DOTS_PER_CM,
+        "acceptable": not accepted and length_dots <= LONG_MAX_HEIGHT_DOTS,
+    }
 
 
 def _job_json(job: Job, *, events: bool = False) -> dict:
@@ -240,6 +252,11 @@ class _Api:
         kind = body.get("kind")
         if not isinstance(kind, str) or kind not in KINDS:
             raise ApiError(400, f"kind must be one of: {', '.join(KINDS)}")
+        accept_long = body.get("accept_long", False)
+        if not isinstance(accept_long, bool):
+            raise ApiError(400, "accept_long must be true or false")
+        if "accept_long" in body and kind != "template":
+            raise ApiError(400, "accept_long is only for template jobs")
         title = body.get("title", "")
         if not isinstance(title, str) or len(title) > MAX_TITLE_LENGTH:
             raise ApiError(400, f"title must be text of at most {MAX_TITLE_LENGTH} characters")
@@ -266,8 +283,10 @@ class _Api:
 
         async with self.render_slots:
             try:
-                rendered = await asyncio.to_thread(render, kind, payload=payload, image=image)
+                rendered = await asyncio.to_thread(render, kind, payload=payload, image=image, accept_long=accept_long)
             except RenderError as error:
+                if kind == "template" and error.length_dots is not None:
+                    raise ApiError(422, str(error), _too_long(error.length_dots, accept_long)) from None
                 raise ApiError(422, str(error)) from None
             except Exception:
                 log.exception("rendering a %s job for %s failed", kind, caller.source)

@@ -139,7 +139,7 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 
 | Method and path | Who | Does |
 |---|---|---|
-| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, writes the job's artifact folder (with the body as received, for all kinds but `image`), then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. A print may be 50 cm long; a `template` job may set `accept_long: true` (a JSON boolean, `template` only, else 400) to print up to 1 m. Renders, writes the job's artifact folder (with the body as received, for all kinds but `image`), then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
 | `GET /api/jobs/{id}` | admin | Job with its events, and `artifacts`: the path of its artifact folder on the server, or null when the folder is missing |
 | `GET /api/jobs/{id}/image` | admin | `print.png` from the job's artifact folder. 404 when the folder has none. |
@@ -158,6 +158,8 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 | `GET /device` | device | The device WebSocket (see below) |
 
 Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit, 500 server fault (a generic message; the traceback goes only to the server log).
+
+A `template` job over its limit gets 422 `{"error", "code": "too_long", "length_cm", "limit_cm", "acceptable"}`. `length_cm` is the true length, rounded up to 0.1 cm. `limit_cm` is 50, or 100 with `accept_long`. `acceptable` is true when the job did not set `accept_long` and is at most 100 cm long, so a resend with the flag passes the length check.
 
 ### Job record
 
