@@ -106,8 +106,12 @@ class ComposeTestConfigTest(unittest.TestCase):
 class DockerignoreTest(unittest.TestCase):
     def test_local_state_stays_out_of_the_build_context(self):
         entries = set((ROOT / ".dockerignore").read_text().split())
-        for entry in (".venv", "**/node_modules", "web/dist", "data", ".workspaces", "tasks", ".jj", ".git", ".env"):
+        for entry in (".venv", "**/node_modules", "web/dist", "data", ".workspaces", "tasks", ".jj", ".git", "**/.env*"):
             self.assertIn(entry, entries)
+
+    def test_git_ignores_every_env_file_where_the_operator_keeps_credentials(self):
+        entries = set((ROOT / ".gitignore").read_text().split())
+        self.assertLessEqual({".env", ".env.*"}, entries)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 .jj
 .workspaces
 .venv
-.env
+**/.env*
 **/node_modules
 **/__pycache__
 web/dist
