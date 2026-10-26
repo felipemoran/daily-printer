@@ -145,7 +145,7 @@ Pull the new code, then run `make compose-up`. It rebuilds the image and recreat
 
 ### Test it
 
-`make compose-test` builds the image and starts the server with `deploy/compose-test/server.toml`, a test-only config whose tokens are public. It starts the two fake printers and sends the 14 template samples plus a text, an image and a receipt job. Then it checks that each job printed, and that each fake printer's `.bin` file equals the job's `job.escpos` artifact. At the end it removes its containers, network and volumes, also on failure. It uses its own Compose project, `daily-printer-test`, and host port 18787 (`COMPOSE_TEST_PORT`), so it never touches the real server or its data.
+`make compose-test` builds the image and starts the server with `deploy/compose-test/server.toml`, a test-only config whose tokens are public. It starts the two fake printers and sends the 14 template samples plus a text, an image and a receipt job. Then it checks that each job printed, and that each fake printer's `.bin` file equals the job's `job.escpos` artifact. At the end it removes its containers, network, volumes and image, also on failure. It uses its own Compose project, `daily-printer-test`, its own image tag, `daily-printer:test`, and host port 18787 (`COMPOSE_TEST_PORT`). So it never touches the real server, its image or its data.
 
 ### Untested
 

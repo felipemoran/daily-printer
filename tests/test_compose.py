@@ -17,13 +17,14 @@ PROFILES = {"server": [], "cloudflared": ["tunnel"], "printer-home": ["test"], "
             "check": ["check"]}
 
 
-def _compose_config() -> dict:
+def _compose_config(**variables: str) -> dict:
     if shutil.which("docker") is None:
         raise unittest.SkipTest("docker is missing, so `docker compose config` cannot run")
     with tempfile.NamedTemporaryFile("w", suffix=".env") as empty:
         # An empty env file and a bare environment: the operator's .env or shell may hold the real tunnel token.
         env = {name: os.environ[name] for name in ("PATH", "HOME", "DOCKER_CONFIG", "DOCKER_HOST") if name in os.environ}
         env["PRINT_SERVER_CONFIG"] = str(TEST_CONFIG)
+        env.update(variables)
         command = ["docker", "compose", "-f", str(COMPOSE), "--env-file", empty.name]
         for profile in ("tunnel", "test", "check"):
             command += ["--profile", profile]
@@ -48,6 +49,14 @@ class ComposeConfigTest(unittest.TestCase):
     def test_the_real_project_name_differs_from_the_test_one_so_the_test_teardown_cannot_delete_real_data(self):
         self.assertEqual(self.config["name"], "daily-printer")
         self.assertIn("-p daily-printer-test", (ROOT / "Makefile").read_text())
+
+    def test_a_test_build_gets_its_own_image_tag_so_it_never_retags_the_real_server_image(self):
+        ours = {name for name, service in self.services.items() if service["image"].startswith("daily-printer:")}
+        self.assertEqual(ours, {"server", "printer-home", "printer-work", "check"})
+        self.assertEqual({self.services[name]["image"] for name in ours}, {"daily-printer:local"})
+        tagged = _compose_config(PRINT_SERVER_IMAGE_TAG="test")["services"]
+        self.assertEqual({tagged[name]["image"] for name in ours}, {"daily-printer:test"})
+        self.assertIn("PRINT_SERVER_IMAGE_TAG=test docker compose -p daily-printer-test", (ROOT / "Makefile").read_text())
 
     def test_the_server_is_published_on_loopback_only(self):
         self.assertEqual(self.services["server"]["ports"],

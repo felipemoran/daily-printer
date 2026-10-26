@@ -87,7 +87,7 @@ design-sync: ## Mirror the design system and regenerate web files: make design-s
 
 COMPOSE_TEST_PORT ?= 18787
 COMPOSE_TEST := PRINT_SERVER_CONFIG=./deploy/compose-test/server.toml PRINT_SERVER_PORT=$(COMPOSE_TEST_PORT) \
-	docker compose -p daily-printer-test
+	PRINT_SERVER_IMAGE_TAG=test docker compose -p daily-printer-test
 COMPOSE_TEST_ALL := $(COMPOSE_TEST) --profile test --profile check
 
 compose-up: ## Build and run the print server in Docker; set PRINT_SERVER_CONFIG in .env first
@@ -101,7 +101,7 @@ compose-test: ## Print every sample on two fake printers in Docker, check the ou
 	chmod 600 deploy/compose-test/server.toml
 	$(COMPOSE_TEST_ALL) down -v --remove-orphans
 	@trap 'status=$$?; [ $$status -eq 0 ] || $(COMPOSE_TEST_ALL) logs --tail 30; \
-		$(COMPOSE_TEST_ALL) down -v --remove-orphans; exit $$status' EXIT; \
+		$(COMPOSE_TEST_ALL) down -v --remove-orphans --rmi all; exit $$status' EXIT; \
 	$(COMPOSE_TEST) --profile test build && $(COMPOSE_TEST) --profile test up -d --wait && \
 	$(COMPOSE_TEST) run --rm check
 
