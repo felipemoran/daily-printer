@@ -423,9 +423,12 @@ class _Api:
 
     async def me(self, request: web.Request) -> web.Response:
         caller = await self.web_sender(request)
-        printers = [
-            {"id": p.id, "name": p.name, "place": p.place} for p in self.config.printers.values() if p.public
-        ]
+        printers = []
+        for printer in self.config.printers.values():
+            if printer.public:
+                state = self.queue.printer_state(printer.id) or PrinterState(printer.id)
+                printers.append({"id": printer.id, "name": printer.name, "place": printer.place,
+                                 "online": self.hub.online(printer.id), "last_seen": state.last_seen})
         return web.json_response({"email": caller.email, "printers": printers})
 
     async def index(self, request: web.Request) -> web.Response:

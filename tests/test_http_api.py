@@ -47,7 +47,7 @@ def setUpModule():
     build_web()
 
 
-def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10) -> Path:
+def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10, extra: str = "") -> Path:
     access_table = f"""
 [access]
 team_domain = "{TEAM}"
@@ -76,7 +76,7 @@ token = "{OFFICE_TOKEN}"
 
 [clients.morning-brief]
 token = "{CLIENT_TOKEN}"
-""")
+{extra}""")
     path.chmod(0o600)
     return path
 
@@ -146,6 +146,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
 
     access = True
     web_rate_limit = 10
+    extra_config = ""
 
     async def asyncSetUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="print-server-test-"))
@@ -157,7 +158,8 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(lambda: (setattr(root, "handlers", saved[0]), root.setLevel(saved[1])))
         self.secrets = [ADMIN_TOKEN, HOME_TOKEN, OFFICE_TOKEN, CLIENT_TOKEN]
 
-        self.config = load_config(write_config(self.tmp, access=self.access, web_rate_limit=self.web_rate_limit))
+        self.config = load_config(write_config(self.tmp, access=self.access, web_rate_limit=self.web_rate_limit,
+                                                extra=self.extra_config))
         self.config.database.parent.mkdir()
         self.queue = JobQueue(self.config.database)
         self.addCleanup(self.queue.close)
@@ -287,7 +289,7 @@ class IdentityTest(ServerTestCase):
     async def test_me_lists_the_email_and_only_public_printers(self):
         status, body = await self.call("GET", "/api/me", self.web())
         self.assertEqual(status, 200)
-        home = {"id": "home", "name": "Home", "place": "Home office"}
+        home = {"id": "home", "name": "Home", "place": "Home office", "online": False, "last_seen": None}
         self.assertEqual(body, {"email": SENDER_EMAIL, "printers": [home]})
 
     async def test_index_serves_html_to_a_web_sender(self):
@@ -298,6 +300,43 @@ class IdentityTest(ServerTestCase):
     async def test_unknown_route_is_a_json_404(self):
         status, body = await self.call("GET", "/api/nothing-here", self.bearer(ADMIN_TOKEN))
         self.assertEqual((status, body), (404, {"error": "Not Found"}))
+
+
+GARAGE_TOKEN = "garage-printer-token-5c7e9a1b3d5f7a9c"
+
+
+class MeStatusTest(ServerTestCase):
+    """A web sender sees whether each public printer is online, offline ones included."""
+
+    extra_config = f"""
+[printers.garage]
+name = "Garage"
+place = "Workbench"
+token = "{GARAGE_TOKEN}"
+public = true
+"""
+
+    async def test_me_lists_online_and_offline_public_printers_with_last_seen(self):
+        self.secrets.append(GARAGE_TOKEN)
+        self.queue.update_printer_state("garage", last_seen=1_700_000_000.0)
+        before = time.time()
+        device = {**self.bearer(HOME_TOKEN), "X-Device-Version": "python/1"}
+        ws = await self.client.ws_connect("/device", headers=device)
+        self.addAsyncCleanup(ws.close)
+        deadline = time.monotonic() + 5
+        while not self.hub.online("home"):
+            self.assertLess(time.monotonic(), deadline, "the device never came online")
+            await asyncio.sleep(0.01)
+        status, body = await self.call("GET", "/api/me", self.web())
+        self.assertEqual(status, 200, body)
+        printers = {printer["id"]: printer for printer in body["printers"]}
+        self.assertEqual(list(printers), ["home", "garage"])
+        self.assertTrue(printers["home"]["online"])
+        self.assertGreaterEqual(printers["home"]["last_seen"], before)
+        self.assertEqual(printers["garage"], {"id": "garage", "name": "Garage", "place": "Workbench",
+                                              "online": False, "last_seen": 1_700_000_000.0})
+        self.assertNotIn("office", printers)
+        self.assertNotIn("token", json.dumps(body))
 
 
 class NoAccessConfigTest(ServerTestCase):

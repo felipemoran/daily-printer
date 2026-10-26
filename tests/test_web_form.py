@@ -261,8 +261,8 @@ class SendPageBrowserTest(ServerTestCase):
     async def test_several_public_printers_offer_a_picker_and_names_stay_text(self):
         hostile = '<img src=x onerror="document.title=1">'
         me = {"email": SENDER_EMAIL, "printers": [
-            {"id": "home", "name": "Home", "place": "Home office"},
-            {"id": "garden", "name": hostile, "place": "Shed"},
+            {"id": "home", "name": "Home", "place": "Home office", "online": True, "last_seen": 1_700_000_000.0},
+            {"id": "garden", "name": hostile, "place": "Shed", "online": False, "last_seen": None},
         ]}
         await self.page.route("**/api/me", lambda route: route.fulfill(json=me))
         await self.page.route("**/api/jobs", lambda route: route.fulfill(status=201, json={"id": "abc"}))

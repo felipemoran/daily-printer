@@ -151,7 +151,7 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 | `GET /api/stats` | admin | Aggregates (see below) |
 | `GET /api/clients` | admin | `{"clients": [{id, kind, jobs_today, last_job}]}`. Each configured client (`kind` `client`), then each web sender seen (`kind` `web`, `id` the email). `last_job` is `{id, title, kind, printer, created_at}` or null. |
 | `GET /api/server` | admin | `{version, started_at, uptime_seconds, renders_in_progress}`. A render waiting for a free slot counts as in progress. |
-| `GET /api/me` | web | The sender's email and the public printers |
+| `GET /api/me` | web | The sender's email and the public printers: `{id, name, place, online, last_seen}`, offline ones included. `last_seen` is epoch seconds, or null for a printer never seen. |
 | `GET /` | web, admin (Access email) | The sender web form |
 | `GET /admin` | anyone | The admin web page. It holds no data; its API calls need admin rights. |
 | `GET /admin/{name}` | anyone | One file of the admin page, by exact name; a name may span path segments. Serves `admin.css`, `admin.js` and the woff2 fonts under `fonts/` (as `font/woff2`). Any other name is 404. |
