@@ -6,45 +6,77 @@
       { "name": "Pappardelle ao funghi", "portions": 4 },
       { "name": "Moqueca de peixe", "portions": 4 },
       { "name": "Frango assado com batatas", "portions": 2 },
-      { "name": "Salada de grão-de-bico", "portions": 1 }
+      { "name": "Salada de grão-de-bico", "portions": 1 },
+      { "name": "Arroz de forno com legumes", "portions": 3 },
+      { "name": "Panqueca de banana", "portions": 2 }
     ],
     "aisles": [
       {
-        "name": "açougue",
+        "name": "Açougue",
         "items": [
+          { "name": "bacon em cubos", "amount": "150 g" },
           { "name": "coxa e sobrecoxa de frango", "amount": "1 kg" },
-          { "name": "bacon em cubos", "amount": "150 g" }
+          { "name": "peito de frango", "amount": "500 g" }
         ]
       },
       {
-        "name": "peixaria",
+        "name": "Peixaria",
         "items": [
-          { "name": "filé de robalo", "amount": "800 g" },
-          { "name": "camarão limpo", "amount": "300 g" }
+          { "name": "camarão limpo médio", "amount": "300 g" },
+          { "name": "posta de robalo", "amount": "1 kg", "note": "≈ 6 postas" }
         ]
       },
       {
-        "name": "hortifruti",
+        "name": "Hortifruti",
         "items": [
-          { "name": "cogumelos paris", "amount": "400 g" },
+          { "name": "abobrinha", "amount": "2 un" },
+          { "name": "alecrim", "amount": "1 maço" },
+          { "name": "alho-poró", "amount": "1 un" },
+          { "name": "banana-prata", "amount": "6 un" },
           { "name": "batata asterix", "amount": "1,5 kg" },
-          { "name": "tomate", "amount": "6 un" },
-          { "name": "pimentão vermelho", "amount": "2 un" },
           { "name": "cebola", "amount": "4 un" },
+          { "name": "cebolinha", "amount": "1 maço" },
+          { "name": "cenoura", "amount": "3 un" },
           { "name": "coentro", "amount": "1 maço" },
-          { "name": "limão", "amount": "3 un" }
+          { "name": "cogumelos paris", "amount": "400 g" },
+          { "name": "limão-taiti", "amount": "4 un" },
+          { "name": "pepino japonês", "amount": "2 un" },
+          { "name": "pimentão amarelo", "amount": "1 un" },
+          { "name": "pimentão vermelho", "amount": "1 un" },
+          { "name": "rúcula", "amount": "1 maço" },
+          { "name": "salsinha", "amount": "1 maço" },
+          { "name": "shimeji", "amount": "200 g" },
+          { "name": "tomate", "amount": "6 un" }
         ]
       },
       {
-        "name": "mercearia",
+        "name": "Mercearia e secos",
         "items": [
-          { "name": "leite de coco", "amount": "400 ml", "note": "2 × vidro" },
+          { "name": "arroz agulhinha", "amount": "1 kg" },
+          { "name": "castanha de caju", "amount": "100 g" },
+          { "name": "farinha de trigo", "amount": "500 g" },
+          { "name": "funghi secchi", "amount": "30 g" },
           { "name": "grão-de-bico cozido", "amount": "1,2 kg", "note": "3 × lata" },
-          { "name": "massa fresca de ovos", "amount": "400 g" },
-          { "name": "creme de leite fresco", "amount": "200 ml" }
+          { "name": "leite de coco", "amount": "400 ml", "note": "2 × vidro" },
+          { "name": "pappardelle seco", "amount": "500 g" },
+          { "name": "tahine", "amount": "150 g" },
+          { "name": "vinho branco seco", "amount": "200 ml", "note": "1 × garrafa 750 ml" }
+        ]
+      },
+      {
+        "name": "Refrigerados",
+        "items": [
+          { "name": "creme de leite fresco", "amount": "200 ml" },
+          { "name": "iogurte natural", "amount": "170 g" },
+          { "name": "leite integral", "amount": "1 l" },
+          { "name": "manteiga sem sal", "amount": "200 g" },
+          { "name": "muçarela", "amount": "300 g" },
+          { "name": "ovos", "amount": "12 un" },
+          { "name": "parmesão ralado", "amount": "100 g" },
+          { "name": "requeijão", "amount": "200 g" }
         ]
       }
     ],
-    "pantry": ["sal", "pimenta-do-reino", "azeite", "alho", "azeite de dendê", "manteiga"]
+    "pantry": ["sal", "pimenta-do-reino", "azeite", "alho", "azeite de dendê", "manteiga", "açúcar", "óleo", "vinagre", "páprica doce", "cominho", "louro", "noz-moscada", "fermento", "mel", "mostarda"]
   }
 }

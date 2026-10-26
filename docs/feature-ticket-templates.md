@@ -22,8 +22,8 @@ Each template is one Receipt Set 1 strip (see *Design source*), except the *mise
 | [`briefing`](../samples/templates/briefing.json) | 1l briefing | Temperatures are whole numbers from -99 to 199. |
 | [`leaderboard`](../samples/templates/leaderboard.json) | 1m leaderboard | Ranks come from list order: the first person is #1. The template does not sort. Percentages are floored: 99.6 prints `99%` and does not reach the quota. |
 | [`focus`](../samples/templates/focus.json) | 1n focus | None. |
-| [`recipe`](../samples/templates/recipe.json) | none | Steps are numbered across phases. At most 35 items and 27 steps in all. |
-| [`shopping-list`](../samples/templates/shopping-list.json) | none | Aisles and items print in the order sent. `aisles` and `pantry` cannot both be empty. At most 160 items in all. |
+| [`recipe`](../samples/templates/recipe.json) | none | `url` is required, ASCII, at most 120 characters: the QR code and the printed link. Steps are numbered across phases. At most 35 items, 27 steps and 50 `uses` in all. |
+| [`shopping-list`](../samples/templates/shopping-list.json) | none | Aisles and items print in the order sent: the sender sorts them. `aisles` and `pantry` cannot both be empty. At most 160 items in all. |
 
 ## Payload
 
@@ -129,6 +129,12 @@ QR codes: `qrMatrix(text)` in `web/src/templates/qr.ts` gives the matrix for `T.
 ## mise-en-place templates
 
 The Print button of the mise-en-place recipe site sends `recipe` and `shopping-list`. The payload contract is each template's `parse` and its sample: `samples/templates/recipe.json` and `samples/templates/shopping-list.json`. Amounts arrive formatted (`400 g`, `1,5 kg`, `a gosto`); the templates never parse or scale them.
+
+- `recipe.url`: the site sends `https://mise-en-place.felipemoran.com/#receita=<id>`. It prints as a QR code of 5 dots per module, and as text without `https://`.
+- `recipe` step `uses`: the ingredients and measures that the step uses, `[{name, amount?}]`, already formatted. At most 10 per step.
+- Both templates print `impresso em 26 out 2026 · 14:08`: the render time in the server's time zone. No payload field sets it.
+
+Design source: the Claude Design export "Kitchen Receipts" (strips 1a to 1f). It is not in the repo.
 
 ## Print locally
 

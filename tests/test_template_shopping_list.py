@@ -1,7 +1,9 @@
 import copy
 import json
+import re
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from tests.web_build import build_web
@@ -15,6 +17,7 @@ from ticket_templates import (  # noqa: E402
 
 SHOPPING = json.loads((ROOT / "samples" / "templates" / "shopping-list.json").read_text(encoding="utf-8"))
 ONE_METRE = 8000
+NOW = datetime(2026, 10, 26, 14, 8)
 
 # Clipped or overflowing text prints a wrong value while the render still succeeds.
 _OVERFLOW_JS = """
@@ -23,11 +26,28 @@ _OVERFLOW_JS = """
   .map((el) => el.outerHTML.slice(0, 80))
 """
 _TEXTS_JS = "(selector) => [...document.querySelectorAll('#receipt ' + selector)].map((el) => el.textContent)"
+# Line boxes of each element's text: 1 means it did not wrap.
+_LINES_JS = """(selector) => [...document.querySelectorAll('#receipt ' + selector)].map((el) => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  return new Set([...range.getClientRects()].map((rect) => rect.top)).size;
+})"""
+_EDGES_JS = """() => [...document.querySelectorAll('#receipt .kr-box, #receipt .kr-chip, #receipt .kr-pantry, #receipt .kr-menu, #receipt .kr-aisle')]
+  .map((el) => el.getBoundingClientRect()).map((r) => [r.left, r.right, r.top, r.bottom])"""
 _LENGTH_REFUSAL = r"^the receipt would print [\d.]+ cm long; the limit is 100 cm$"
 
 
 def setUpModule():
     build_web()
+
+
+def glue(text):
+    return re.sub(r"(\d[\d.,/]*|[½¼¾≈×])\s+", "\\1\u00a0", text)
+
+
+def display(name):
+    glued = glue(name)
+    return glued[:1].upper() + glued[1:]
 
 
 def shopping(**data):
@@ -62,6 +82,7 @@ class ShoppingListTest(unittest.TestCase):
         cls.playwright = sync_playwright().start()
         cls.browser = cls.playwright.chromium.launch(headless=True)
         cls.page = open_render_page(cls.browser)
+        cls.page.clock.set_fixed_time(NOW)
 
     @classmethod
     def tearDownClass(cls):
@@ -76,53 +97,93 @@ class ShoppingListTest(unittest.TestCase):
     def texts(self, selector):
         return self.page.evaluate(_TEXTS_JS, selector)
 
-    def labels(self):
-        return [label for label in self.texts(".rp-label") if label != "SEMANA"]
-
-    def assert_in_order(self, expected):
-        text = self.page.evaluate("() => document.querySelector('#receipt').textContent")
-        at = 0
-        for part in expected:
-            found = text.find(part, at)
-            self.assertNotEqual(found, -1, f"{part!r} missing or out of order")
-            at = found + len(part)
+    def assert_whole_edges(self):
+        edges = self.page.evaluate(_EDGES_JS)
+        self.assertTrue(edges)
+        for edge in edges:
+            self.assertTrue(all(float(value).is_integer() for value in edge), edge)
 
     def test_every_item_amount_and_note_prints_in_the_order_sent(self):
         # A dropped list element still renders a print that looks complete.
         self.render(SHOPPING)
         items = [item for aisle in SHOPPING["data"]["aisles"] for item in aisle["items"]]
-        self.assertEqual(len(self.texts(".rp-task")), len(items))
-        self.assert_in_order([part for item in items for part in (item["name"], item["amount"], item.get("note", ""))])
-        self.assert_in_order([recipe["name"] for recipe in SHOPPING["data"]["recipes"]] + SHOPPING["data"]["pantry"])
+        self.assertTrue(any("note" in item for item in items))
+        self.assertEqual(self.texts(".kr-item-name"),
+                         [display(item["name"]) + (f" · {glue(item['note'])}" if "note" in item else "") for item in items])
+        self.assertEqual(self.texts(".kr-amount"), [item["amount"] for item in items])
+        self.assertEqual([text[2:] for text in self.texts(".kr-menu")],
+                         [f"{glue(recipe['name'])}{recipe['portions']} {'porção' if recipe['portions'] == 1 else 'porções'}" for recipe in SHOPPING["data"]["recipes"]])
+        self.assertEqual(self.texts(".kr-chip"), [display(name) for name in SHOPPING["data"]["pantry"]])
 
-    def test_aisles_print_in_the_order_sent(self):
+    def test_aisles_and_items_print_in_the_order_sent(self):
         # Reversed, so an alphabetical or catalogue re-sort would show.
-        aisles = SHOPPING["data"]["aisles"][::-1]
+        aisles = [{**aisle, "items": aisle["items"][::-1]} for aisle in SHOPPING["data"]["aisles"][::-1]]
         self.render(shopping(aisles=aisles))
-        self.assertEqual(self.labels(), [aisle["name"] for aisle in aisles] + ["DESPENSA"])
-        self.assert_in_order([item["name"] for aisle in aisles for item in aisle["items"]])
+        self.assertEqual(self.texts(".kr-aisle"), [aisle["name"] for aisle in aisles])
+        self.assertEqual(self.texts(".kr-amount"), [item["amount"] for aisle in aisles for item in aisle["items"]])
 
-    def test_recipe_portions_are_singular_for_one(self):
+    def test_menu_numbers_recipes_and_portions_are_singular_for_one(self):
         self.render(shopping(recipes=[{"name": "Arroz", "portions": 1}, {"name": "Feijão", "portions": 6}]))
-        self.assertEqual(self.texts(".body")[:2], ["Arroz · 1 porção", "Feijão · 6 porções"])
+        self.assertEqual(self.texts(".kr-portions"), ["1 porção", "6 porções"])
+        self.assertEqual(self.texts(".kr-menu"), ["01Arroz1 porção", "02Feijão6 porções"])
 
-    def test_item_without_note_has_no_meta_line(self):
+    def test_summary_counts_recipes_items_and_aisles(self):
+        self.render(SHOPPING)
+        data = SHOPPING["data"]
+        items = sum(len(aisle["items"]) for aisle in data["aisles"])
+        self.assertEqual(self.texts(".kr-summary"), [f"{len(data['recipes'])} receitas · {items} itens · {len(data['aisles'])} corredores"])
+        self.render(shopping(recipes=[{"name": "Arroz", "portions": 2}], aisles=[{"name": "mercearia", "items": [{"name": "arroz", "amount": "1 kg"}]}]))
+        self.assertEqual(self.texts(".kr-summary"), ["1 receita · 1 item · 1 corredor"])
+
+    def test_item_without_note_prints_its_name_only(self):
         self.render(shopping(aisles=[{"name": "açougue", "items": [{"name": "bacon", "amount": "150 g"}]}]))
-        self.assertEqual(self.texts(".rp-task-t"), ["bacon · 150 g"])
-        self.assertEqual(self.texts(".rp-task-m"), [])
+        self.assertEqual(self.texts(".kr-item-name"), ["Bacon"])
+        self.assertEqual(self.texts(".kr-note"), [])
 
-    def test_empty_pantry_omits_its_section(self):
+    def test_names_print_capitalized_with_numbers_glued_to_their_unit(self):
+        self.render(shopping(aisles=[{"name": "mercearia", "items": [{"name": "massa de 2 ovos", "amount": "1 un", "note": "3 × lata"}]}],
+                             pantry=["óleo", "½ maço de salsa"]))
+        self.assertEqual(self.texts(".kr-item-name"), ["Massa de 2\u00a0ovos · 3\u00a0×\u00a0lata"])
+        self.assertEqual(self.texts(".kr-chip"), ["Óleo", "½\u00a0maço de salsa"])
+
+    def test_amounts_and_portions_never_wrap(self):
+        # A long name beside "200 ml" once pushed "ml" onto a line of its own.
+        long = "creme de leite fresco com teor de gordura acima de trinta e cinco por cento, gelado"
+        self.render(shopping(
+            recipes=[{"name": "Pappardelle fresco ao funghi secchi com manteiga noisette", "portions": 99}],
+            aisles=[{"name": "refrigerados", "items": [{"name": long, "amount": "200 ml"}, {"name": long, "amount": "1,25 kg (aprox.)", "note": long[:52]}]}],
+        ))
+        for selector in (".kr-amount", ".kr-portions"):
+            with self.subTest(selector):
+                self.assertEqual(set(self.page.evaluate(_LINES_JS, selector)), {1})
+
+    def test_empty_pantry_omits_its_box(self):
         self.render(shopping(pantry=[]))
-        self.assertNotIn("DESPENSA", self.labels())
+        self.assertEqual(self.texts(".kr-pantry"), [])
 
     def test_pantry_only_prints_without_aisles(self):
         self.render(shopping(aisles=[], pantry=["sal", "azeite"]))
-        self.assertEqual(self.labels(), ["DESPENSA"])
-        self.assertEqual(self.texts(".rp-task"), [])
-        self.assert_in_order(["sal", "azeite"])
+        self.assertEqual(self.texts(".kr-aisle"), [])
+        self.assertEqual(self.texts(".kr-item"), [])
+        self.assertEqual(self.texts(".kr-chip"), ["Sal", "Azeite"])
+        self.assertTrue(self.texts(".kr-summary")[0].endswith(" · 0 itens · 0 corredores"))
+
+    def test_footer_prints_the_render_time(self):
+        self.render(SHOPPING)
+        self.assertEqual(self.texts(".kr-printed"), ["impresso em 26 out 2026 · 14:08"])
 
     def test_typical_week_fits_half_a_metre(self):
         self.assertLess(self.render(SHOPPING).height, 4000)
+
+    def test_checkboxes_and_boxes_sit_on_whole_pixels(self):
+        # A fractional edge smears a 3px stroke over four dot columns.
+        for payload in (SHOPPING, largest("W")[0], largest("漢")[0]):
+            with self.subTest(payload["data"]["recipes"][0]["name"][:8]):
+                try:
+                    render_template(self.page, payload, max_height_dots=ONE_METRE)
+                except TemplateError as error:
+                    self.assertRegex(str(error), _LENGTH_REFUSAL)
+                self.assert_whole_edges()
 
     def test_maximal_payload_fits_the_paper_and_is_refused_for_length(self):
         # The caps allow more than 1 m; the length guard must refuse it, never clip it. In CJK the
@@ -134,7 +195,8 @@ class ShoppingListTest(unittest.TestCase):
                     render_template(self.page, payload, max_height_dots=ONE_METRE)
                 self.assertIsNone(self.page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1]))
                 self.assertEqual(self.page.evaluate(_OVERFLOW_JS), [])
-                self.assertEqual(len(self.texts(".rp-task")), items)
+                self.assertEqual(len(self.texts(".kr-item")), items)
+                self.assertEqual(len(self.texts(".kr-chip")), 42)
         self.assertEqual(largest("W")[1], 160)
 
     def test_bad_data_is_refused(self):
