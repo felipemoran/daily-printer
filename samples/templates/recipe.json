@@ -1,0 +1,60 @@
+{
+  "template": "recipe",
+  "schemaVersion": 1,
+  "data": {
+    "name": "Pappardelle ao funghi",
+    "portions": 4,
+    "groups": [
+      {
+        "name": "Caldo de funghi",
+        "items": [
+          { "name": "funghi secchi", "amount": "30 g" },
+          { "name": "água fervente", "amount": "500 ml" }
+        ]
+      },
+      {
+        "name": "Molho",
+        "items": [
+          { "name": "cogumelos paris", "amount": "400 g" },
+          { "name": "manteiga", "amount": "50 g" },
+          { "name": "cebola", "amount": "1 un" },
+          { "name": "alho", "amount": "2 dentes" },
+          { "name": "vinho branco seco", "amount": "100 ml", "kind": "optional" },
+          { "name": "creme de leite fresco", "amount": "200 ml" },
+          { "name": "sal e pimenta", "amount": "a gosto" }
+        ]
+      },
+      {
+        "name": "Massa",
+        "items": [
+          { "name": "massa fresca de ovos", "amount": "400 g", "kind": "base" },
+          { "name": "parmesão ralado", "amount": "60 g" },
+          { "name": "salsinha picada" }
+        ]
+      }
+    ],
+    "phases": [
+      {
+        "name": "Antes",
+        "steps": [
+          { "verb": "Hidrate", "time": "20 min", "text": "o funghi na água fervente. Escorra, guarde o caldo e pique o funghi." }
+        ]
+      },
+      {
+        "name": "Molho",
+        "steps": [
+          { "verb": "Doure", "time": "8 min", "text": "os cogumelos em metade da manteiga, sem mexer muito. Reserve." },
+          { "verb": "Refogue", "time": "5 min", "text": "a cebola e o alho no resto da manteiga até ficarem macios." },
+          { "verb": "Junte", "time": "10 min", "text": "o funghi, o vinho e 200 ml do caldo. Reduza à metade e adicione o creme." }
+        ]
+      },
+      {
+        "name": "Final",
+        "steps": [
+          { "verb": "Cozinhe", "time": "3 min", "text": "a massa em água com sal até ficar al dente." },
+          { "verb": "Misture", "text": "a massa, os cogumelos e o parmesão no molho. Finalize com salsinha." }
+        ]
+      }
+    ]
+  }
+}
