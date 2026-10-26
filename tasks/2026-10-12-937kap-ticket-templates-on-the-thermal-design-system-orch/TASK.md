@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 title: Ticket templates on the Thermal design system — orchestrator mission log
-status: operator
+status: done
 priority: 1
 created_date: 2026-10-12
 dependencies: []
@@ -37,6 +37,7 @@ Operator goal (2026-10-12): implement the ticket types (named templates with typ
 - 2026-10-12T09:20:44+00:00: Follow-up from the print-system session: nkvroo (check_envelope refuses RecursionError and payloads nested > 32 levels as TemplateError — Playwright fails from ~500 levels; public TEXT_FEED in ticket_templates.py imported by print_template.py). In review + test run.
 - 2026-10-12T09:28:59+00:00: nkvroo gates: 214 tests green, 0 skips. Review: page.evaluate HANGS at ~150–300 levels (no exception, timeout does not apply) — cap 32 has ~4x headroom; comment fix + depth-walk-first simplification + deep-dict test + docs requested.
 - 2026-10-12T09:31:08+00:00: Follow-up integrated linearly: txrwsr → nkvroo (deep payloads are sender faults; TEXT_FEED) → zpwpwz (depth walk first, stops past 32; comment documents the 145–300-level page.evaluate hang; deep-dict test; docs) → this bookkeeping commit. Bookmark felipe/design-system-templates moved here.
+- 2026-10-25T23:24:53+00:00: Landed on main 2026-10-25 through PR 1 (https://github.com/felipemoran/daily-printer/pull/1). Closing the mission; hardware checks stay open as 5hxqhf and v9hd3o.
 
 ## Decisions
 

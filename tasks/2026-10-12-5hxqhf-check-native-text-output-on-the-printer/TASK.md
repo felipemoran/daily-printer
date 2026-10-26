@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-5hxqhf-check-native-text-output-on-the-printer
 title: Check native text output on the printer
-status: draft
+status: pending
 priority: 2
 created_date: 2026-10-12
 dependencies: []

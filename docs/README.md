@@ -14,7 +14,7 @@
 | [`reference-print-queue-schema.html`](reference-print-queue-schema.html) | Print server database: tables, job lifecycle, retention, design notes (open in a browser) |
 | [`research-print-quality.md`](research-print-quality.md) | Every print-quality test (2026-10): results, picks, open questions, redo checklist |
 | [`feature-todoist-tasks.md`](feature-todoist-tasks.md) | Todoist: API research and the integration that feeds the daily receipt and the `tasks` template |
-| [`setup-deploy.md`](setup-deploy.md) | Deploy the print server and printer devices: **`deploy/wizard.sh`**, services, files |
+| [`setup-deploy.md`](setup-deploy.md) | Deploy the print server and printer devices: **`deploy/wizard.sh`**, services, files, Docker Compose |
 | [`setup-bluetooth-investigation.md`](setup-bluetooth-investigation.md) | How to connect (USB for images, never connect in Settings); BLE notes |
 
 UI quick start: [`../web/README.md`](../web/README.md).

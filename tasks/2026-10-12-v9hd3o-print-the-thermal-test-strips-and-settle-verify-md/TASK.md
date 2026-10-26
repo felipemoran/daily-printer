@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-v9hd3o-print-the-thermal-test-strips-and-settle-verify-md
 title: Print the Thermal test strips and settle verify.md
-status: draft
+status: pending
 priority: 2
 created_date: 2026-10-12
 dependencies: []
