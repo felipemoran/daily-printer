@@ -26,4 +26,6 @@ Install the print server on the Intel Mac (macOS or Linux) with the Docker Compo
 
 ## Execution log
 
+- 2026-10-26T00:37:40+00:00: From vv1oyq (2026-10-25): verify on the Intel Mac the cloudflared service with a real TUNNEL_TOKEN, the amd64 image at run time, a backup restore, and config-file ownership on a Linux host (uid 10001 cannot read a 0600 file owned by the host user).
+
 ## Decisions
