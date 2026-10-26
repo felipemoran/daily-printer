@@ -27,3 +27,5 @@ Operator request 2026-10-25: print the mise-en-place shopping list (~/projects/m
 ## Execution log
 
 ## Decisions
+
+- 2026-10-26T00:11:25+00:00: Operator decision 2026-10-25: mise-en-place gets a Print button. The site sends the data in a REST request to the print API, and the print system prints it. The server does not read mise-en-place's data or the week state.
