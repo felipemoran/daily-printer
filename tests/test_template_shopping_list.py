@@ -9,7 +9,9 @@ from tests.web_build import build_web
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ticket_templates import _FIT_JS, PRINT_WIDTH_DOTS, TemplateError, open_render_page, render_template  # noqa: E402
+from ticket_templates import (  # noqa: E402
+    _FIT_JS, MAX_PAYLOAD_BYTES, PRINT_WIDTH_DOTS, TemplateError, open_render_page, render_template,
+)
 
 SHOPPING = json.loads((ROOT / "samples" / "templates" / "shopping-list.json").read_text(encoding="utf-8"))
 ONE_METRE = 8000
@@ -34,14 +36,22 @@ def shopping(**data):
     return payload
 
 
-def maximal(glyph):
-    """Every string at its cap and every list at its cap or total."""
+def maximal(glyph, items=160):
+    """Every string at its cap and every list at its cap, with ``items`` items over the 8 aisles."""
     item = {"name": glyph * 90, "amount": glyph * 16, "note": glyph * 52}
     return shopping(
         recipes=[{"name": glyph * 64, "portions": 99}] * 14,
-        aisles=[{"name": glyph * 30, "items": [item] * 12}] * 6 + [{"name": glyph * 30, "items": [item] * 9}] * 2,
+        aisles=[{"name": glyph * 30, "items": [item] * (items // 8 + (index < items % 8))} for index in range(8)],
         pantry=[glyph * 40] * 42,
     )
+
+
+def largest(glyph):
+    """``maximal`` with as many items as the payload byte limit lets reach the page."""
+    items = 160
+    while len(json.dumps(maximal(glyph, items), ensure_ascii=False).encode()) > MAX_PAYLOAD_BYTES:
+        items -= 1
+    return maximal(glyph, items), items
 
 
 class ShoppingListTest(unittest.TestCase):
@@ -115,14 +125,17 @@ class ShoppingListTest(unittest.TestCase):
         self.assertLess(self.render(SHOPPING).height, 4000)
 
     def test_maximal_payload_fits_the_paper_and_is_refused_for_length(self):
-        # The caps allow more than 1 m; the length guard must refuse it, never clip it.
+        # The caps allow more than 1 m; the length guard must refuse it, never clip it. In CJK the
+        # byte limit refuses 160 items at their caps first, so the largest payload it passes stands in.
         for glyph in ("W", "漢"):
             with self.subTest(glyph):
+                payload, items = largest(glyph)
                 with self.assertRaisesRegex(TemplateError, _LENGTH_REFUSAL):
-                    render_template(self.page, maximal(glyph), max_height_dots=ONE_METRE)
+                    render_template(self.page, payload, max_height_dots=ONE_METRE)
                 self.assertIsNone(self.page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1]))
                 self.assertEqual(self.page.evaluate(_OVERFLOW_JS), [])
-                self.assertEqual(len(self.texts(".rp-task")), 90)
+                self.assertEqual(len(self.texts(".rp-task")), items)
+        self.assertEqual(largest("W")[1], 160)
 
     def test_bad_data_is_refused(self):
         item = {"name": "sal", "amount": "1 kg"}
@@ -147,8 +160,8 @@ class ShoppingListTest(unittest.TestCase):
             ({"recipes": [{"name": "Arroz", "portions": 2}] * 15}, r"^data\.recipes: expected at most 14 items$"),
             ({"aisles": [aisle] * 9}, r"^data\.aisles: expected at most 8 items$"),
             ({"pantry": ["sal"] * 43}, r"^data\.pantry: expected at most 42 items$"),
-            ({"aisles": [{**aisle, "items": [item] * 91}]}, r"^data\.aisles\[0\]\.items: expected at most 90 items$"),
-            ({"aisles": [{**aisle, "items": [item] * 12}] * 8}, r"^data\.aisles: expected at most 90 items across all aisles$"),
+            ({"aisles": [{**aisle, "items": [item] * 161}]}, r"^data\.aisles\[0\]\.items: expected at most 160 items$"),
+            ({"aisles": [{**aisle, "items": [item] * 21}] * 8}, r"^data\.aisles: expected at most 160 items across all aisles$"),
         ):
             with self.subTest(data), self.assertRaisesRegex(TemplateError, pattern):
                 render_template(self.page, shopping(**data))

@@ -5,7 +5,7 @@ import { array, fail, integer, object, optional, text, type Parser } from './val
 
 // Caps: the mise-en-place catalogue's maxima (2026-10) with about 1.5x headroom. They do not keep
 // a full payload under any length: the render's length guard refuses a print that is too long.
-const MAX_ITEMS = 90
+const MAX_ITEMS = 160
 
 const shape = object({
   recipes: array(object({ name: text(64), portions: integer(1, 99) }), 14, { min: 1 }),

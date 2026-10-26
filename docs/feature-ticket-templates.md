@@ -23,7 +23,7 @@ Each template is one Receipt Set 1 strip (see *Design source*), except the *mise
 | [`leaderboard`](../samples/templates/leaderboard.json) | 1m leaderboard | Ranks come from list order: the first person is #1. The template does not sort. Percentages are floored: 99.6 prints `99%` and does not reach the quota. |
 | [`focus`](../samples/templates/focus.json) | 1n focus | None. |
 | [`recipe`](../samples/templates/recipe.json) | none | Steps are numbered across phases. At most 35 items and 27 steps in all. |
-| [`shopping-list`](../samples/templates/shopping-list.json) | none | Aisles and items print in the order sent. `aisles` and `pantry` cannot both be empty. At most 90 items in all. |
+| [`shopping-list`](../samples/templates/shopping-list.json) | none | Aisles and items print in the order sent. `aisles` and `pantry` cannot both be empty. At most 160 items in all. |
 
 ## Payload
 

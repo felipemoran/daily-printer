@@ -81,7 +81,7 @@ def maximal(glyph):
     step = {"verb": glyph * 40, "time": glyph * 28, "text": glyph * 210}
     return recipe(
         name=glyph * 64, portions=99,
-        groups=[{"name": glyph * 40, "items": [item] * 6}] * 5 + [{"name": glyph * 40, "items": [item] * 5}],
+        groups=[{"name": glyph * 48, "items": [item] * 6}] * 5 + [{"name": glyph * 48, "items": [item] * 5}],
         phases=[{"name": glyph * 28, "steps": [step] * 4}] * 6 + [{"name": glyph * 28, "steps": [step] * 3}],
     )
 
@@ -166,6 +166,20 @@ class RecipeTest(unittest.TestCase):
         self.render(recipe(phases=[{"steps": [{"verb": "Sirva"}]}]))
         self.assertEqual(self.texts(".rp-step-body > div:first-child"), ["Sirva"])
 
+    def test_timer_boxes_sit_on_whole_pixels(self):
+        # A fractional edge smears the 2px border over three dot columns.
+        for payload in (RECIPE, MADALENA, maximal("W"), maximal("漢")):
+            with self.subTest(payload["data"]["name"][:8]):
+                try:
+                    render_template(self.page, payload, max_height_dots=ONE_METRE)
+                except TemplateError as error:
+                    self.assertRegex(str(error), _LENGTH_REFUSAL)
+                edges = self.page.evaluate("""() => [...document.querySelectorAll('#receipt .rp-step-timer')]
+                    .map((el) => el.getBoundingClientRect()).map((r) => [r.left, r.right, r.top, r.bottom])""")
+                self.assertTrue(edges)
+                for edge in edges:
+                    self.assertTrue(all(float(value).is_integer() for value in edge), edge)
+
     def test_portions_are_singular_for_one(self):
         for portions, expected in ((1, "1 PORÇÃO"), (4, "4 PORÇÕES"), (99, "99 PORÇÕES")):
             with self.subTest(portions):
@@ -198,6 +212,7 @@ class RecipeTest(unittest.TestCase):
             ({"groups": [{"items": [{"name": ""}]}]}, r"^data\.groups\[0\]\.items\[0\]\.name: expected non-blank text$"),
             ({"phases": [{"steps": [{"verb": "  "}]}]}, r"^data\.phases\[0\]\.steps\[0\]\.verb: expected non-blank text$"),
             ({"name": "W" * 65}, r"^data\.name: expected at most 64 characters$"),
+            ({"groups": [{"name": "W" * 49, "items": [item]}]}, r"^data\.groups\[0\]\.name: expected at most 48 characters$"),
             ({"groups": [{"items": [{"name": "W" * 91}]}]}, r"^data\.groups\[0\]\.items\[0\]\.name: expected at most 90 characters$"),
             ({"groups": [{"items": [{**item, "amount": "W" * 17}]}]}, r"^data\.groups\[0\]\.items\[0\]\.amount: expected at most 16 characters$"),
             ({"phases": [{"steps": [{**step, "text": "W" * 211}]}]}, r"^data\.phases\[0\]\.steps\[0\]\.text: expected at most 210 characters$"),

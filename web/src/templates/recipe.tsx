@@ -12,7 +12,7 @@ const shape = object({
   name: text(64),
   portions: integer(1, 99),
   groups: array(object({
-    name: optional(text(40)),
+    name: optional(text(48)),
     items: array(object({
       name: text(90),
       amount: optional(text(16)),
@@ -36,6 +36,8 @@ const parse: Parser<Recipe> = (value, path) => {
 
 const KIND = { optional: '(opcional)', base: '(receita base)' }
 const subheading = { marginTop: 'var(--space-5)' }
+// The timer chip is as wide as its text: round the text box so the chip's edges land on whole pixels.
+const whole = { width: 'calc-size(fit-content, round(up, size, 1px))' }
 
 export default defineTemplate({
   schemaVersion: 1,
@@ -65,7 +67,7 @@ export default defineTemplate({
           <div key={phaseIndex}>
             {phase.name ? <div className="body-strong" style={subheading}>{phase.name}</div> : null}
             {phase.steps.map((step, index) => (
-              <T.Step key={index} n={firstStep[phaseIndex] + index} timer={step.time}>
+              <T.Step key={index} n={firstStep[phaseIndex] + index} timer={step.time && <span style={whole}>{step.time}</span>}>
                 <b>{step.verb}</b>{step.text ? ` ${step.text}` : null}
               </T.Step>
             ))}
