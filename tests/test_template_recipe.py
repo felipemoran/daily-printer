@@ -1,4 +1,5 @@
 import copy
+import io
 import json
 import re
 import subprocess
@@ -12,7 +13,10 @@ from tests.web_build import build_web
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ticket_templates import _FIT_JS, PRINT_WIDTH_DOTS, TemplateError, open_render_page, render_template  # noqa: E402
+from PIL import Image  # noqa: E402
+from ticket_templates import (  # noqa: E402
+    _FIT_JS, PRINT_WIDTH_DOTS, TemplateError, capture_template, open_render_page, render_template,
+)
 
 RECIPE = json.loads((ROOT / "samples" / "templates" / "recipe.json").read_text(encoding="utf-8"))
 ONE_METRE = 8000
@@ -92,6 +96,21 @@ _EDGES_JS = """() => [...document.querySelectorAll('#receipt [data-snap], #recei
 _USES_JS = """() => [...document.querySelectorAll('#receipt .kr-step')].map((step) =>
   [...step.querySelectorAll('.kr-use-name')].map((name) => [name.previousElementSibling.textContent, name.textContent]))"""
 _LENGTH_REFUSAL = r"^the receipt would print [\d.]+ cm long; the limit is 100 cm$"
+# Each word of the headline: its line boxes and right edge; the headline's lines and font sizes.
+HEADLINE_JS = """() => {
+  const el = document.querySelector('#receipt .kr-title'), text = el.firstChild, words = [];
+  const tops = (range) => [...range.getClientRects()].filter((rect) => rect.width).map((rect) => rect.top);
+  for (const match of text.data.matchAll(/\\S+/g)) {
+    const range = document.createRange();
+    range.setStart(text, match.index);
+    range.setEnd(text, match.index + match[0].length);
+    words.push({ lines: new Set(tops(range)).size, right: Math.max(...[...range.getClientRects()].map((rect) => rect.right)) });
+  }
+  const all = document.createRange();
+  all.selectNodeContents(el);
+  const sizes = new Set([el, ...el.querySelectorAll('*')].map((node) => getComputedStyle(node).fontSize));
+  return { words, lines: new Set(tops(all)).size, sizes: [...sizes] };
+}"""
 
 
 def setUpModule():
@@ -115,6 +134,18 @@ def qr_matrix(text):
     result = subprocess.run(["node", "--input-type=module", "-e", script, text], cwd=ROOT / "web",
                             capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
+
+
+def capture(page, payload, **limits):
+    """The screenshot before the print profile's bottom-edge erosion, as 0/255 pixels."""
+    png = capture_template(page, payload, **limits).png
+    return Image.open(io.BytesIO(png)).convert("L").point(lambda value: 255 if value > 127 else 0)
+
+
+def assert_stroke(test, image, x, top, width):
+    """``width`` black rows from ``top`` at column ``x``, with white above and below."""
+    column = [image.getpixel((x, y)) for y in range(top - 1, top + width + 1)]
+    test.assertEqual(column, [255] + [0] * width + [255], f"stroke at x={x}, y={top}")
 
 
 def recipe(**data):
@@ -282,8 +313,10 @@ class RecipeTest(unittest.TestCase):
                 self.assertEqual(self.texts(".kr-foot-portions"), [foot])
 
     def test_title_size_follows_name_length(self):
-        for name, size in (("W" * 18, "92px"), ("W" * 19, "68px"), ("W" * 36, "68px"), ("W" * 37, "50px")):
-            with self.subTest(len(name)):
+        # Short words, so no length needs a shrink.
+        for length, size in ((18, "92px"), (19, "68px"), (36, "68px"), (37, "50px")):
+            name = ("ovo " * 10)[:length - 1] + "x"
+            with self.subTest(length):
                 self.render(recipe(name=name))
                 self.assertEqual(self.page.evaluate("() => getComputedStyle(document.querySelector('#receipt .kr-title')).fontSize"), size)
 
@@ -303,6 +336,88 @@ class RecipeTest(unittest.TestCase):
         self.assertEqual(canvas["rect"][2:], canvas["size"])
         self.assertTrue(all(float(value).is_integer() for value in canvas["rect"]), canvas["rect"])
         self.assertEqual(self.texts(".kr-url"), ["mise-en-place.felipemoran.com/#receita=madalena"])
+
+    def headline(self):
+        return self.page.evaluate(HEADLINE_JS)
+
+    def assert_headline_fits(self, start):
+        headline = self.headline()
+        self.assertEqual({word["lines"] for word in headline["words"]}, {1}, "a word split across lines")
+        self.assertLessEqual(max(word["right"] for word in headline["words"]), PRINT_WIDTH_DOTS)
+        self.assertEqual(len(headline["sizes"]), 1, "more than one font size")
+        self.assertLessEqual(float(headline["sizes"][0][:-2]), start)
+        return headline
+
+    def test_headline_words_never_split_and_share_one_size(self):
+        long_words = ("WWWWWWWWWWWWWWW " * 4).strip()
+        for name, start in (("Torta madalena", 92), ("Bolo pernambucano", 92), ("Bolo de cenoura com cobertura de chocolate", 50),
+                            ("Pão de queijo com recheio de requeijão cremosíssimo e goiabada", 50), (long_words, 50)):
+            with self.subTest(name):
+                self.render(recipe(name=name))
+                self.assert_headline_fits(start)
+
+    def test_headline_shrinks_only_when_a_word_does_not_fit(self):
+        self.render(recipe(name="Ovo cozido"))
+        self.assertEqual(self.assert_headline_fits(92)["sizes"], ["92px"])
+        self.render(recipe(name="Bolo pernambucano"))
+        size = float(self.assert_headline_fits(92)["sizes"][0][:-2])
+        self.assertLess(size, 92)
+        # One dot larger, the widest word would not fit: the shrink is no more than needed.
+        self.page.evaluate("(size) => { document.querySelector('#receipt .kr-title').style.fontSize = size + 'px' }", size + 1)
+        self.assertGreater(max(word["right"] for word in self.headline()["words"]), PRINT_WIDTH_DOTS)
+
+    def test_multi_word_headline_wraps_between_words(self):
+        self.render(recipe(name="Bolo de cenoura com cobertura de chocolate"))
+        headline = self.assert_headline_fits(50)
+        self.assertEqual(headline["sizes"], ["50px"])
+        self.assertGreater(headline["lines"], 1)
+
+    def test_cjk_headline_breaks_between_characters_at_its_start_size(self):
+        self.render(recipe(name="漢" * 64))
+        headline = self.headline()
+        self.assertEqual(headline["sizes"], ["50px"])
+        self.assertGreater(headline["lines"], 1)
+
+    def test_word_too_wide_at_14px_breaks_as_a_last_resort(self):
+        self.render(recipe(name="W" * 64))
+        headline = self.headline()
+        self.assertEqual(headline["sizes"], ["14px"])
+        self.assertGreater(headline["lines"], 1)
+
+    def test_strokes_keep_their_width_and_qr_modules_are_square(self):
+        # Before the print profile trims the bottom dot of tall runs against heat smear.
+        image = capture(self.page, RECIPE)
+        boxes = self.page.evaluate("""() => Object.fromEntries(['.rp-rule-bar', '.kr-ingredients', '.kr-phase', '.kr-tiles', 'canvas']
+          .map((selector) => [selector, [...document.querySelectorAll('#receipt ' + selector)].map((el) => el.getBoundingClientRect().toJSON())]))""")
+        for box in boxes[".rp-rule-bar"]:
+            assert_stroke(self, image, 200, int(box["top"]), 8)
+        for box in boxes[".kr-ingredients"]:
+            assert_stroke(self, image, 200, int(box["top"]), 4)
+        for box in boxes[".kr-phase"]:
+            assert_stroke(self, image, 200, int(box["bottom"]) - 4, 4)
+        tiles = boxes[".kr-tiles"][0]
+        assert_stroke(self, image, 190, int(tiles["top"]), 4)
+        assert_stroke(self, image, 190, int(tiles["bottom"]) - 4, 4)
+        qr = boxes["canvas"][0]
+        module = 5
+        for top in range(int(qr["top"]), int(qr["bottom"]), module):
+            for left in range(int(qr["left"]), int(qr["right"]), module):
+                block = image.crop((left, top, left + module, top + module))
+                self.assertEqual(len(set(block.getdata())), 1, f"module at {left},{top} is not a whole {module}x{module} square")
+
+    def test_largest_qr_takes_four_dots_and_leaves_its_label_one_line(self):
+        self.render(recipe(url="https://mise-en-place.felipemoran.com/#receita=" + "x" * 73))
+        canvas = self.page.evaluate("() => { const r = document.querySelector('#receipt canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }")
+        self.assertEqual(canvas[2:], [45 * 4, 45 * 4])
+        self.assertTrue(all(float(value).is_integer() for value in canvas))
+        self.assertEqual(self.page.evaluate(_LINES_JS, ".kr-qr-label"), [1])
+
+    def test_descenders_clear_the_phase_rule(self):
+        image = capture(self.page, recipe(phases=[{"name": "Final e serviço", "steps": [{"verb": "Sirva"}]}]))
+        head = self.page.evaluate("() => { const r = document.querySelector('#receipt .kr-phase-name').getBoundingClientRect(); return [r.left, r.top, r.right, document.querySelector('#receipt .kr-phase').getBoundingClientRect().bottom - 4]; }")
+        left, top, right, rule = (int(value) for value in head)
+        ink = [y for y in range(top, rule) if any(image.getpixel((x, y)) == 0 for x in range(left, right))]
+        self.assertGreaterEqual(rule - max(ink) - 1, 4, "the cedilla sits on the rule")
 
     def test_footer_prints_the_render_time(self):
         self.render(RECIPE)

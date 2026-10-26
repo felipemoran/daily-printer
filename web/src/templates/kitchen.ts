@@ -20,6 +20,33 @@ export const printedAt = (now = new Date()) =>
 
 export const stepNumber = two
 
+const PAPER = 384
+const MIN_TEXT = 14
+
+// One size for the whole headline: the design's start size, shrunk until its widest word fits the
+// paper. min-content is that word, and it lets CJK break between characters. Only a word too wide
+// even at 14px breaks inside itself. Call it after the faces load.
+export function headline(text: string, start: number, ratio: number): CSSProperties {
+  const probe = document.createElement('div')
+  probe.className = 'rp-d'
+  probe.style.cssText = 'position: absolute; visibility: hidden; width: min-content; text-transform: uppercase'
+  probe.textContent = text
+  document.body.append(probe)
+  try {
+    const widest = (size: number) => {
+      probe.style.fontSize = `${size}px`
+      return probe.getBoundingClientRect().width
+    }
+    const width = widest(start)
+    let size = width > PAPER ? Math.max(MIN_TEXT, Math.floor((start * PAPER) / width)) : start
+    while (size > MIN_TEXT && widest(size) > PAPER) size -= 1
+    const fits = widest(size) <= PAPER
+    return { fontSize: size, lineHeight: `${Math.round(size * ratio)}px`, overflowWrap: fits ? 'normal' : 'anywhere' }
+  } finally {
+    probe.remove()
+  }
+}
+
 // A row whose items align on mixed fonts can come out a fraction of a dot tall; the rule under it then smears.
 export const wholeHeight: CSSProperties = { height: 'calc-size(auto, round(up, size, 1px))' }
 export const wholeWidth: CSSProperties = { width: 'calc-size(fit-content, round(up, size, 1px))' }

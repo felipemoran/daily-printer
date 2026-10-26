@@ -3,7 +3,7 @@ import { use, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { facesLoaded } from './faults'
-import { capitalize, count, glue, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
+import { capitalize, count, glue, headline, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
 import { array, fail, integer, object, optional, text, type Parser } from './validate'
 
 // Caps: the mise-en-place catalogue's maxima (2026-10) with about 1.5x headroom. They do not keep
@@ -50,7 +50,7 @@ export default defineTemplate({
     ].join(' · ')
     return (
       <div ref={root} style={{ fontSize: 16, lineHeight: '22px', fontWeight: 500, overflowWrap: 'anywhere' }}>
-        <div className="rp-d" style={{ fontSize: 108, lineHeight: '89px' }}>COMPRAS</div>
+        <div className="rp-d kr-title" style={headline('COMPRAS', 108, 0.82)}>COMPRAS</div>
         <div className="kr-summary" style={{ fontWeight: 700, marginTop: 10 }}>{summary}</div>
         <T.Rule weight="bar" style={{ margin: '16px 0 0' }} />
         <T.SectionLabel style={{ margin: '14px 0 2px' }}>CARDÁPIO</T.SectionLabel>
@@ -87,7 +87,8 @@ export default defineTemplate({
                 {checkbox(16, { marginTop: 1 })}
                 <span className="kr-item-name" style={{ textWrap: 'pretty' }}>
                   {capitalize(glue(item.name))}
-                  {item.note ? <span className="rp-d kr-note" style={{ fontSize: 16, fontWeight: 600 }}> · {glue(item.note)}</span> : null}
+                  {/* Archivo 600 at 62% printed 1-dot stems; the mono dot is the one that survives the 1-bit render. */}
+                  {item.note ? <><span className="kr-note-sep" style={{ fontWeight: 700 }}> · </span><span className="rp-d rp-d-wide kr-note" style={{ fontSize: 16, fontWeight: 800 }}>{glue(item.note)}</span></> : null}
                 </span>
                 <span className="kr-amount" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{item.amount}</span>
               </div>

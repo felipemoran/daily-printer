@@ -3,7 +3,7 @@ import { use, useLayoutEffect, useRef } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { facesLoaded } from './faults'
-import { capitalize, glue, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
+import { capitalize, glue, headline, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
 import { qrMatrix, qrText } from './qr'
 import { array, fail, integer, object, oneOf, optional, text, type Parser } from './validate'
 
@@ -53,12 +53,12 @@ const parse: Parser<Recipe> = (value, path) => {
 
 const FACES = ['900 92px Archivo', '500 16px "IBM Plex Mono"', '700 16px "IBM Plex Mono"']
 
-// The design picks the title size by name length.
+// The design picks the start size by name length.
 const titleStyle = (name: string) => {
   const length = [...name].length
-  if (length <= 18) return { fontSize: 92, lineHeight: '77px' }
-  if (length <= 36) return { fontSize: 68, lineHeight: '58px' }
-  return { fontSize: 50, lineHeight: '45px' }
+  if (length <= 18) return headline(name, 92, 0.84)
+  if (length <= 36) return headline(name, 68, 0.86)
+  return headline(name, 50, 0.9)
 }
 
 const label = { fontWeight: 700, letterSpacing: 3 } as const
@@ -71,6 +71,8 @@ const KIND = {
   base: { text: 'RECEITA BASE', style: { background: '#000', color: '#fff', padding: '2px 7px' } },
 }
 const dashed = '2px dashed #000'
+// The widest QR at 5 dots per module that leaves "RECEITA ONLINE" one line beside it; larger ones take 4.
+const QR_MAX_FIVE_DOT = 37
 
 // The 4px black gap draws the dividers. Whole-pixel widths, and the INGREDIENTES tile wide enough for its label.
 const TRACKS = { 2: '184px 184px', 3: '121px 126px 121px' }
@@ -99,6 +101,7 @@ export default defineTemplate({
     const firstStep = phases.map((_, index) => phases.slice(0, index).reduce((sum, phase) => sum + phase.steps.length, 1))
     const steps = phases.reduce((sum, phase) => sum + phase.steps.length, 0)
     const items = data.groups.reduce((sum, group) => sum + group.items.length, 0)
+    const matrix = qrMatrix(data.url)
     return (
       <div ref={root} style={{ fontSize: 16, lineHeight: '22px', fontWeight: 500, overflowWrap: 'anywhere' }}>
         <div className="rp-d kr-title" style={{ ...titleStyle(data.name), textTransform: 'uppercase', textWrap: 'balance' }}>{data.name}</div>
@@ -116,7 +119,7 @@ export default defineTemplate({
               </div>
             ) : null}
             {/* Whole-width amounts start the name column, and a tag that wraps to its start, on a whole dot. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', borderTop: '4px solid #000', paddingTop: 4, lineHeight: '22px', ...wholeHeight }}>
+            <div className="kr-ingredients" style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', borderTop: '4px solid #000', paddingTop: 4, lineHeight: '22px', ...wholeHeight }}>
               {group.items.map((item, index) => [
                 <div key={`a${index}`} className="kr-amount" style={{ padding: '4px 14px 4px 0', fontWeight: 700, whiteSpace: 'nowrap', ...wholeWidth }}>{item.amount}</div>,
                 <div key={`n${index}`} className="kr-ingredient" style={{ padding: '4px 0', textWrap: 'pretty' }}>
@@ -139,8 +142,9 @@ export default defineTemplate({
           const first = firstStep[phaseIndex], last = first + phase.steps.length - 1
           return (
             <div key={phaseIndex}>
-              {/* An unnamed phase keeps the rule and its range, as an unnamed group keeps its rule. */}
-              <div className="kr-phase" style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 14, paddingBottom: 4, borderBottom: '4px solid #000', ...wholeHeight }}>
+              {/* An unnamed phase keeps the rule and its range, as an unnamed group keeps its rule. The
+                  7px under the name clears a cedilla, as the group head's 6px does. */}
+              <div className="kr-phase" style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 14, paddingBottom: 7, borderBottom: '4px solid #000', ...wholeHeight }}>
                 <span className="rp-d kr-phase-name" style={{ flex: 1, minWidth: 0, fontSize: 34, lineHeight: '32px', textTransform: 'uppercase', textWrap: 'balance' }}>{phase.name}</span>
                 <span className="kr-range" style={{ ...small, fontWeight: 700, whiteSpace: 'nowrap' }}>{first === last ? `passo ${first}` : `passos ${first}–${last}`}</span>
               </div>
@@ -171,8 +175,8 @@ export default defineTemplate({
         })}
         <T.Rule weight="bar" style={{ margin: '24px 0 0' }} />
         <div style={{ marginTop: 24 }}>
-          <T.QRSlot matrix={qrMatrix(data.url)} module={5} quiet={0} lines={[
-            <span key="l" style={label}>RECEITA ONLINE</span>,
+          <T.QRSlot matrix={matrix} module={matrix.length > QR_MAX_FIVE_DOT ? 4 : 5} quiet={0} lines={[
+            <span key="l" className="kr-qr-label" style={label}>RECEITA ONLINE</span>,
             <div key="t" style={{ marginTop: 6, lineHeight: '22px', textWrap: 'pretty' }}>Aponte a câmera para abrir a página da receita.</div>,
             <div key="u" className="kr-url" style={{ ...small, marginTop: 6, fontWeight: 700, overflowWrap: 'anywhere' }}>{data.url.replace(/^https?:\/\//, '')}</div>,
           ]} />

@@ -6,6 +6,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
+from tests.test_template_recipe import HEADLINE_JS, assert_stroke, capture
 from tests.web_build import build_web
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,22 @@ def maximal(glyph, items=160):
         aisles=[{"name": glyph * 30, "items": [item] * (items // 8 + (index < items % 8))} for index in range(8)],
         pantry=[glyph * 40] * 42,
     )
+
+
+def one_dot_share(image, boxes):
+    """The share of horizontal black runs one dot wide inside ``boxes``: thin stems print broken."""
+    runs = []
+    for left, top, right, bottom in ((round(value) for value in box) for box in boxes):
+        for y in range(top, bottom):
+            row = [image.getpixel((x, y)) == 0 for x in range(left, right)] + [False]
+            length = 0
+            for black in row:
+                if black:
+                    length += 1
+                elif length:
+                    runs.append(length)
+                    length = 0
+    return runs.count(1) / len(runs)
 
 
 def largest(glyph):
@@ -167,6 +184,41 @@ class ShoppingListTest(unittest.TestCase):
         self.assertEqual(self.texts(".kr-item"), [])
         self.assertEqual(self.texts(".kr-chip"), ["Sal", "Azeite"])
         self.assertTrue(self.texts(".kr-summary")[0].endswith(" · 0 itens · 0 corredores"))
+
+    def boxes(self, selector):
+        return self.page.evaluate("(selector) => [...document.querySelectorAll('#receipt ' + selector)]"
+                                  ".map((el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })", selector)
+
+    def test_title_fits_on_one_line_at_one_size(self):
+        self.render(SHOPPING)
+        headline = self.page.evaluate(HEADLINE_JS)
+        self.assertEqual(headline["words"][0]["lines"], 1, "COMPRAS split across lines")
+        self.assertLessEqual(headline["words"][0]["right"], PRINT_WIDTH_DOTS)
+        self.assertEqual(len(headline["sizes"]), 1)
+        self.assertLess(float(headline["sizes"][0][:-2]), 108)
+
+    def test_notes_print_with_stems_as_heavy_as_the_amounts(self):
+        # Archivo 600 at 62% printed a third of its runs one dot wide; the bold mono amounts print about a tenth.
+        image = self.render(SHOPPING)
+        self.assertLessEqual(one_dot_share(image, self.boxes(".kr-note")), one_dot_share(image, self.boxes(".kr-amount")))
+
+    def test_note_separator_prints_a_solid_dot(self):
+        image = self.render(SHOPPING)
+        separators = self.boxes(".kr-note-sep")
+        self.assertTrue(separators)
+        for left, top, right, bottom in ((round(value) for value in box) for box in separators):
+            solid = any(all(image.getpixel((x + dx, y + dy)) == 0 for dx in (0, 1) for dy in (0, 1))
+                        for x in range(left, right - 1) for y in range(top, bottom - 1))
+            self.assertTrue(solid, "the separator dot is thinner than 2x2 dots")
+
+    def test_strokes_keep_their_width(self):
+        # Before the print profile trims the bottom dot of tall runs against heat smear.
+        image = capture(self.page, SHOPPING)
+        for left, top, right, bottom in self.boxes(".rp-rule-bar"):
+            assert_stroke(self, image, 200, int(top), 8)
+        (left, top, right, bottom), = self.boxes(".kr-pantry")
+        assert_stroke(self, image, 200, int(top), 4)
+        assert_stroke(self, image, 200, int(bottom) - 4, 4)
 
     def test_footer_prints_the_render_time(self):
         self.render(SHOPPING)
