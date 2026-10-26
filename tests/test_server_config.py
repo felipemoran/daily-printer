@@ -215,10 +215,11 @@ token = "{HOME}"
         self.assertEqual(load_config(self.example()).access.allowed_origins, ())
 
     def test_allowed_origins_keep_exact_origins(self):
-        line = 'allowed_origins = ["https://mise-en-place.felipemoran.com", "http://localhost:5173"]'
+        origins = ("https://mise-en-place.felipemoran.com", "http://localhost:5173", "http://localhost:443",
+                   "https://app.example.com:65535")
+        line = f"allowed_origins = {list(origins)}".replace("'", '"')
         config = load_config(self.write(self.with_allowed_origins(line)))
-        self.assertEqual(config.access.allowed_origins,
-                         ("https://mise-en-place.felipemoran.com", "http://localhost:5173"))
+        self.assertEqual(config.access.allowed_origins, origins)
 
     def test_allowed_origins_refuse_anything_but_an_exact_origin(self):
         for origin in [
@@ -234,6 +235,11 @@ token = "{HOME}"
             with self.subTest(origin=origin):
                 message = self.problems(self.with_allowed_origins(f'allowed_origins = ["{origin}"]'))
                 self.assertIn(f"access.allowed_origins[0]: not an origin: '{origin}'", message)
+        for origin in ["https://app.example.com:443", "http://app.example.com:80", "https://app.example.com:65536",
+                       "http://localhost:99999"]:
+            with self.subTest(origin=origin):
+                message = self.problems(self.with_allowed_origins(f'allowed_origins = ["{origin}"]'))
+                self.assertIn(f"access.allowed_origins[0]: bad port in '{origin}'", message)
         message = self.problems(self.with_allowed_origins('allowed_origins = "https://app.example.com"'))
         self.assertIn("access.allowed_origins: must be a list of origins", message)
 

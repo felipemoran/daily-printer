@@ -134,9 +134,9 @@ Tokens are plain text. The config file must have mode 0600.
 
 The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token or an Access email in `admin_emails`. A web sender may print only on `public` printers.
 
-An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403. A `same-site` or `cross-site` POST to `/api/jobs` also passes when its `Origin` is in `allowed_origins`.
+An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403. A `same-site` or `cross-site` `POST /api/jobs` also passes when its `Origin` is in `allowed_origins`.
 
-For a request to `/api/me` or `/api/jobs` whose `Origin` is in `allowed_origins`, every response, errors included, carries `Access-Control-Allow-Origin: <origin>`, `Access-Control-Allow-Credentials: true` and `Vary: Origin`. `OPTIONS` on those paths needs no credential: 204 with `Access-Control-Allow-Methods: GET, POST`, `Access-Control-Allow-Headers: Content-Type` and `Access-Control-Max-Age: 600` for an allowed origin, else 403 with no CORS headers.
+Cross-origin calls are allowed on two routes only: `GET /api/me` and `POST /api/jobs`. `GET /api/jobs` is the admin job list, so it stays closed. Every response on those two paths carries `Vary: Origin`. When the call is one of the two routes and its `Origin` is in `allowed_origins`, the response also carries `Access-Control-Allow-Origin: <origin>` and `Access-Control-Allow-Credentials: true`. This includes error responses. `OPTIONS` on those paths needs no credential. It gets 204 when the origin is allowed and `Access-Control-Request-Method` is the route's method. The 204 carries that method as `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers: Content-Type` and `Access-Control-Max-Age: 600`. Any other `OPTIONS` gets 403 with no CORS headers.
 
 ### HTTP API (JSON)
 

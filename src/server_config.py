@@ -15,7 +15,9 @@ _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _HOSTNAME = re.compile(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
 # Lowercase only: a browser sends the Origin header in lowercase, so another case would never match.
-_ORIGIN = re.compile(r"https?://[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::[0-9]{1,5})?")
+_ORIGIN = re.compile(r"(https?)://[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::([0-9]{1,5}))?")
+# A browser leaves the scheme's default port out of the Origin header, so an origin that names it never matches.
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 class ConfigError(Exception):
@@ -159,7 +161,13 @@ class _Reader:
             return ()
         origins = []
         for index, origin in enumerate(value):
-            if isinstance(origin, str) and _ORIGIN.fullmatch(origin):
+            match = _ORIGIN.fullmatch(origin) if isinstance(origin, str) else None
+            port = match and match[2] and int(match[2])
+            if match and port and (port > 65535 or port == _DEFAULT_PORTS[match[1]]):
+                self.problems.append(
+                    f"{where}.{key}[{index}]: bad port in {origin!r}; use a port from 1 to 65535, "
+                    f"and leave out {match[1]}'s default port {_DEFAULT_PORTS[match[1]]}")
+            elif match and port != 0:
                 origins.append(origin)
             else:
                 self.problems.append(

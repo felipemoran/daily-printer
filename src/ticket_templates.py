@@ -116,11 +116,13 @@ _FIT_JS = """
 
 
 class TemplateError(ValueError):
-    """The payload is wrong; the message tells the sender what to fix. ``length_dots`` is set when it is too long."""
+    """The payload is wrong; the message tells the sender what to fix. When it is too long, ``length_dots`` and
+    ``limit_dots`` are set."""
 
-    def __init__(self, message: str, *, length_dots: int | None = None) -> None:
+    def __init__(self, message: str, *, length_dots: int | None = None, limit_dots: int | None = None) -> None:
         super().__init__(message)
         self.length_dots = length_dots
+        self.limit_dots = limit_dots
 
 
 def length_cm(dots: int) -> float:
@@ -254,7 +256,8 @@ def capture_template(page, payload, *, max_height_dots: int = 4000) -> Capture:
     length = _length(page, landscape)
     if length > max_height_dots:
         raise TemplateError(f"the receipt would print {length_cm(length)} cm long; "
-                            f"the limit is {max_height_dots / DOTS_PER_CM:g} cm", length_dots=length)
+                            f"the limit is {max_height_dots / DOTS_PER_CM:g} cm",
+                            length_dots=length, limit_dots=max_height_dots)
     misfit = page.evaluate(_FIT_JS, [PRINT_WIDTH_DOTS, 1])
     if misfit:
         raise TemplateError(misfit)

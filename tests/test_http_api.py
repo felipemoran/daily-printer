@@ -643,7 +643,7 @@ class CrossSiteTest(ServerTestCase):
 
 
 ALLOWED_ORIGIN = "https://mise-en-place.example.com"
-CORS_HEADERS = ("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Vary")
+CORS_HEADERS = ("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials")
 PREFLIGHT_ONLY = ("Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age")
 
 
@@ -679,42 +679,54 @@ class CorsTest(ServerTestCase):
                 self.assertEqual(status, expected)
                 self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
                 self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
-                self.assertEqual(got["Vary"], "Origin")
+                self.assertEqual(got.getall("Vary"), ["Origin"])
 
-    async def test_a_disallowed_origin_gets_no_cors_headers(self):
+    async def test_a_disallowed_origin_gets_no_cors_headers_but_still_vary_origin(self):
         for origin in ("https://evil.example.com", ALLOWED_ORIGIN + ":8443", "null"):
             for method, path, headers, body, _ in self.calls(origin):
                 with self.subTest(origin=origin, method=method, path=path):
                     _, got = await self.send(method, path, headers, body)
                     for name in CORS_HEADERS:
                         self.assertNotIn(name, got)
+                    self.assertEqual(got.getall("Vary"), ["Origin"])
 
     async def test_an_allowed_origin_gets_no_cors_headers_on_other_routes(self):
-        _, got = await self.send("GET", "/api/printers", {**self.web(ADMIN_EMAIL), "Origin": ALLOWED_ORIGIN})
-        for name in CORS_HEADERS:
-            self.assertNotIn(name, got)
+        admin = {**self.web(ADMIN_EMAIL), "Origin": ALLOWED_ORIGIN}
+        for path in ("/api/printers", "/api/jobs"):
+            with self.subTest(path=path):
+                status, got = await self.send("GET", path, admin)
+                self.assertEqual(status, 200)
+                for name in CORS_HEADERS:
+                    self.assertNotIn(name, got)
 
     async def test_a_preflight_from_an_allowed_origin_is_204_with_the_cors_headers_and_no_credential(self):
-        for path in ("/api/me", "/api/jobs"):
+        for path, method in (("/api/me", "GET"), ("/api/jobs", "POST")):
             with self.subTest(path=path):
-                headers = {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "POST",
+                headers = {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": method,
                            "Access-Control-Request-Headers": "content-type"}
                 status, got = await self.send("OPTIONS", path, headers)
                 self.assertEqual(status, 204)
                 self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
                 self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
-                self.assertEqual(got["Access-Control-Allow-Methods"], "GET, POST")
+                self.assertEqual(got["Access-Control-Allow-Methods"], method)
                 self.assertEqual(got["Access-Control-Allow-Headers"], "Content-Type")
                 self.assertEqual(got["Access-Control-Max-Age"], "600")
 
-    async def test_a_preflight_from_another_origin_gets_no_cors_headers(self):
-        for headers in ({"Origin": "https://evil.example.com"}, {}):
-            for path in ("/api/me", "/api/jobs"):
-                with self.subTest(headers=headers, path=path):
-                    status, got = await self.send("OPTIONS", path, headers)
-                    self.assertEqual(status, 403)
-                    for name in CORS_HEADERS + PREFLIGHT_ONLY:
-                        self.assertNotIn(name, got)
+    async def test_a_preflight_from_another_origin_or_for_another_method_gets_no_cors_headers(self):
+        cases = [
+            ("/api/me", {"Origin": "https://evil.example.com", "Access-Control-Request-Method": "GET"}),
+            ("/api/jobs", {"Origin": "https://evil.example.com", "Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "GET"}),
+            ("/api/me", {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Origin": ALLOWED_ORIGIN}),
+        ]
+        for path, headers in cases:
+            with self.subTest(path=path, headers=headers):
+                status, got = await self.send("OPTIONS", path, headers)
+                self.assertEqual(status, 403)
+                for name in CORS_HEADERS + PREFLIGHT_ONLY:
+                    self.assertNotIn(name, got)
 
     async def test_a_cross_site_post_passes_only_from_an_allowed_origin(self):
         for site in ("cross-site", "same-site"):
@@ -752,6 +764,7 @@ class NoAllowedOriginsTest(ServerTestCase):
         self.assertEqual(preflight.status, 403)
         for got in (response.headers, preflight.headers):
             self.assertNotIn("Access-Control-Allow-Origin", got)
+            self.assertEqual(got.getall("Vary"), ["Origin"])
 
 
 class AdminTest(ServerTestCase):

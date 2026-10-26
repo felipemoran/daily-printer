@@ -50,11 +50,12 @@ _PROBE_JS = """
 
 
 class RenderError(Exception):
-    """A content problem the sender can fix. ``length_dots`` is set when a template is too long."""
+    """A content problem the sender can fix. When a template is too long, ``length_dots`` and ``limit_dots`` are set."""
 
-    def __init__(self, message: str, *, length_dots: int | None = None) -> None:
+    def __init__(self, message: str, *, length_dots: int | None = None, limit_dots: int | None = None) -> None:
         super().__init__(message)
         self.length_dots = length_dots
+        self.limit_dots = limit_dots
 
 
 @dataclass(frozen=True)
@@ -158,7 +159,7 @@ def _template_render(payload: dict | None, *, text: bool, max_height_dots: int) 
             finally:
                 browser.close()
     except TemplateError as error:
-        raise RenderError(str(error), length_dots=error.length_dots) from None
+        raise RenderError(str(error), length_dots=error.length_dots, limit_dots=error.limit_dots) from None
 
 
 def _image_bitmap(data: bytes | None) -> Image.Image:

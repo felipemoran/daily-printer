@@ -24,7 +24,7 @@ from job_artifacts import ESCPOS, PRINT_PNG, ArtifactStore, artifacts_root, job_
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
-from render_job import KINDS, LONG_MAX_HEIGHT_DOTS, MAX_HEIGHT_DOTS, RenderError, render
+from render_job import KINDS, LONG_MAX_HEIGHT_DOTS, RenderError, render
 from server_config import ServerConfig
 from ticket_templates import DOTS_PER_CM, length_cm
 
@@ -35,13 +35,10 @@ RATE_WINDOW_SECONDS = 600
 RENDER_CONCURRENCY = 2
 MAX_TITLE_LENGTH = 200
 MAX_LIST_LIMIT = 1000
-# Routes a page on an `allowed_origins` site may call with the sender's Access login.
-CORS_PATHS = frozenset({"/api/me", "/api/jobs"})
-PREFLIGHT_HEADERS = {
-    "Access-Control-Allow-Methods": "GET, POST",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Max-Age": "600",
-}
+# The routes a page on an `allowed_origins` site may call with the sender's Access login, by path.
+# GET /api/jobs is the admin job list: an admin's session on that page must not read it.
+CORS_ROUTES = {"/api/me": "GET", "/api/jobs": "POST"}
+PREFLIGHT_HEADERS = {"Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "600"}
 
 
 class _RenderSlots:
@@ -121,13 +118,13 @@ async def _errors(request: web.Request, handler) -> web.StreamResponse:
         return _error(500, "internal server error")
 
 
-def _too_long(length_dots: int, accepted: bool) -> dict:
+def _too_long(error: RenderError) -> dict:
     """What a sender needs to decide whether to resend a too-long template job with ``accept_long``."""
     return {
         "code": "too_long",
-        "length_cm": length_cm(length_dots),
-        "limit_cm": (LONG_MAX_HEIGHT_DOTS if accepted else MAX_HEIGHT_DOTS) // DOTS_PER_CM,
-        "acceptable": not accepted and length_dots <= LONG_MAX_HEIGHT_DOTS,
+        "length_cm": length_cm(error.length_dots),
+        "limit_cm": error.limit_dots // DOTS_PER_CM,
+        "acceptable": error.limit_dots < LONG_MAX_HEIGHT_DOTS and error.length_dots <= LONG_MAX_HEIGHT_DOTS,
     }
 
 
@@ -186,26 +183,31 @@ class _Api:
         raise ApiError(403, "cross-site requests are refused")
 
     def allowed_origin(self, request: web.Request) -> str | None:
-        """The request's Origin when it is in ``allowed_origins`` and the route is in ``CORS_PATHS``."""
+        """The request's Origin when it is in ``allowed_origins`` and the call, or the call a preflight
+        asks for, is a route in ``CORS_ROUTES``."""
         origin = request.headers.get("Origin")
         access = self.config.access
-        if origin is None or access is None or request.path not in CORS_PATHS:
+        method = request.headers.get("Access-Control-Request-Method") if request.method == "OPTIONS" else request.method
+        if origin is None or access is None or CORS_ROUTES.get(request.path) != method:
             return None
         return origin if origin in access.allowed_origins else None
 
     async def add_cors_headers(self, request: web.Request, response: web.StreamResponse) -> None:
         """Every response, errors included, so the page can read a 4xx body."""
+        if request.path not in CORS_ROUTES:
+            return
+        response.headers.add("Vary", "Origin")
         origin = self.allowed_origin(request)
         if origin is not None:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers.add("Vary", "Origin")
 
     async def preflight(self, request: web.Request) -> web.Response:
         """Browsers send no Access cookie on a preflight, so it needs no credential."""
         if self.allowed_origin(request) is None:
-            raise ApiError(403, "this origin may not call the API")
-        return web.Response(status=204, headers=PREFLIGHT_HEADERS)
+            raise ApiError(403, "this origin may not make this call")
+        return web.Response(status=204, headers={
+            **PREFLIGHT_HEADERS, "Access-Control-Allow-Methods": CORS_ROUTES[request.path]})
 
     async def admin(self, request: web.Request) -> Caller:
         caller = await self.caller(request)
@@ -318,7 +320,7 @@ class _Api:
                 rendered = await asyncio.to_thread(render, kind, payload=payload, image=image, accept_long=accept_long)
             except RenderError as error:
                 if kind == "template" and error.length_dots is not None:
-                    raise ApiError(422, str(error), _too_long(error.length_dots, accept_long)) from None
+                    raise ApiError(422, str(error), _too_long(error)) from None
                 raise ApiError(422, str(error)) from None
             except Exception:
                 log.exception("rendering a %s job for %s failed", kind, caller.source)
@@ -553,7 +555,7 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/printers", api.printers)
     app.router.add_get("/api/stats", api.stats)
     app.router.add_get("/api/me", api.me)
-    for path in CORS_PATHS:
+    for path in CORS_ROUTES:
         app.router.add_route("OPTIONS", path, api.preflight)
     app.router.add_get("/", api.index)
     app.router.add_get("/admin", api.admin_page)
