@@ -9,7 +9,7 @@ services:
     ports:
       - "127.0.0.1:${PRINT_SERVER_PORT:-8787}:8787"
     volumes:
-      - "${PRINT_SERVER_CONFIG:?set PRINT_SERVER_CONFIG to the server config file, in the environment or in .env}:/config/server.toml:ro"
+      - "${PRINT_SERVER_CONFIG:?set PRINT_SERVER_CONFIG in .env at the repo root: docs/setup-deploy.md, Docker Compose}:/config/server.toml:ro"
       - data:/data
     healthcheck:
       # The container's own hostname, not 127.0.0.1: a config that listens on loopback only fails this check.
@@ -59,7 +59,7 @@ services:
     command: [".venv/bin/python", "src/scripts/compose_check.py", "--server", "http://server:8787",
               "--config", "/config/server.toml", "--printers", "/printers"]
     volumes:
-      - "${PRINT_SERVER_CONFIG:?set PRINT_SERVER_CONFIG to the server config file}:/config/server.toml:ro"
+      - "${PRINT_SERVER_CONFIG:?set PRINT_SERVER_CONFIG in .env at the repo root: docs/setup-deploy.md, Docker Compose}:/config/server.toml:ro"
       - data:/data:ro
       - printers:/printers:ro
 

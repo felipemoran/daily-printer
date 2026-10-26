@@ -95,17 +95,18 @@ All services except `cloudflared` use one image, `daily-printer:local`. Its cont
 
 ### Config and secrets
 
-1. Write a server config from `samples/print-server.example.toml`, outside the repo, mode 0600. Three values must differ from the example:
+1. Write a server config from `samples/print-server.example.toml`, outside the repo, mode 0600. Two values must differ from the example, `host` and `database`; `port` stays 8787:
    ```toml
    [server]
    host = "0.0.0.0"                    # 127.0.0.1 is unreachable from outside the container
    port = 8787
    database = "/data/print-server.db"  # on the data volume; the config folder is read-only
    ```
-2. Point Compose at it. Compose mounts it read-only at `/config/server.toml`. Either pass it each time, `make compose-up CONFIG=~/print-server/config.toml`, or put it in `.env` at the repo root:
+2. Point Compose at it in `.env` at the repo root. Every `docker compose` command and every `make compose-*` target reads that file. Compose mounts the config read-only at `/config/server.toml`.
    ```sh
-   PRINT_SERVER_CONFIG=/Users/<you>/print-server/config.toml
-   TUNNEL_TOKEN=<the tunnel token>
+   PRINT_SERVER_CONFIG=/Users/<you>/print-server/config.toml   # required
+   PRINT_SERVER_PORT=8787                                      # optional: the host port
+   TUNNEL_TOKEN=<the tunnel token>                             # only for the tunnel profile
    ```
    `.env` is gitignored. It holds the tunnel token, so keep it mode 0600. `daily_print.py` reads the same file for its own keys.
 3. `make compose-up` builds the image and starts the server. It waits until the healthcheck passes. The healthcheck requests `/admin`, which needs no token, at the container's own hostname: a config that listens on loopback only fails it.

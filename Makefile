@@ -90,11 +90,11 @@ COMPOSE_TEST := PRINT_SERVER_CONFIG=./deploy/compose-test/server.toml PRINT_SERV
 	docker compose -p daily-printer-test
 COMPOSE_TEST_ALL := $(COMPOSE_TEST) --profile test --profile check
 
-compose-up: ## Build and run the print server in Docker: make compose-up [CONFIG=~/print-server/config.toml]
-	$(if $(CONFIG),PRINT_SERVER_CONFIG=$(CONFIG) )docker compose up -d --build --wait server
+compose-up: ## Build and run the print server in Docker; set PRINT_SERVER_CONFIG in .env first
+	docker compose up -d --build --wait server
 
 compose-down: ## Stop the Docker print server and its tunnel; keeps the data volume
-	PRINT_SERVER_CONFIG=$${PRINT_SERVER_CONFIG:-unused} docker compose --profile tunnel down
+	docker compose --profile tunnel down
 
 compose-test: ## Print every sample on two fake printers in Docker, check the output, tear down
 	@# A checkout writes the file as 0644, and the server refuses a config that other users can read.
