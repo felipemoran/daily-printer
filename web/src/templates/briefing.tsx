@@ -68,7 +68,8 @@ export default defineTemplate({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {data.firstUp.map(({ time, title }, index) => (
               <div key={index} className="body" style={{ display: 'flex', gap: 'var(--space-4)' }}>
-                <span className="body-strong" style={{ flex: 'none', width: '5ch' }}>{time}</span>
+                {/* A ch is a fractional glyph advance on Linux: round the column to a whole pixel. */}
+                <span className="body-strong" style={{ flex: 'none', width: 'round(5ch, 1px)' }}>{time}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>{title}</span>
               </div>
             ))}

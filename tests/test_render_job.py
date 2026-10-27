@@ -19,7 +19,7 @@ import render_job  # noqa: E402
 from fake_printer import decode  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
 from render_job import MAX_HEIGHT_DOTS, MAX_SOURCE_PIXELS, TEXT_FEED, RenderError, render  # noqa: E402
-from ticket_templates import MAX_DEPTH, open_render_page, render_template, render_text  # noqa: E402
+from ticket_templates import MAX_DEPTH, launch_browser, open_render_page, render_template, render_text  # noqa: E402
 
 SAMPLE_PAYLOAD = json.loads((_ROOT / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
 SAMPLE_TASK = next(block for block in SAMPLE_PAYLOAD["blocks"] if block["type"] == "task")
@@ -111,7 +111,7 @@ class TextRenderTest(unittest.TestCase):
         cls.cases = {"failed": BUILD, "passed": BUILD_PASSED}
         cls.rendered = {name: render("text", payload=payload) for name, payload in cls.cases.items()}
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = launch_browser(playwright)
             try:
                 page = open_render_page(browser)
                 cls.expected = {

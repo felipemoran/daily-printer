@@ -32,10 +32,10 @@ def setUpModule():
 class ReceiptWrapTest(unittest.TestCase):
     def render(self, payload, css=None):
         from playwright.sync_api import sync_playwright
-        from raster_capture import static_server
+        from raster_capture import launch_chromium, static_server
 
         with static_server(ROOT / "web" / "dist") as port, sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = launch_chromium(p)
             page = browser.new_page(viewport={"width": 384, "height": 720})
             page.route("**/payload.json", lambda route: route.fulfill(json=payload))
             page.goto(f"http://127.0.0.1:{port}/index.html", wait_until="networkidle")

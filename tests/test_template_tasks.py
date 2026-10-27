@@ -91,10 +91,10 @@ class RenderTest(unittest.TestCase):
         build_web()
         from playwright.sync_api import sync_playwright
 
-        from ticket_templates import open_render_page
+        from ticket_templates import launch_browser, open_render_page
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
 
     @classmethod

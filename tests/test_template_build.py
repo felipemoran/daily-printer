@@ -10,7 +10,7 @@ from tests.web_build import build_web
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ticket_templates import TemplateError, open_render_page, render_template  # noqa: E402
+from ticket_templates import TemplateError, launch_browser, open_render_page, render_template  # noqa: E402
 
 SAMPLE = json.loads((ROOT / "samples" / "templates" / "build.json").read_text(encoding="utf-8"))
 LINES_MODULE = ROOT / "web" / "src" / "templates" / "textmode-lines.ts"
@@ -193,7 +193,7 @@ class BuildRenderTest(unittest.TestCase):
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
 
     @classmethod

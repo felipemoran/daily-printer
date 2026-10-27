@@ -26,7 +26,7 @@ from job_artifacts import artifacts_root, dist_sha256  # noqa: E402
 from printer import PRINT_WIDTH_DOTS  # noqa: E402
 from raster_capture import snapshot_mhtml  # noqa: E402
 from render_job import DIST_DIR, render  # noqa: E402
-from ticket_templates import open_render_page, render_template  # noqa: E402
+from ticket_templates import launch_browser, open_render_page, render_template  # noqa: E402
 from test_http_api import ADMIN_TOKEN, PHOTO, SAMPLE_PAYLOAD, ServerTestCase  # noqa: E402
 
 SAMPLES = _TESTS.parent / "samples" / "templates"
@@ -339,7 +339,7 @@ class SweepTest(ArtifactTestCase):
 class FontSnapshotTest(unittest.TestCase):
     def test_a_font_that_fails_to_load_again_fails_the_snapshot_with_its_url(self):
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = launch_browser(playwright)
             try:
                 page = open_render_page(browser)
                 render_template(page, TICKET)

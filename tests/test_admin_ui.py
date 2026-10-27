@@ -6,7 +6,6 @@ import shutil
 import sys
 import time
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from playwright.async_api import async_playwright, expect
@@ -18,7 +17,8 @@ sys.path.insert(0, str(_TESTS))
 from job_artifacts import artifacts_root  # noqa: E402
 from render_job import render  # noqa: E402
 from test_device_hub import HubTestCase  # noqa: E402
-from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job  # noqa: E402
+from test_http_api import (  # noqa: E402
+    ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job, seed_clock)
 
 ADMIN_DIR = _TESTS.parent / "src" / "static" / "admin"
 RECEIPT = render("receipt", payload=SAMPLE_PAYLOAD)
@@ -115,29 +115,29 @@ class AdminBrowserCase(HubTestCase):
         )
 
     def seed(self) -> None:
-        midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-        today = max(midnight + 60, time.time() - 900)
+        midnight, today = seed_clock(320, lookback=900)
         yesterday = midnight - 4 * 3600
         queue = self.queue
         self.old = self.add("home", RECEIPT, title="Evening brief", source="morning-brief", ingress="api", at=yesterday)
         queue.take("home", now=yesterday + 1)
         queue.confirm(self.old.id, now=yesterday + 9)
-        self.printed = self.add("home", RENDERED, title="Holiday photo", source=SENDER_EMAIL, ingress="web", at=today)
-        queue.take("home", now=today + 1)
-        queue.confirm(self.printed.id, now=today + 8)
+        self.printed = self.add("home", RENDERED, title="Holiday photo", source=SENDER_EMAIL, ingress="web",
+                                at=today(0))
+        queue.take("home", now=today(1))
+        queue.confirm(self.printed.id, now=today(8))
         self.retried = self.add("home", RECEIPT, title="Morning brief", source="morning-brief", ingress="api",
-                                at=today + 20)
-        queue.take("home", now=today + 21)
-        queue.release(self.retried.id, detail="no reply in 120 s", now=today + 141)
-        queue.take("home", now=today + 150)
-        queue.confirm(self.retried.id, now=today + 158)
-        self.hostile = self.add("home", RENDERED, title=HOSTILE, source=SENDER_EMAIL, ingress="web", at=today + 200)
-        queue.take("home", now=today + 201)
-        queue.confirm(self.hostile.id, now=today + 207)
+                                at=today(20))
+        queue.take("home", now=today(21))
+        queue.release(self.retried.id, detail="no reply in 120 s", now=today(141))
+        queue.take("home", now=today(150))
+        queue.confirm(self.retried.id, now=today(158))
+        self.hostile = self.add("home", RENDERED, title=HOSTILE, source=SENDER_EMAIL, ingress="web", at=today(200))
+        queue.take("home", now=today(201))
+        queue.confirm(self.hostile.id, now=today(207))
         self.waiting = self.add("office", RECEIPT, title="Office checklist", source="morning-brief", ingress="api",
-                                at=today + 300)
+                                at=today(300))
         self.waiting_too = self.add("office", RENDERED, title="Team photo", source="admin", ingress="cli",
-                                    at=today + 310)
+                                    at=today(310))
         self.printing = self.add("home", RECEIPT, title="Shopping list", source="morning-brief", ingress="api",
                                  at=time.time())
 
@@ -364,6 +364,21 @@ class AdminViewsTest(AdminBrowserCase):
         await page.wait_for_function("s => s.scrollTop > 0 && s.scrollTop + s.clientHeight >= s.scrollHeight - 1",
                                      arg=await sheet.element_handle(), timeout=3000)
 
+    @staticmethod
+    async def swipe(page, box, distance: float) -> None:
+        """A finger drag from the middle of ``box``; a negative ``distance`` moves the finger up."""
+        # Linux headless Chromium drops Input.synthesizeScrollGesture with a touch source, but scrolls on touch events.
+        cdp = await page.context.new_cdp_session(page)
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        end = max(1.0, y + distance)
+        await cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+        for step in range(1, 11):
+            await cdp.send("Input.dispatchTouchEvent",
+                           {"type": "touchMove", "touchPoints": [{"x": x, "y": y + (end - y) * step / 10}]})
+            await asyncio.sleep(0.016)
+        await cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+        await cdp.detach()
+
     async def test_a_tall_ticket_scrolls_on_its_own_and_keeps_its_place_across_a_poll(self):
         page = await self.open()
         tall = self.ticket(page, self.retried).locator(".paper-wrap")
@@ -420,12 +435,8 @@ class AdminViewsTest(AdminBrowserCase):
         sheet = self.ticket(page, self.waiting).locator(".paper-wrap")
         other = self.ticket(page, self.printing).locator(".paper-wrap")
         box = await sheet.bounding_box()
-        cdp = await page.context.new_cdp_session(page)
-        for _ in range(2):
-            await cdp.send("Input.synthesizeScrollGesture", {
-                "x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2, "yDistance": -2000,
-                "gestureSourceType": "touch", "speed": 3000,
-            })
+        for _ in range(8):
+            await self.swipe(page, box, -600)
         await self.at_bottom(page, sheet)
         self.assertEqual((await self.scroll_state(other))["top"], 0)
         self.assertEqual(await page.evaluate("window.scrollY"), 0, "the page stays put at the sheet's end")
@@ -438,12 +449,7 @@ class AdminViewsTest(AdminBrowserCase):
         self.assertEqual(state["height"], state["client"], "nothing to scroll in this sheet")
         before = await page.evaluate("window.scrollY")
         self.assertGreater(before, 0)
-        box = await sheet.bounding_box()
-        cdp = await page.context.new_cdp_session(page)
-        await cdp.send("Input.synthesizeScrollGesture", {
-            "x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2, "yDistance": 200,
-            "gestureSourceType": "touch", "speed": 3000,
-        })
+        await self.swipe(page, await sheet.bounding_box(), 200)
         await page.wait_for_function("before => window.scrollY < before", arg=before, timeout=3000)
 
     async def test_hostile_titles_and_printer_names_render_as_text(self):
