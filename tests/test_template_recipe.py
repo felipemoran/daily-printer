@@ -77,6 +77,31 @@ MADALENA = {"template": "recipe", "schemaVersion": 1, "data": {
     ],
 }}
 
+# Between 50 cm and 1 m: madalena with a side salad and a sauce, for the too-long paths of the print API.
+LONG_RECIPE = copy.deepcopy(MADALENA)
+LONG_RECIPE["data"]["name"] = "Torta madalena com salada e molho"
+LONG_RECIPE["data"]["groups"].append({"name": "Salada e molho", "items": [
+    {"name": "Alface americana", "amount": "1 pé"}, {"name": "Tomate-cereja", "amount": "200 g"},
+    {"name": "Pepino japonês", "amount": "1 un"}, {"name": "Limão-siciliano", "amount": "1 un"},
+    {"name": "Azeite extravirgem", "amount": "45 ml"}, {"name": "Mostarda dijon", "amount": "1 c. chá"},
+    {"name": "Tomate pelado", "amount": "400 g"}, {"name": "Manjericão", "amount": "1 maço", "kind": "optional"}]})
+LONG_RECIPE["data"]["phases"] += [
+    {"name": "Salada", "steps": [
+        {"verb": "Lave as folhas", "time": "5 min", "text": "Em água corrente, folha por folha. Seque bem na centrífuga ou num pano limpo.",
+         "uses": uses(("1 pé", "Alface americana"))},
+        {"verb": "Corte os legumes", "time": "6 min", "text": "Tomates ao meio, pepino em meias-luas finas, sem as sementes se estiverem grandes.",
+         "uses": uses(("200 g", "Tomate-cereja"), ("1 un", "Pepino japonês"))},
+        {"verb": "Prepare o molho", "time": "2 min", "text": "Suco do limão, mostarda e uma pitada de sal. Junte o azeite em fio, batendo com o garfo.",
+         "uses": uses(("1 un", "Limão-siciliano"), ("1 c. chá", "Mostarda dijon"), ("30 ml", "Azeite extravirgem"))},
+        {"verb": "Monte a salada", "text": "Só na hora de servir, para as folhas não murcharem."}]},
+    {"name": "Molho de tomate", "steps": [
+        {"verb": "Aqueça o azeite", "time": "1 min", "text": "Numa panela pequena, fogo médio.", "uses": uses(("15 ml", "Azeite extravirgem"))},
+        {"verb": "Cozinhe o tomate", "time": "15 min", "text": "Esmague com a colher e deixe reduzir, mexendo de vez em quando, até engrossar.",
+         "uses": uses(("400 g", "Tomate pelado"), ("a gosto", "Sal"))},
+        {"verb": "Finalize o molho", "time": "1 min", "text": "Fora do fogo, folhas de manjericão rasgadas. Sirva ao lado da torta.",
+         "uses": uses(("1 maço", "Manjericão"))}]},
+]
+
 # Clipped or overflowing text prints a wrong value while the render still succeeds.
 _OVERFLOW_JS = """
 () => [...document.querySelectorAll('#receipt, #receipt *')]
@@ -350,7 +375,7 @@ class RecipeTest(unittest.TestCase):
 
     def test_headline_words_never_split_and_share_one_size(self):
         long_words = ("WWWWWWWWWWWWWWW " * 4).strip()
-        for name, start in (("Torta madalena", 92), ("Bolo pernambucano", 92), ("Bolo de cenoura com cobertura de chocolate", 50),
+        for name, start in (("Torta madalena", 92), ("Bolo pernambucano", 92), ("Pimenta-do-reino", 92), ("Bolo pé-de-moleque", 92), ("Bolo de cenoura com cobertura de chocolate", 50),
                             ("Pão de queijo com recheio de requeijão cremosíssimo e goiabada", 50), (long_words, 50)):
             with self.subTest(name):
                 self.render(recipe(name=name))
@@ -365,6 +390,16 @@ class RecipeTest(unittest.TestCase):
         # One dot larger, the widest word would not fit: the shrink is no more than needed.
         self.page.evaluate("(size) => { document.querySelector('#receipt .kr-title').style.fontSize = size + 'px' }", size + 1)
         self.assertGreater(max(word["right"] for word in self.headline()["words"]), PRINT_WIDTH_DOTS)
+
+    def test_hyphenated_compound_is_one_word(self):
+        self.render(recipe(name="Pimenta-do-reino"))
+        headline = self.assert_headline_fits(92)
+        self.assertEqual(len(headline["words"]), 1)
+        self.assertLess(float(headline["sizes"][0][:-2]), 92)
+        self.render(recipe(name="Bolo pé-de-moleque"))
+        headline = self.assert_headline_fits(92)
+        self.assertEqual(len(headline["words"]), 2)
+        self.assertLessEqual(headline["lines"], 2)
 
     def test_multi_word_headline_wraps_between_words(self):
         self.render(recipe(name="Bolo de cenoura com cobertura de chocolate"))
@@ -438,6 +473,12 @@ class RecipeTest(unittest.TestCase):
                 except TemplateError as error:
                     self.assertRegex(str(error), _LENGTH_REFUSAL)
                 self.assert_whole_edges()
+
+    def test_long_fixture_stays_between_55_and_95_cm(self):
+        # The print API tests use it for the 50 cm to 1 m paths; a layout change must fail here, not skip them.
+        height = self.render(LONG_RECIPE, max_height_dots=ONE_METRE).height
+        self.assertGreater(height, 4400)
+        self.assertLess(height, 7600)
 
     def test_longest_real_recipe_fits_one_metre(self):
         image = self.render(MADALENA, max_height_dots=ONE_METRE)

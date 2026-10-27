@@ -3,7 +3,7 @@ import { use, useLayoutEffect, useRef } from 'react'
 import T from '../thermal'
 import { defineTemplate } from './define'
 import { facesLoaded } from './faults'
-import { capitalize, glue, headline, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
+import { capitalize, glue, headline, keepHyphens, portions, printedAt, snapToPixels, stepNumber, wholeHeight, wholeWidth } from './kitchen'
 import { qrMatrix, qrText } from './qr'
 import { array, fail, integer, object, oneOf, optional, text, type Parser } from './validate'
 
@@ -102,9 +102,10 @@ export default defineTemplate({
     const steps = phases.reduce((sum, phase) => sum + phase.steps.length, 0)
     const items = data.groups.reduce((sum, group) => sum + group.items.length, 0)
     const matrix = qrMatrix(data.url)
+    const title = keepHyphens(data.name)
     return (
       <div ref={root} style={{ fontSize: 16, lineHeight: '22px', fontWeight: 500, overflowWrap: 'anywhere' }}>
-        <div className="rp-d kr-title" style={{ ...titleStyle(data.name), textTransform: 'uppercase', textWrap: 'balance' }}>{data.name}</div>
+        <div className="rp-d kr-title" style={{ ...titleStyle(title), textTransform: 'uppercase', textWrap: 'balance' }}>{title}</div>
         {statTiles([
           { label: data.portions === 1 ? 'PORÇÃO' : 'PORÇÕES', value: data.portions, inverted: true },
           { label: 'INGREDIENTES', value: items },

@@ -18,7 +18,7 @@ sys.path.insert(0, str(_TESTS))
 
 from access_auth import HEADER  # noqa: E402
 from test_http_api import ADMIN_EMAIL, HOME_TOKEN, SENDER_EMAIL, ServerTestCase  # noqa: E402
-from test_template_recipe import MADALENA  # noqa: E402
+from test_template_recipe import LONG_RECIPE  # noqa: E402
 from tests.web_build import build_web  # noqa: E402
 
 PAGE = b"<!doctype html><meta charset=utf-8><title>mise en place</title>"
@@ -120,14 +120,14 @@ class CrossOriginBrowserTest(ServerTestCase):
         self.assertEqual([method for method, path, _ in self.forwarded if path == "/api/jobs"], ["OPTIONS", "POST"])
 
     async def test_an_allowed_origin_reads_the_too_long_refusal_body(self):
-        got = await self.fetch(self.allowed_page, "/api/jobs", template_job(MADALENA))
+        got = await self.fetch(self.allowed_page, "/api/jobs", template_job(LONG_RECIPE))
         self.assertEqual(got.get("status"), 422, got)
         body = json.loads(got["body"])
         self.assertEqual((body["code"], body["acceptable"]), ("too_long", True))
         self.assertEqual(self.queue.jobs(), [])
 
     async def test_an_allowed_origin_resends_the_too_long_job_with_accept_long_and_reads_the_201(self):
-        got = await self.fetch(self.allowed_page, "/api/jobs", template_job(MADALENA, accept_long=True))
+        got = await self.fetch(self.allowed_page, "/api/jobs", template_job(LONG_RECIPE, accept_long=True))
         self.assertEqual(got.get("status"), 201, got)
 
     async def test_an_allowed_origin_cannot_read_the_admin_job_list_even_as_an_admin(self):

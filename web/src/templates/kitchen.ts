@@ -23,9 +23,13 @@ export const stepNumber = two
 const PAPER = 384
 const MIN_TEXT = 14
 
+// A hyphenated compound ("pé-de-moleque") is one word: U+2011 is a hyphen the line cannot break at.
+// Archivo draws it as wide as "-".
+export const keepHyphens = (text: string) => text.replace(/-/g, '\u2011')
+
 // One size for the whole headline: the design's start size, shrunk until its widest word fits the
 // paper. min-content is that word, and it lets CJK break between characters. Only a word too wide
-// even at 14px breaks inside itself. Call it after the faces load.
+// even at 14px breaks inside itself. Pass the text through keepHyphens. Call it after the faces load.
 export function headline(text: string, start: number, ratio: number): CSSProperties {
   const probe = document.createElement('div')
   probe.className = 'rp-d'

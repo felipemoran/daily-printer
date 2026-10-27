@@ -130,7 +130,7 @@ QR codes: `qrMatrix(text)` in `web/src/templates/qr.ts` gives the matrix for `T.
 
 The Print button of the mise-en-place recipe site sends `recipe` and `shopping-list`. The payload contract is each template's `parse` and its sample: `samples/templates/recipe.json` and `samples/templates/shopping-list.json`. Amounts arrive formatted (`400 g`, `1,5 kg`, `a gosto`); the templates never parse or scale them.
 
-- `recipe.url`: the site sends `https://mise-en-place.felipemoran.com/#receita=<id>`. It prints as a QR code of 5 dots per module, and as text without `https://`.
+- `recipe.url`: the site sends `https://mise-en-place.felipemoran.com/#receita=<id>`. It prints as a QR code of 5 dots per module (4 above 37 modules, which a URL over 84 characters needs), and as text without `https://`.
 - `recipe` step `uses`: the ingredients and measures that the step uses, `[{name, amount?}]`, already formatted. At most 10 per step.
 - Both templates print `impresso em 26 out 2026 · 14:08`: the render time in the server's time zone. No payload field sets it.
 

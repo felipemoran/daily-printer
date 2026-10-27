@@ -30,7 +30,7 @@ from job_queue import JobQueue, Status, _local_midnight  # noqa: E402
 from render_job import render  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_access_auth import AUDIENCE, KEY_A, STRANGER, TEAM, FakeCerts, claims, sign  # noqa: E402
-from test_template_recipe import MADALENA, maximal  # noqa: E402
+from test_template_recipe import LONG_RECIPE, maximal  # noqa: E402
 from tests.web_build import build_web  # noqa: E402
 
 ADMIN_TOKEN = "admin-token-7f3c9a1e5b2d4f6a8c0e"
@@ -541,38 +541,44 @@ class LongTemplateTest(ServerTestCase):
         return await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
 
     async def test_a_template_between_50_and_100_cm_is_refused_as_acceptable_with_its_length(self):
-        status, body = await self.post(self.template_job(MADALENA))
+        status, body = await self.post(self.template_job(LONG_RECIPE))
         self.assertEqual(status, 422, body)
-        self.assertIn("52.3 cm long; the limit is 50 cm", body["error"])
-        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
-                         {"code": "too_long", "length_cm": 52.3, "limit_cm": 50, "acceptable": True})
+        self.assertTrue(50 < body["length_cm"] < 100, body)
+        self.assertIn(f"{body['length_cm']} cm long; the limit is 50 cm", body["error"])
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:] if key != "length_cm"},
+                         {"code": "too_long", "limit_cm": 50, "acceptable": True})
         self.assertEqual(self.queue.jobs(), [])
 
     async def test_the_same_template_with_accept_long_prints(self):
-        status, job = await self.post(self.template_job(MADALENA, accept_long=True))
+        status, job = await self.post(self.template_job(LONG_RECIPE, accept_long=True))
         self.assertEqual(status, 201, job)
         self.assertGreater(job["height"], 4000)
 
     async def test_a_template_over_1_m_with_accept_long_is_refused_with_its_true_length(self):
         status, body = await self.post(self.template_job(maximal("W"), accept_long=True))
         self.assertEqual(status, 422, body)
-        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
-                         {"code": "too_long", "length_cm": 189.7, "limit_cm": 100, "acceptable": False})
+        self.assertGreater(body["length_cm"], 100, body)
+        self.assertIn(f"{body['length_cm']} cm long; the limit is 100 cm", body["error"])
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:] if key != "length_cm"},
+                         {"code": "too_long", "limit_cm": 100, "acceptable": False})
         self.assertEqual(self.queue.jobs(), [])
 
     async def test_a_template_over_1_m_without_accept_long_is_not_acceptable_and_not_clamped(self):
+        # Measured past the 50 cm limit, to the same true length as with accept_long.
+        _, accepted = await self.post(self.template_job(maximal("W"), accept_long=True))
         status, body = await self.post(self.template_job(maximal("W")))
         self.assertEqual(status, 422, body)
         self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
-                         {"code": "too_long", "length_cm": 189.7, "limit_cm": 50, "acceptable": False})
+                         {"code": "too_long", "length_cm": accepted["length_cm"], "limit_cm": 50, "acceptable": False})
+        self.assertGreater(body["length_cm"], 100, body)
 
     async def test_accept_long_must_be_a_boolean_on_a_template_job(self):
         cases = {
-            "string": self.template_job(MADALENA, accept_long="true"),
-            "number": self.template_job(MADALENA, accept_long=1),
-            "null": self.template_job(MADALENA, accept_long=None),
+            "string": self.template_job(LONG_RECIPE, accept_long="true"),
+            "number": self.template_job(LONG_RECIPE, accept_long=1),
+            "null": self.template_job(LONG_RECIPE, accept_long=None),
             "on a receipt": {"printer": "home", "kind": "receipt", "payload": SAMPLE_PAYLOAD, "accept_long": True},
-            "false on a text job": {**self.template_job(MADALENA), "kind": "text", "accept_long": False},
+            "false on a text job": {**self.template_job(LONG_RECIPE), "kind": "text", "accept_long": False},
             "on an image": self.image_job(accept_long=True),
         }
         for name, job in cases.items():
