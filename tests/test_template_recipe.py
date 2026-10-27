@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from PIL import Image  # noqa: E402
 from ticket_templates import (  # noqa: E402
-    _FIT_JS, PRINT_WIDTH_DOTS, TemplateError, capture_template, open_render_page, render_template,
+    _FIT_JS, PRINT_WIDTH_DOTS, TemplateError, capture_template, launch_browser, open_render_page, render_template,
 )
 
 RECIPE = json.loads((ROOT / "samples" / "templates" / "recipe.json").read_text(encoding="utf-8"))
@@ -201,7 +201,7 @@ class RecipeTest(unittest.TestCase):
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
         cls.page.clock.set_fixed_time(NOW)
 

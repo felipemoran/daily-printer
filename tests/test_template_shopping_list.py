@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ticket_templates import (  # noqa: E402
-    _FIT_JS, MAX_PAYLOAD_BYTES, PRINT_WIDTH_DOTS, TemplateError, open_render_page, render_template,
+    _FIT_JS, MAX_PAYLOAD_BYTES, PRINT_WIDTH_DOTS, TemplateError, launch_browser, open_render_page, render_template,
 )
 
 SHOPPING = json.loads((ROOT / "samples" / "templates" / "shopping-list.json").read_text(encoding="utf-8"))
@@ -97,7 +97,7 @@ class ShoppingListTest(unittest.TestCase):
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
         cls.page.clock.set_fixed_time(NOW)
 
