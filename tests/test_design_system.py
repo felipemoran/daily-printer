@@ -103,11 +103,11 @@ class ThermalPagesTest(unittest.TestCase):
 
     def test_every_test_strip_renders_a_printable_receipt(self):
         from playwright.sync_api import sync_playwright
-        from raster_capture import static_server
+        from raster_capture import launch_chromium, static_server
         strips = sorted(path.parent.name for path in (ROOT / "design-system" / "components").glob("Test*/preview.html"))
         self.assertTrue(strips)
         with static_server(ROOT / "web" / "dist") as port, sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = launch_chromium(p)
             page = browser.new_page(viewport={"width": 384, "height": 720})
             for name in strips:
                 with self.subTest(name):

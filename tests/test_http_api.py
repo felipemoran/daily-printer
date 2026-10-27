@@ -26,7 +26,7 @@ import http_api  # noqa: E402
 from access_auth import HEADER, AccessVerifier  # noqa: E402
 from http_api import HUB, create_app  # noqa: E402
 from job_artifacts import ArtifactStore, artifacts_root, job_files  # noqa: E402
-from job_queue import JobQueue, Status  # noqa: E402
+from job_queue import JobQueue, Status, _local_midnight  # noqa: E402
 from render_job import render  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_access_auth import AUDIENCE, KEY_A, STRANGER, TEAM, FakeCerts, claims, sign  # noqa: E402
@@ -115,7 +115,7 @@ def seed_clock(span: float, *, lookback: float, now: float | None = None) -> tup
     The server ignores jobs created after now, so just after midnight the offsets shrink to fit.
     """
     now = time.time() if now is None else now
-    midnight = datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    midnight = _local_midnight(now, None)
     start = max(midnight, now - lookback)
     scale = min(1.0, (now - start) / span)
     return midnight, lambda offset: start + offset * scale
@@ -670,12 +670,12 @@ class AdminTest(ServerTestCase):
 
 class SeedClockTest(unittest.TestCase):
     def test_just_after_midnight_the_seed_fits_between_midnight_and_now(self):
-        midnight = datetime(2026, 10, 27).timestamp()
-        for now in (midnight + 30, midnight + 3600):
-            with self.subTest(after_midnight=now - midnight):
-                start, today = seed_clock(320, lookback=900, now=now)
+        day = datetime(2026, 10, 27).timestamp()
+        for now in (day + 30, day + 3600):
+            with self.subTest(after_midnight=now - day):
+                midnight, today = seed_clock(320, lookback=900, now=now)
                 stamps = [today(offset) for offset in (0, 1, 150, 310)]
-                self.assertEqual(start, midnight)
+                self.assertEqual(midnight, day)
                 self.assertEqual(stamps, sorted(set(stamps)))
                 self.assertGreaterEqual(stamps[0], midnight)
                 self.assertLessEqual(stamps[-1], now)

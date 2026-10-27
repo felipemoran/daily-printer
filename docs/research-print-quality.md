@@ -119,7 +119,7 @@ Commands use today's flags. Each one names the script that re-runs it.
 | 2x supersample, box downscale | Same as default |
 | `-webkit-font-smoothing: none` | Exactly 2 grey levels: Chromium draws 1-bit glyphs, crisp and true weight |
 
-- **Pick:** aliased text. Headless Chromium on macOS honours the property. It does not on Linux; not tested.
+- **Pick:** aliased text. Headless Chromium on macOS honours the property. Linux Chromium ignores it, so there `launch_chromium` in `src/raster_capture.py` turns antialiasing off with `src/aliased-text.fonts.conf`. CI tests it on Linux (`AliasedTextTest`).
 
 ### E6. Aliased text plus whole-page dither vs anti-aliased (Concluded)
 
@@ -267,7 +267,7 @@ Commands use today's flags. Each one names the script that re-runs it.
 - **Jacket patches:** erosion on vs off in lifted dark areas (E19).
 - **Tone round R4:** never judged (E19).
 - **Auto-weight thresholds for other fonts:** measure with `font_metrics.py` before using `--weight auto` with them.
-- **Other renderers:** aliased text depends on macOS Chromium honouring `-webkit-font-smoothing`. Linux and Windows not tested.
+- **Other renderers:** aliased text comes from `-webkit-font-smoothing` on macOS and from fontconfig on Linux (`launch_chromium`, E5). Windows not tested.
 - **Not tried:**
   - pixel fonts at Font A size for receipt body text only;
   - Verdana Pro (needs a licence);
