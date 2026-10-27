@@ -26,4 +26,6 @@ About 12 test modules copy the same overflow-check JS and Playwright page setup;
 
 ## Execution log
 
+- 2026-10-26T03:14:34+00:00: 2026-10-26: tests/test_template_recipe.py and tests/test_template_shopping_list.py add two more copies of _OVERFLOW_JS, _TEXTS_JS, assert_in_order and the browser setUp (review of change ywwpzu).
+
 ## Decisions

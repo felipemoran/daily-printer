@@ -71,6 +71,13 @@ Placeholders: `render` in `deploy/wizard.sh`.
 
 After a `git pull` on the server, restart the server. When `web/` changed, run `cd web && npm run build` first.
 
+### Calls from a page on another site
+
+A page on another site, such as the mise-en-place page, may call `GET /api/me` and `POST /api/jobs` with the sender's Access login. To allow it:
+
+1. In `~/print-server/config.toml`, under `[access]`, list the page's exact origin: `allowed_origins = ["https://mise-en-place.felipemoran.com"]`. The wizard keeps this key when it rewrites the file. Then restart the server.
+2. In Cloudflare, open Zero Trust > Access > Applications > the print app > Advanced settings > CORS settings, and turn on "Bypass options requests to origin". A browser sends no Access cookie on the `OPTIONS` preflight, so without this setting Access refuses the preflight and the browser never sends the call. The server answers the preflight itself.
+
 ## Docker Compose
 
 The print server can also run in Docker, in place of the server service above. `compose.yaml` and `Dockerfile` are at the repo root. You need Docker with Compose v2 (Docker Desktop on a Mac).

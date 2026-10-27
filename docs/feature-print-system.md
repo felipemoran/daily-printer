@@ -157,7 +157,7 @@ To install the server and the devices as services, follow `docs/setup-deploy.md`
 
 - The maximum expiry is 7 days.
 - After a device error, or no reply within 120 s, the server sends nothing to that printer for 60 s. `printctl printers` shows the printer as paused until a given time.
-- A job prints at most 50 cm long (4000 dots). The server refuses a longer render with 422.
+- A job prints at most 50 cm long (4000 dots). The server refuses a longer render with 422. A `template` job with `accept_long: true` may print up to 1 m (8000 dots).
 - `printctl` refuses an image file over about 7.5 MB, because base64 makes the request body larger than the file.
 - A source image has at most 25 million pixels.
 - A web sender may send `web_rate_limit` jobs per 10 minutes (from the `[access]` table; the example config sets 10). One more gets 429.

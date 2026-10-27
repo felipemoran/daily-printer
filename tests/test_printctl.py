@@ -232,15 +232,15 @@ class SendTest(PrintctlTestCase):
     def test_send_receipt_posts_the_payload_unchanged(self):
         received = []
 
-        def fake_render(kind, *, payload=None, image=None):
-            received.append((kind, payload))
+        def fake_render(kind, *, payload=None, image=None, accept_long=False):
+            received.append((kind, payload, accept_long))
             return RENDERED
 
         sample = self.tmp / "receipt.json"
         sample.write_text(json.dumps(SAMPLE_PAYLOAD), encoding="utf-8")
         with mock.patch.object(http_api, "render", side_effect=fake_render):
             out = self.ok("send", "receipt", str(sample), "--printer", "home")
-        self.assertEqual(received, [("receipt", SAMPLE_PAYLOAD)])
+        self.assertEqual(received, [("receipt", SAMPLE_PAYLOAD, False)])
         job = self.job(re.search(r"Queued (\w+) for home", out)[1])
         self.assertEqual(round(job.expires_at - job.created_at), 3600)
 

@@ -108,6 +108,7 @@ team_domain = "<team>.cloudflareaccess.com"
 audience = "<application audience tag>"
 web_rate_limit = 10      # jobs per sender email per 10 minutes
 admin_emails = ["you@example.com"]  # may use the admin web interface
+allowed_origins = ["https://app.example.com"]  # pages that may call /api/me and /api/jobs; default none
 
 [printers.home]
 name = "Home"
@@ -133,13 +134,15 @@ Tokens are plain text. The config file must have mode 0600.
 
 The tunnel makes every request arrive from localhost, so the server never trusts the source address. Admin routes accept only the admin token or an Access email in `admin_emails`. A web sender may print only on `public` printers.
 
-An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403.
+An Access-authenticated POST needs `Content-Type: application/json` and, when the header is present, `Sec-Fetch-Site` `same-origin` or `none`; otherwise the server answers 403. A `same-site` or `cross-site` `POST /api/jobs` also passes when its `Origin` is in `allowed_origins`.
+
+Cross-origin calls are allowed on two routes only: `GET /api/me` and `POST /api/jobs`. `GET /api/jobs` is the admin job list, so it stays closed. Every response on those two paths carries `Vary: Origin`. When the call is one of the two routes and its `Origin` is in `allowed_origins`, the response also carries `Access-Control-Allow-Origin: <origin>` and `Access-Control-Allow-Credentials: true`. This includes error responses. `OPTIONS` on those paths needs no credential. It gets 204 when the origin is allowed and `Access-Control-Request-Method` is the route's method. The 204 carries that method as `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers: Content-Type` and `Access-Control-Max-Age: 600`. Any other `OPTIONS` gets 403 with no CORS headers.
 
 ### HTTP API (JSON)
 
 | Method and path | Who | Does |
 |---|---|---|
-| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. Renders, writes the job's artifact folder (with the body as received, for all kinds but `image`), then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
+| `POST /api/jobs` | admin, client, web | Body: `printer`, `kind` (`receipt`, `image`, `template` or `text`), `title`, `expires_in` (seconds, default 3600), and `payload` or `image` (base64). `payload` is the receipt JSON for `receipt`, and the template envelope `{template, schemaVersion, data}` for `template` and `text`. A `text` job prints native ESC/POS text; only a template with a text mode takes it. A print may be 50 cm long; a `template` job may set `accept_long: true` (a JSON boolean, `template` only, else 400) to print up to 1 m. Renders, writes the job's artifact folder (with the body as received, for all kinds but `image`), then queues. 201 with the job. 500 when the folder cannot be written; nothing is queued then. |
 | `GET /api/jobs?printer=&status=&limit=` | admin | Job summaries, newest first |
 | `GET /api/jobs/{id}` | admin | Job with its events, and `artifacts`: the path of its artifact folder on the server, or null when the folder is missing |
 | `GET /api/jobs/{id}/image` | admin | `print.png` from the job's artifact folder. 404 when the folder has none. |
@@ -151,13 +154,15 @@ An Access-authenticated POST needs `Content-Type: application/json` and, when th
 | `GET /api/stats` | admin | Aggregates (see below) |
 | `GET /api/clients` | admin | `{"clients": [{id, kind, jobs_today, last_job}]}`. Each configured client (`kind` `client`), then each web sender seen (`kind` `web`, `id` the email). `last_job` is `{id, title, kind, printer, created_at}` or null. |
 | `GET /api/server` | admin | `{version, started_at, uptime_seconds, renders_in_progress}`. A render waiting for a free slot counts as in progress. |
-| `GET /api/me` | web | The sender's email and the public printers |
+| `GET /api/me` | web | The sender's email and the public printers: `{id, name, place, online, last_seen}`, offline ones included. `last_seen` is epoch seconds, or null for a printer never seen. |
 | `GET /` | web, admin (Access email) | The sender web form |
 | `GET /admin` | anyone | The admin web page. It holds no data; its API calls need admin rights. |
 | `GET /admin/{name}` | anyone | One file of the admin page, by exact name; a name may span path segments. Serves `admin.css`, `admin.js` and the woff2 fonts under `fonts/` (as `font/woff2`). Any other name is 404. |
 | `GET /device` | device | The device WebSocket (see below) |
 
 Errors are JSON `{"error": "<message>"}`: 400 invalid body, 401 no valid credential, 403 not allowed, 404 unknown printer or job, 409 wrong job state, 413 body over 10 MB, 422 render failed, 429 rate limit, 500 server fault (a generic message; the traceback goes only to the server log).
+
+A `template` job over its limit gets 422 `{"error", "code": "too_long", "length_cm", "limit_cm", "acceptable"}`. `length_cm` is the true length, rounded up to 0.1 cm. `limit_cm` is 50, or 100 with `accept_long`. `acceptable` is true when the job did not set `accept_long` and is at most 100 cm long, so a resend with the flag passes the length check.
 
 ### Job record
 

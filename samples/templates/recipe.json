@@ -1,0 +1,169 @@
+{
+  "template": "recipe",
+  "schemaVersion": 1,
+  "data": {
+    "name": "Pappardelle ao funghi",
+    "portions": 4,
+    "url": "https://mise-en-place.felipemoran.com/#receita=pappardelle",
+    "groups": [
+      {
+        "name": "Caldo de funghi",
+        "items": [
+          { "name": "funghi secchi", "amount": "30 g" },
+          { "name": "água quente", "amount": "500 ml" }
+        ]
+      },
+      {
+        "name": "Molho",
+        "items": [
+          { "name": "cogumelos paris fatiados", "amount": "400 g" },
+          { "name": "shimeji em tufos", "amount": "200 g" },
+          { "name": "manteiga sem sal", "amount": "60 g" },
+          { "name": "alho picado", "amount": "3 dentes" },
+          { "name": "vinho branco seco", "amount": "120 ml" },
+          { "name": "creme de leite fresco", "amount": "200 ml" },
+          { "name": "tomilho fresco", "amount": "4 ramos", "kind": "optional" },
+          { "name": "sal", "amount": "a gosto" },
+          { "name": "pimenta-do-reino", "amount": "a gosto" }
+        ]
+      },
+      {
+        "name": "Massa",
+        "items": [
+          { "name": "pappardelle fresco", "amount": "500 g", "kind": "base" },
+          { "name": "água", "amount": "4 l" },
+          { "name": "sal grosso", "amount": "2 c. sopa" }
+        ]
+      },
+      {
+        "name": "Finalização",
+        "items": [
+          { "name": "parmesão ralado", "amount": "60 g" },
+          { "name": "salsinha picada", "amount": "½ maço" },
+          { "name": "azeite extravirgem", "amount": "a gosto" },
+          { "name": "raspas de limão", "amount": "1 un", "kind": "optional" }
+        ]
+      }
+    ],
+    "phases": [
+      {
+        "name": "Antes",
+        "steps": [
+          {
+            "verb": "Hidrate",
+            "time": "20 min",
+            "text": "o funghi na água quente. Coe, reserve o caldo e pique o funghi.",
+            "uses": [
+              { "name": "funghi secchi", "amount": "30 g" },
+              { "name": "água quente", "amount": "500 ml" }
+            ]
+          },
+          {
+            "verb": "Prepare",
+            "text": "os cogumelos: fatie os paris e separe o shimeji em tufos. Pique o alho.",
+            "uses": [
+              { "name": "cogumelos paris", "amount": "400 g" },
+              { "name": "shimeji", "amount": "200 g" },
+              { "name": "alho", "amount": "3 dentes" }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Molho",
+        "steps": [
+          {
+            "verb": "Derreta",
+            "text": "metade da manteiga numa frigideira grande em fogo médio.",
+            "uses": [
+              { "name": "manteiga sem sal", "amount": "30 g" }
+            ]
+          },
+          {
+            "verb": "Doure",
+            "time": "8 min",
+            "text": "os cogumelos em duas levas, sem mexer demais. Tempere com sal e pimenta.",
+            "uses": [
+              { "name": "cogumelos paris fatiados", "amount": "400 g" },
+              { "name": "shimeji em tufos", "amount": "200 g" },
+              { "name": "sal e pimenta-do-reino", "amount": "a gosto" }
+            ]
+          },
+          {
+            "verb": "Junte",
+            "time": "1 min",
+            "text": "o alho, o funghi picado e o tomilho, mexendo até perfumar.",
+            "uses": [
+              { "name": "alho picado", "amount": "3 dentes" },
+              { "name": "funghi hidratado", "amount": "30 g" },
+              { "name": "tomilho fresco (opcional)", "amount": "4 ramos" }
+            ]
+          },
+          {
+            "verb": "Deglaceie",
+            "time": "2 min",
+            "text": "com o vinho, raspando o fundo da panela até quase secar.",
+            "uses": [
+              { "name": "vinho branco seco", "amount": "120 ml" }
+            ]
+          },
+          {
+            "verb": "Reduza",
+            "time": "6 min",
+            "text": "com o caldo reservado e o creme de leite, até encorpar e cobrir as costas da colher.",
+            "uses": [
+              { "name": "caldo de funghi", "amount": "200 ml" },
+              { "name": "creme de leite fresco", "amount": "200 ml" }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Massa",
+        "steps": [
+          {
+            "verb": "Ferva",
+            "text": "a água com o sal grosso numa panela grande.",
+            "uses": [
+              { "name": "água", "amount": "4 l" },
+              { "name": "sal grosso", "amount": "2 c. sopa" }
+            ]
+          },
+          {
+            "verb": "Cozinhe",
+            "time": "3 min",
+            "text": "o pappardelle até al dente. Reserve 1 xícara da água do cozimento antes de escorrer.",
+            "uses": [
+              { "name": "pappardelle fresco", "amount": "500 g" }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Final",
+        "steps": [
+          {
+            "verb": "Misture",
+            "time": "1 min",
+            "text": "a massa ao molho com o resto da manteiga e um pouco da água do cozimento, até ficar brilhante.",
+            "uses": [
+              { "name": "manteiga sem sal", "amount": "30 g" },
+              { "name": "água do cozimento", "amount": "até 1 xícara" }
+            ]
+          },
+          {
+            "verb": "Finalize",
+            "text": "fora do fogo com parmesão, salsinha, raspas de limão e um fio de azeite.",
+            "uses": [
+              { "name": "parmesão ralado", "amount": "60 g" },
+              { "name": "salsinha picada", "amount": "½ maço" },
+              { "name": "raspas de limão (opcional)", "amount": "1 un" },
+              { "name": "azeite extravirgem", "amount": "a gosto" }
+            ]
+          },
+          { "verb": "Sirva", "time": "na hora", "text": "em pratos aquecidos, com mais parmesão à mesa." }
+        ]
+      }
+    ]
+  }
+}

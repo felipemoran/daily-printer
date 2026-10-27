@@ -4,7 +4,7 @@ A sender posts data. A template on the Thermal design system (`docs/feature-desi
 
 ## Templates
 
-Each template is one Receipt Set 1 strip (see *Design source*). The name links to its sample payload.
+Each template is one Receipt Set 1 strip (see *Design source*), except the *mise-en-place templates*. The name links to its sample payload.
 
 | Template | Strip | Rules a sender would otherwise guess wrong |
 |---|---|---|
@@ -22,6 +22,8 @@ Each template is one Receipt Set 1 strip (see *Design source*). The name links t
 | [`briefing`](../samples/templates/briefing.json) | 1l briefing | Temperatures are whole numbers from -99 to 199. |
 | [`leaderboard`](../samples/templates/leaderboard.json) | 1m leaderboard | Ranks come from list order: the first person is #1. The template does not sort. Percentages are floored: 99.6 prints `99%` and does not reach the quota. |
 | [`focus`](../samples/templates/focus.json) | 1n focus | None. |
+| [`recipe`](../samples/templates/recipe.json) | none | `url` is required, ASCII, at most 120 characters: the QR code and the printed link. Steps are numbered across phases. At most 35 items, 27 steps and 50 `uses` in all. |
+| [`shopping-list`](../samples/templates/shopping-list.json) | none | Aisles and items print in the order sent: the sender sorts them. `aisles` and `pantry` cannot both be empty. At most 160 items in all. |
 
 ## Payload
 
@@ -116,13 +118,23 @@ A custom check calls `fail(path, expected)`, or throws `TemplateDataError` with 
 
 Rules for every template:
 
-- Cap every string and list so that the worst case stays under 4000 dots. Add a test that renders the worst case: every list full, every string at its cap, in `W` and in CJK.
+- Cap every string and list. Add a test that renders the worst case (every list full, every string at its cap, in `W` and in CJK): nothing clips, and a worst case longer than `max_height_dots` gets the length guard's refusal (see *Render guards*).
 - Measure text in the page after `facesLoaded(faces)` (`web/src/templates/faults.ts`) resolves, as `agenda` and `focus` do. Do not model glyph widths: emoji and CJK come from system fonts.
 - Refuse blank text that the print shows: use `text` or `nonBlank`. Every template does. A blank value prints an empty field and still reports success.
 - Put every edge on a whole pixel.
 - Floor a percentage that would otherwise claim a threshold, such as 100% or a quota.
 
 QR codes: `qrMatrix(text)` in `web/src/templates/qr.ts` gives the matrix for `T.QRSlot`. `ticket` draws 3 dots per module. Which module size scans is not yet measured on paper.
+
+## mise-en-place templates
+
+The Print button of the mise-en-place recipe site sends `recipe` and `shopping-list`. The payload contract is each template's `parse` and its sample: `samples/templates/recipe.json` and `samples/templates/shopping-list.json`. Amounts arrive formatted (`400 g`, `1,5 kg`, `a gosto`); the templates never parse or scale them.
+
+- `recipe.url`: the site sends `https://mise-en-place.felipemoran.com/#receita=<id>`. It prints as a QR code of 5 dots per module (4 above 37 modules, which a URL over 84 characters needs), and as text without `https://`.
+- `recipe` step `uses`: the ingredients and measures that the step uses, `[{name, amount?}]`, already formatted. At most 10 per step.
+- Both templates print `impresso em 26 out 2026 · 14:08`: the render time in the server's time zone. No payload field sets it.
+
+Design source: the Claude Design export "Kitchen Receipts" (strips 1a to 1f). It is not in the repo.
 
 ## Print locally
 

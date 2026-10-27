@@ -30,6 +30,8 @@ from job_queue import JobQueue, Status, _local_midnight  # noqa: E402
 from render_job import render  # noqa: E402
 from server_config import load_config  # noqa: E402
 from test_access_auth import AUDIENCE, KEY_A, STRANGER, TEAM, FakeCerts, claims, sign  # noqa: E402
+from test_template_recipe import LONG_RECIPE, maximal  # noqa: E402
+from tests.web_build import build_web  # noqa: E402
 
 ADMIN_TOKEN = "admin-token-7f3c9a1e5b2d4f6a8c0e"
 HOME_TOKEN = "home-printer-token-2b4d6f8a0c1e3a5c"
@@ -38,15 +40,22 @@ CLIENT_TOKEN = "morning-brief-token-4a6c8e0b2d4f6a8c"
 ADMIN_EMAIL = "boss@example.com"
 SENDER_EMAIL = "friend@example.com"
 SAMPLE_PAYLOAD = json.loads((_TESTS.parent / "samples" / "receipt-sample.json").read_text(encoding="utf-8"))
+TOO_LONG_KEYS = ["error", "code", "length_cm", "limit_cm", "acceptable"]
 
 
-def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10) -> Path:
+def setUpModule():
+    build_web()
+
+
+def write_config(directory: Path, *, access: bool = True, web_rate_limit: int = 10, extra: str = "",
+                 allowed_origins: tuple[str, ...] = ()) -> Path:
     access_table = f"""
 [access]
 team_domain = "{TEAM}"
 audience = "{AUDIENCE}"
 web_rate_limit = {web_rate_limit}
 admin_emails = ["{ADMIN_EMAIL}"]
+allowed_origins = {json.dumps(list(allowed_origins))}
 """ if access else ""
     path = directory / "server.toml"
     path.write_text(f"""
@@ -69,7 +78,7 @@ token = "{OFFICE_TOKEN}"
 
 [clients.morning-brief]
 token = "{CLIENT_TOKEN}"
-""")
+{extra}""")
     path.chmod(0o600)
     return path
 
@@ -139,6 +148,8 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
 
     access = True
     web_rate_limit = 10
+    extra_config = ""
+    allowed_origins: tuple[str, ...] = ()
 
     async def asyncSetUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="print-server-test-"))
@@ -150,7 +161,8 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(lambda: (setattr(root, "handlers", saved[0]), root.setLevel(saved[1])))
         self.secrets = [ADMIN_TOKEN, HOME_TOKEN, OFFICE_TOKEN, CLIENT_TOKEN]
 
-        self.config = load_config(write_config(self.tmp, access=self.access, web_rate_limit=self.web_rate_limit))
+        self.config = load_config(write_config(self.tmp, access=self.access, web_rate_limit=self.web_rate_limit,
+                                                extra=self.extra_config, allowed_origins=self.allowed_origins))
         self.config.database.parent.mkdir()
         self.queue = JobQueue(self.config.database)
         self.addCleanup(self.queue.close)
@@ -183,7 +195,7 @@ class ServerTestCase(unittest.IsolatedAsyncioTestCase):
         if response.content_type == "application/json":
             parsed = json.loads(raw)
             if response.status >= 400:
-                self.assertEqual(list(parsed), ["error"])
+                self.assertEqual(list(parsed), TOO_LONG_KEYS if parsed.get("code") == "too_long" else ["error"])
                 self.assertNotIn("Traceback", parsed["error"])
             return response.status, parsed
         return response.status, raw
@@ -280,7 +292,7 @@ class IdentityTest(ServerTestCase):
     async def test_me_lists_the_email_and_only_public_printers(self):
         status, body = await self.call("GET", "/api/me", self.web())
         self.assertEqual(status, 200)
-        home = {"id": "home", "name": "Home", "place": "Home office"}
+        home = {"id": "home", "name": "Home", "place": "Home office", "online": False, "last_seen": None}
         self.assertEqual(body, {"email": SENDER_EMAIL, "printers": [home]})
 
     async def test_index_serves_html_to_a_web_sender(self):
@@ -291,6 +303,43 @@ class IdentityTest(ServerTestCase):
     async def test_unknown_route_is_a_json_404(self):
         status, body = await self.call("GET", "/api/nothing-here", self.bearer(ADMIN_TOKEN))
         self.assertEqual((status, body), (404, {"error": "Not Found"}))
+
+
+GARAGE_TOKEN = "garage-printer-token-5c7e9a1b3d5f7a9c"
+
+
+class MeStatusTest(ServerTestCase):
+    """A web sender sees whether each public printer is online, offline ones included."""
+
+    extra_config = f"""
+[printers.garage]
+name = "Garage"
+place = "Workbench"
+token = "{GARAGE_TOKEN}"
+public = true
+"""
+
+    async def test_me_lists_online_and_offline_public_printers_with_last_seen(self):
+        self.secrets.append(GARAGE_TOKEN)
+        self.queue.update_printer_state("garage", last_seen=1_700_000_000.0)
+        before = time.time()
+        device = {**self.bearer(HOME_TOKEN), "X-Device-Version": "python/1"}
+        ws = await self.client.ws_connect("/device", headers=device)
+        self.addAsyncCleanup(ws.close)
+        deadline = time.monotonic() + 5
+        while not self.hub.online("home"):
+            self.assertLess(time.monotonic(), deadline, "the device never came online")
+            await asyncio.sleep(0.01)
+        status, body = await self.call("GET", "/api/me", self.web())
+        self.assertEqual(status, 200, body)
+        printers = {printer["id"]: printer for printer in body["printers"]}
+        self.assertEqual(list(printers), ["home", "garage"])
+        self.assertTrue(printers["home"]["online"])
+        self.assertGreaterEqual(printers["home"]["last_seen"], before)
+        self.assertEqual(printers["garage"], {"id": "garage", "name": "Garage", "place": "Workbench",
+                                              "online": False, "last_seen": 1_700_000_000.0})
+        self.assertNotIn("office", printers)
+        self.assertNotIn("token", json.dumps(body))
 
 
 class NoAccessConfigTest(ServerTestCase):
@@ -482,6 +531,71 @@ class IntakeTest(ServerTestCase):
         self.assertTrue(wake.is_set())
 
 
+class LongTemplateTest(ServerTestCase):
+    """A template job past 50 cm prints only when its sender accepts the length, and never past 1 m."""
+
+    def template_job(self, payload: dict, **extra) -> dict:
+        return {"printer": "home", "kind": "template", "title": "Recipe", "payload": payload, **extra}
+
+    async def post(self, job: dict) -> tuple[int, dict]:
+        return await self.call("POST", "/api/jobs", self.bearer(CLIENT_TOKEN), body=job)
+
+    async def test_a_template_between_50_and_100_cm_is_refused_as_acceptable_with_its_length(self):
+        status, body = await self.post(self.template_job(LONG_RECIPE))
+        self.assertEqual(status, 422, body)
+        self.assertTrue(50 < body["length_cm"] < 100, body)
+        self.assertIn(f"{body['length_cm']} cm long; the limit is 50 cm", body["error"])
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:] if key != "length_cm"},
+                         {"code": "too_long", "limit_cm": 50, "acceptable": True})
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_the_same_template_with_accept_long_prints(self):
+        status, job = await self.post(self.template_job(LONG_RECIPE, accept_long=True))
+        self.assertEqual(status, 201, job)
+        self.assertGreater(job["height"], 4000)
+
+    async def test_a_template_over_1_m_with_accept_long_is_refused_with_its_true_length(self):
+        status, body = await self.post(self.template_job(maximal("W"), accept_long=True))
+        self.assertEqual(status, 422, body)
+        self.assertGreater(body["length_cm"], 100, body)
+        self.assertIn(f"{body['length_cm']} cm long; the limit is 100 cm", body["error"])
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:] if key != "length_cm"},
+                         {"code": "too_long", "limit_cm": 100, "acceptable": False})
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_a_template_over_1_m_without_accept_long_is_not_acceptable_and_not_clamped(self):
+        # Measured past the 50 cm limit, to the same true length as with accept_long.
+        _, accepted = await self.post(self.template_job(maximal("W"), accept_long=True))
+        status, body = await self.post(self.template_job(maximal("W")))
+        self.assertEqual(status, 422, body)
+        self.assertEqual({key: body[key] for key in TOO_LONG_KEYS[1:]},
+                         {"code": "too_long", "length_cm": accepted["length_cm"], "limit_cm": 50, "acceptable": False})
+        self.assertGreater(body["length_cm"], 100, body)
+
+    async def test_accept_long_must_be_a_boolean_on_a_template_job(self):
+        cases = {
+            "string": self.template_job(LONG_RECIPE, accept_long="true"),
+            "number": self.template_job(LONG_RECIPE, accept_long=1),
+            "null": self.template_job(LONG_RECIPE, accept_long=None),
+            "on a receipt": {"printer": "home", "kind": "receipt", "payload": SAMPLE_PAYLOAD, "accept_long": True},
+            "false on a text job": {**self.template_job(LONG_RECIPE), "kind": "text", "accept_long": False},
+            "on an image": self.image_job(accept_long=True),
+        }
+        for name, job in cases.items():
+            with self.subTest(name):
+                status, body = await self.post(job)
+                self.assertEqual(status, 400, body)
+                self.assertIn("accept_long", body["error"])
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_a_receipt_past_50_cm_keeps_its_plain_422(self):
+        long_receipt = {**SAMPLE_PAYLOAD, "blocks": SAMPLE_PAYLOAD["blocks"] * 40}
+        status, body = await self.post({"printer": "home", "kind": "receipt", "payload": long_receipt})
+        self.assertEqual(status, 422, body)
+        self.assertEqual(list(body), ["error"])
+        self.assertIn("the limit is 50 cm", body["error"])
+
+
 class CrossSiteTest(ServerTestCase):
     """A POST that carries only the browser's Access cookie must be a same-site JSON request."""
 
@@ -532,6 +646,131 @@ class CrossSiteTest(ServerTestCase):
                                     {**self.web(ADMIN_EMAIL), "Content-Type": "application/json"})
         self.assertEqual(status, 200)
         self.assertEqual(self.queue.job(job.id).status, "cancelled")
+
+
+ALLOWED_ORIGIN = "https://mise-en-place.example.com"
+CORS_HEADERS = ("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials")
+PREFLIGHT_ONLY = ("Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age")
+
+
+class CorsTest(ServerTestCase):
+    """A page on an allowed origin may call /api/me and /api/jobs with the sender's Access login; no other may."""
+
+    allowed_origins = (ALLOWED_ORIGIN,)
+
+    async def send(self, method: str, path: str, headers: dict, body=None):
+        response = await self.client.request(method, path, headers=headers, json=body)
+        await response.read()
+        return response.status, response.headers
+
+    def cross_site(self, origin: str | None) -> dict:
+        headers = {**self.web(), "Sec-Fetch-Site": "cross-site"}
+        return headers if origin is None else {**headers, "Origin": origin}
+
+    def calls(self, origin: str) -> list[tuple[str, str, dict, object, int]]:
+        """One call per status the page must be able to read."""
+        unknown_template = {"printer": "home", "kind": "template", "payload": {
+            "template": "nope", "schemaVersion": 1, "data": {}}}
+        return [
+            ("GET", "/api/me", {**self.web(), "Origin": origin}, None, 200),
+            ("POST", "/api/jobs", self.cross_site(origin), unknown_template, 422),
+            ("GET", "/api/me", {"Origin": origin}, None, 401),
+            ("POST", "/api/jobs", self.cross_site(origin), self.image_job("office"), 403),
+        ]
+
+    async def test_an_allowed_origin_gets_the_cors_headers_on_success_and_on_errors(self):
+        for method, path, headers, body, expected in self.calls(ALLOWED_ORIGIN):
+            with self.subTest(method=method, path=path, status=expected):
+                status, got = await self.send(method, path, headers, body)
+                self.assertEqual(status, expected)
+                self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
+                self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
+                self.assertEqual(got.getall("Vary"), ["Origin"])
+
+    async def test_a_disallowed_origin_gets_no_cors_headers_but_still_vary_origin(self):
+        for origin in ("https://evil.example.com", ALLOWED_ORIGIN + ":8443", "null"):
+            for method, path, headers, body, _ in self.calls(origin):
+                with self.subTest(origin=origin, method=method, path=path):
+                    _, got = await self.send(method, path, headers, body)
+                    for name in CORS_HEADERS:
+                        self.assertNotIn(name, got)
+                    self.assertEqual(got.getall("Vary"), ["Origin"])
+
+    async def test_an_allowed_origin_gets_no_cors_headers_on_other_routes(self):
+        admin = {**self.web(ADMIN_EMAIL), "Origin": ALLOWED_ORIGIN}
+        for path in ("/api/printers", "/api/jobs"):
+            with self.subTest(path=path):
+                status, got = await self.send("GET", path, admin)
+                self.assertEqual(status, 200)
+                for name in CORS_HEADERS:
+                    self.assertNotIn(name, got)
+
+    async def test_a_preflight_from_an_allowed_origin_is_204_with_the_cors_headers_and_no_credential(self):
+        for path, method in (("/api/me", "GET"), ("/api/jobs", "POST")):
+            with self.subTest(path=path):
+                headers = {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": method,
+                           "Access-Control-Request-Headers": "content-type"}
+                status, got = await self.send("OPTIONS", path, headers)
+                self.assertEqual(status, 204)
+                self.assertEqual(got["Access-Control-Allow-Origin"], ALLOWED_ORIGIN)
+                self.assertEqual(got["Access-Control-Allow-Credentials"], "true")
+                self.assertEqual(got["Access-Control-Allow-Methods"], method)
+                self.assertEqual(got["Access-Control-Allow-Headers"], "Content-Type")
+                self.assertEqual(got["Access-Control-Max-Age"], "600")
+
+    async def test_a_preflight_from_another_origin_or_for_another_method_gets_no_cors_headers(self):
+        cases = [
+            ("/api/me", {"Origin": "https://evil.example.com", "Access-Control-Request-Method": "GET"}),
+            ("/api/jobs", {"Origin": "https://evil.example.com", "Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "GET"}),
+            ("/api/me", {"Origin": ALLOWED_ORIGIN, "Access-Control-Request-Method": "POST"}),
+            ("/api/jobs", {"Origin": ALLOWED_ORIGIN}),
+        ]
+        for path, headers in cases:
+            with self.subTest(path=path, headers=headers):
+                status, got = await self.send("OPTIONS", path, headers)
+                self.assertEqual(status, 403)
+                for name in CORS_HEADERS + PREFLIGHT_ONLY:
+                    self.assertNotIn(name, got)
+
+    async def test_a_cross_site_post_passes_only_from_an_allowed_origin(self):
+        for site in ("cross-site", "same-site"):
+            for origin, expected in ((ALLOWED_ORIGIN, 201), ("https://evil.example.com", 403), (None, 403)):
+                with self.subTest(site=site, origin=origin):
+                    headers = {**self.cross_site(origin), "Sec-Fetch-Site": site}
+                    status, body = await self.call("POST", "/api/jobs", headers, body=self.image_job())
+                    self.assertEqual(status, expected, body)
+                    if expected == 403:
+                        self.assertEqual(body["error"], "cross-site requests are refused")
+        self.assertEqual(len(self.queue.jobs()), 2)
+
+    async def test_an_allowed_origin_still_needs_a_json_post(self):
+        headers = {**self.cross_site(ALLOWED_ORIGIN), "Content-Type": "text/plain"}
+        status, _ = await self.call("POST", "/api/jobs", headers, data=json.dumps(self.image_job()).encode())
+        self.assertEqual(status, 403)
+        self.assertEqual(self.queue.jobs(), [])
+
+    async def test_an_allowed_origin_does_not_open_cross_site_posts_on_other_routes(self):
+        job = self.add_job()
+        headers = {**self.cross_site(ALLOWED_ORIGIN), "Sec-Fetch-Site": "cross-site"}
+        status, _ = await self.call("POST", f"/api/jobs/{job.id}/cancel", {**headers, **self.web(ADMIN_EMAIL)}, body={})
+        self.assertEqual(status, 403)
+        self.assertEqual(self.queue.job(job.id).status, "queued")
+
+
+class NoAllowedOriginsTest(ServerTestCase):
+    """Without allowed_origins nothing changes: no CORS headers, and every cross-site POST is refused."""
+
+    async def test_the_default_config_answers_no_origin(self):
+        headers = {**self.web(), "Origin": ALLOWED_ORIGIN, "Sec-Fetch-Site": "cross-site"}
+        response = await self.client.request("POST", "/api/jobs", headers=headers, json=self.image_job())
+        self.assertEqual(response.status, 403)
+        preflight = await self.client.request("OPTIONS", "/api/jobs", headers={"Origin": ALLOWED_ORIGIN})
+        self.assertEqual(preflight.status, 403)
+        for got in (response.headers, preflight.headers):
+            self.assertNotIn("Access-Control-Allow-Origin", got)
+            self.assertEqual(got.getall("Vary"), ["Origin"])
 
 
 class AdminTest(ServerTestCase):

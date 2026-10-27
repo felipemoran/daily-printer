@@ -24,8 +24,9 @@ from job_artifacts import ESCPOS, PRINT_PNG, ArtifactStore, artifacts_root, job_
 from job_queue import (
     DEFAULT_EXPIRY_SECONDS, PRINTER_FIELDS, Job, JobNotFinal, JobQueue, PrinterState, SourceActivity, Status,
 )
-from render_job import KINDS, RenderError, render
+from render_job import KINDS, LONG_MAX_HEIGHT_DOTS, RenderError, render
 from server_config import ServerConfig
+from ticket_templates import DOTS_PER_CM, length_cm
 
 MAX_BODY_BYTES = 10 * 1024 * 1024
 MAX_EXPIRES_IN = 7 * 86400
@@ -34,6 +35,10 @@ RATE_WINDOW_SECONDS = 600
 RENDER_CONCURRENCY = 2
 MAX_TITLE_LENGTH = 200
 MAX_LIST_LIMIT = 1000
+# The routes a page on an `allowed_origins` site may call with the sender's Access login, by path.
+# GET /api/jobs is the admin job list: an admin's session on that page must not read it.
+CORS_ROUTES = {"/api/me": "GET", "/api/jobs": "POST"}
+PREFLIGHT_HEADERS = {"Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "600"}
 
 
 class _RenderSlots:
@@ -71,10 +76,11 @@ _SEND_PAGE_CSP = (
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, message: str) -> None:
+    def __init__(self, status: int, message: str, details: dict | None = None) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
+        self.details = details or {}
 
 
 class Role(StrEnum):
@@ -91,8 +97,8 @@ class Caller:
     email: str | None = None
 
 
-def _error(status: int, message: str) -> web.Response:
-    return web.json_response({"error": message}, status=status)
+def _error(status: int, message: str, details: dict | None = None) -> web.Response:
+    return web.json_response({"error": message, **(details or {})}, status=status)
 
 
 @web.middleware
@@ -100,7 +106,7 @@ async def _errors(request: web.Request, handler) -> web.StreamResponse:
     try:
         return await handler(request)
     except ApiError as error:
-        return _error(error.status, error.message)
+        return _error(error.status, error.message, error.details)
     except web.HTTPRequestEntityTooLarge:
         return _error(413, f"the body is over {MAX_BODY_BYTES // (1024 * 1024)} MB")
     except web.HTTPException as error:
@@ -110,6 +116,16 @@ async def _errors(request: web.Request, handler) -> web.StreamResponse:
     except Exception:
         log.exception("%s %s failed", request.method, request.path)
         return _error(500, "internal server error")
+
+
+def _too_long(error: RenderError) -> dict:
+    """What a sender needs to decide whether to resend a too-long template job with ``accept_long``."""
+    return {
+        "code": "too_long",
+        "length_cm": length_cm(error.length_dots),
+        "limit_cm": error.limit_dots // DOTS_PER_CM,
+        "acceptable": error.limit_dots < LONG_MAX_HEIGHT_DOTS and error.length_dots <= LONG_MAX_HEIGHT_DOTS,
+    }
 
 
 def _job_json(job: Job, *, events: bool = False) -> dict:
@@ -155,13 +171,43 @@ class _Api:
             return Caller(Role.WEB, email, "web", email)
         raise ApiError(401, "no valid credential")
 
-    @staticmethod
-    def check_same_site(request: web.Request) -> None:
+    def check_same_site(self, request: web.Request) -> None:
         """Refuse a cross-site POST that rides on the browser's Access cookie. Bearer callers need no check."""
         if request.content_type != "application/json":
             raise ApiError(403, "send the request with Content-Type: application/json")
-        if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
-            raise ApiError(403, "cross-site requests are refused")
+        site = request.headers.get("Sec-Fetch-Site", "same-origin")
+        if site in ("same-origin", "none"):
+            return
+        if site in ("same-site", "cross-site") and self.allowed_origin(request) is not None:
+            return
+        raise ApiError(403, "cross-site requests are refused")
+
+    def allowed_origin(self, request: web.Request) -> str | None:
+        """The request's Origin when it is in ``allowed_origins`` and the call, or the call a preflight
+        asks for, is a route in ``CORS_ROUTES``."""
+        origin = request.headers.get("Origin")
+        access = self.config.access
+        method = request.headers.get("Access-Control-Request-Method") if request.method == "OPTIONS" else request.method
+        if origin is None or access is None or CORS_ROUTES.get(request.path) != method:
+            return None
+        return origin if origin in access.allowed_origins else None
+
+    async def add_cors_headers(self, request: web.Request, response: web.StreamResponse) -> None:
+        """Every response, errors included, so the page can read a 4xx body."""
+        if request.path not in CORS_ROUTES:
+            return
+        response.headers.add("Vary", "Origin")
+        origin = self.allowed_origin(request)
+        if origin is not None:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    async def preflight(self, request: web.Request) -> web.Response:
+        """Browsers send no Access cookie on a preflight, so it needs no credential."""
+        if self.allowed_origin(request) is None:
+            raise ApiError(403, "this origin may not make this call")
+        return web.Response(status=204, headers={
+            **PREFLIGHT_HEADERS, "Access-Control-Allow-Methods": CORS_ROUTES[request.path]})
 
     async def admin(self, request: web.Request) -> Caller:
         caller = await self.caller(request)
@@ -240,6 +286,11 @@ class _Api:
         kind = body.get("kind")
         if not isinstance(kind, str) or kind not in KINDS:
             raise ApiError(400, f"kind must be one of: {', '.join(KINDS)}")
+        accept_long = body.get("accept_long", False)
+        if not isinstance(accept_long, bool):
+            raise ApiError(400, "accept_long must be true or false")
+        if "accept_long" in body and kind != "template":
+            raise ApiError(400, "accept_long is only for template jobs")
         title = body.get("title", "")
         if not isinstance(title, str) or len(title) > MAX_TITLE_LENGTH:
             raise ApiError(400, f"title must be text of at most {MAX_TITLE_LENGTH} characters")
@@ -266,8 +317,10 @@ class _Api:
 
         async with self.render_slots:
             try:
-                rendered = await asyncio.to_thread(render, kind, payload=payload, image=image)
+                rendered = await asyncio.to_thread(render, kind, payload=payload, image=image, accept_long=accept_long)
             except RenderError as error:
+                if kind == "template" and error.length_dots is not None:
+                    raise ApiError(422, str(error), _too_long(error)) from None
                 raise ApiError(422, str(error)) from None
             except Exception:
                 log.exception("rendering a %s job for %s failed", kind, caller.source)
@@ -404,9 +457,12 @@ class _Api:
 
     async def me(self, request: web.Request) -> web.Response:
         caller = await self.web_sender(request)
-        printers = [
-            {"id": p.id, "name": p.name, "place": p.place} for p in self.config.printers.values() if p.public
-        ]
+        printers = []
+        for printer in self.config.printers.values():
+            if printer.public:
+                state = self.queue.printer_state(printer.id) or PrinterState(printer.id)
+                printers.append({"id": printer.id, "name": printer.name, "place": printer.place,
+                                 "online": self.hub.online(printer.id), "last_seen": state.last_seen})
         return web.json_response({"email": caller.email, "printers": printers})
 
     async def index(self, request: web.Request) -> web.Response:
@@ -499,6 +555,8 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     app.router.add_get("/api/printers", api.printers)
     app.router.add_get("/api/stats", api.stats)
     app.router.add_get("/api/me", api.me)
+    for path in CORS_ROUTES:
+        app.router.add_route("OPTIONS", path, api.preflight)
     app.router.add_get("/", api.index)
     app.router.add_get("/admin", api.admin_page)
     app.router.add_get("/admin/{name:.+}", api.admin_asset)
@@ -514,6 +572,7 @@ def create_app(config: ServerConfig, queue: JobQueue, *, verifier: AccessVerifie
     async def stop(_: web.Application) -> None:
         await hub.shutdown()
 
+    app.on_response_prepare.append(api.add_cors_headers)
     app.on_startup.append(start)
     app.on_shutdown.append(stop)
     return app
