@@ -6,7 +6,6 @@ import shutil
 import sys
 import time
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from playwright.async_api import async_playwright, expect
@@ -18,7 +17,8 @@ sys.path.insert(0, str(_TESTS))
 from job_artifacts import artifacts_root  # noqa: E402
 from render_job import render  # noqa: E402
 from test_device_hub import HubTestCase  # noqa: E402
-from test_http_api import ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job  # noqa: E402
+from test_http_api import (  # noqa: E402
+    ADMIN_EMAIL, ADMIN_TOKEN, RENDERED, SAMPLE_PAYLOAD, SENDER_EMAIL, add_frozen_job, seed_clock)
 
 ADMIN_DIR = _TESTS.parent / "src" / "static" / "admin"
 RECEIPT = render("receipt", payload=SAMPLE_PAYLOAD)
@@ -115,29 +115,29 @@ class AdminBrowserCase(HubTestCase):
         )
 
     def seed(self) -> None:
-        midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-        today = max(midnight + 60, time.time() - 900)
+        midnight, today = seed_clock(320, lookback=900)
         yesterday = midnight - 4 * 3600
         queue = self.queue
         self.old = self.add("home", RECEIPT, title="Evening brief", source="morning-brief", ingress="api", at=yesterday)
         queue.take("home", now=yesterday + 1)
         queue.confirm(self.old.id, now=yesterday + 9)
-        self.printed = self.add("home", RENDERED, title="Holiday photo", source=SENDER_EMAIL, ingress="web", at=today)
-        queue.take("home", now=today + 1)
-        queue.confirm(self.printed.id, now=today + 8)
+        self.printed = self.add("home", RENDERED, title="Holiday photo", source=SENDER_EMAIL, ingress="web",
+                                at=today(0))
+        queue.take("home", now=today(1))
+        queue.confirm(self.printed.id, now=today(8))
         self.retried = self.add("home", RECEIPT, title="Morning brief", source="morning-brief", ingress="api",
-                                at=today + 20)
-        queue.take("home", now=today + 21)
-        queue.release(self.retried.id, detail="no reply in 120 s", now=today + 141)
-        queue.take("home", now=today + 150)
-        queue.confirm(self.retried.id, now=today + 158)
-        self.hostile = self.add("home", RENDERED, title=HOSTILE, source=SENDER_EMAIL, ingress="web", at=today + 200)
-        queue.take("home", now=today + 201)
-        queue.confirm(self.hostile.id, now=today + 207)
+                                at=today(20))
+        queue.take("home", now=today(21))
+        queue.release(self.retried.id, detail="no reply in 120 s", now=today(141))
+        queue.take("home", now=today(150))
+        queue.confirm(self.retried.id, now=today(158))
+        self.hostile = self.add("home", RENDERED, title=HOSTILE, source=SENDER_EMAIL, ingress="web", at=today(200))
+        queue.take("home", now=today(201))
+        queue.confirm(self.hostile.id, now=today(207))
         self.waiting = self.add("office", RECEIPT, title="Office checklist", source="morning-brief", ingress="api",
-                                at=today + 300)
+                                at=today(300))
         self.waiting_too = self.add("office", RENDERED, title="Team photo", source="admin", ingress="cli",
-                                    at=today + 310)
+                                    at=today(310))
         self.printing = self.add("home", RECEIPT, title="Shopping list", source="morning-brief", ingress="api",
                                  at=time.time())
 

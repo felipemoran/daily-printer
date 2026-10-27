@@ -12,6 +12,7 @@ import tomllib
 import unittest
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer
@@ -106,6 +107,18 @@ def add_frozen_job(queue: JobQueue, database: Path, printer: str = "home", rende
     return queue.add(printer, rendered.escpos, kind=kind, title=title, source=source, ingress=ingress,
                      width=rendered.width, height=rendered.height, render_ms=rendered.render_ms,
                      artifacts=staged, expires_in=expires_in, now=now)
+
+
+def seed_clock(span: float, *, lookback: float, now: float | None = None) -> tuple[float, Callable[[float], float]]:
+    """Local midnight, and a map from seed offsets 0..span to stamps today and at or before now.
+
+    The server ignores jobs created after now, so just after midnight the offsets shrink to fit.
+    """
+    now = time.time() if now is None else now
+    midnight = datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    start = max(midnight, now - lookback)
+    scale = min(1.0, (now - start) / span)
+    return midnight, lambda offset: start + offset * scale
 
 
 class LogCapture(logging.Handler):
@@ -655,6 +668,19 @@ class AdminTest(ServerTestCase):
         self.assertEqual(set(body["hourly"]), {"home", "office"})
 
 
+class SeedClockTest(unittest.TestCase):
+    def test_just_after_midnight_the_seed_fits_between_midnight_and_now(self):
+        midnight = datetime(2026, 10, 27).timestamp()
+        for now in (midnight + 30, midnight + 3600):
+            with self.subTest(after_midnight=now - midnight):
+                start, today = seed_clock(320, lookback=900, now=now)
+                stamps = [today(offset) for offset in (0, 1, 150, 310)]
+                self.assertEqual(start, midnight)
+                self.assertEqual(stamps, sorted(set(stamps)))
+                self.assertGreaterEqual(stamps[0], midnight)
+                self.assertLessEqual(stamps[-1], now)
+
+
 class AdminViewsTest(ServerTestCase):
     def setUp(self):
         self.admin = self.bearer(ADMIN_TOKEN)
@@ -666,15 +692,14 @@ class AdminViewsTest(ServerTestCase):
         )
 
     async def test_clients_lists_configured_clients_and_web_senders_with_todays_jobs_and_last_job(self):
-        midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-        today = max(midnight + 60, time.time() - 600)
+        midnight, today = seed_clock(40, lookback=600)
         self.add("morning-brief", "api", "Yesterday's brief", midnight - 3600)
-        self.add("morning-brief", "api", "Brief", today)
-        newest = self.add("morning-brief", "api", "Second brief", today + 5)
-        sender = self.add(SENDER_EMAIL, "web", "Hi from Lisbon", today + 10)
-        self.add("admin", "cli", "Admin test print", today + 20)
-        self.add(ADMIN_EMAIL, "admin-web", "Reprint", today + 30)
-        self.add("removed-client", "api", "From a client no longer in the config", today + 40)
+        self.add("morning-brief", "api", "Brief", today(0))
+        newest = self.add("morning-brief", "api", "Second brief", today(5))
+        sender = self.add(SENDER_EMAIL, "web", "Hi from Lisbon", today(10))
+        self.add("admin", "cli", "Admin test print", today(20))
+        self.add(ADMIN_EMAIL, "admin-web", "Reprint", today(30))
+        self.add("removed-client", "api", "From a client no longer in the config", today(40))
 
         status, body = await self.call("GET", "/api/clients", self.admin)
 
