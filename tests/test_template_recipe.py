@@ -440,6 +440,23 @@ class RecipeTest(unittest.TestCase):
                 block = image.crop((left, top, left + module, top + module))
                 self.assertEqual(len(set(block.getdata())), 1, f"module at {left},{top} is not a whole {module}x{module} square")
 
+    def test_qr_has_a_quiet_zone_of_four_modules_on_every_side(self):
+        # A phone camera, like OpenCV, finds a QR code only with white around it.
+        for name, payload in (("sample", RECIPE), ("madalena", MADALENA),
+                              ("37 modules", recipe(url="https://mise-en-place.felipemoran.com/#receita=" + "x" * 30)),
+                              ("longest url", recipe(url="W" * 120))):
+            with self.subTest(name):
+                image = capture(self.page, payload, max_height_dots=ONE_METRE)
+                left, top, right, bottom = (int(value) for value in self.page.evaluate(
+                    "() => { const r = document.querySelector('#receipt canvas').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }"))
+                quiet = 4 * (right - left) // len(qr_matrix(payload["data"]["url"]))
+                self.assertGreaterEqual(left, quiet, "no quiet zone at the paper edge")
+                band = [(x, y) for x in range(left - quiet, right + quiet) for y in range(top - quiet, bottom + quiet)
+                        if not (left <= x < right and top <= y < bottom)]
+                self.assertTrue(all(0 <= x < PRINT_WIDTH_DOTS for x, _ in band))
+                self.assertEqual([point for point in band if image.getpixel(point) == 0], [], f"ink within {quiet} dots of the QR")
+                self.assertEqual(self.page.evaluate(_LINES_JS, ".kr-qr-label"), [1])
+
     def test_largest_qr_takes_four_dots_and_leaves_its_label_one_line(self):
         self.render(recipe(url="https://mise-en-place.felipemoran.com/#receita=" + "x" * 73))
         canvas = self.page.evaluate("() => { const r = document.querySelector('#receipt canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }")

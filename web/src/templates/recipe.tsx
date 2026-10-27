@@ -71,7 +71,7 @@ const KIND = {
   base: { text: 'RECEITA BASE', style: { background: '#000', color: '#fff', padding: '2px 7px' } },
 }
 const dashed = '2px dashed #000'
-// The widest QR at 5 dots per module that leaves "RECEITA ONLINE" one line beside it; larger ones take 4.
+// Larger QR codes take 4 dots per module, so a 120-character URL stays about 2 cm wide.
 const QR_MAX_FIVE_DOT = 37
 
 // The 4px black gap draws the dividers. Whole-pixel widths, and the INGREDIENTES tile wide enough for its label.
@@ -102,6 +102,7 @@ export default defineTemplate({
     const steps = phases.reduce((sum, phase) => sum + phase.steps.length, 0)
     const items = data.groups.reduce((sum, group) => sum + group.items.length, 0)
     const matrix = qrMatrix(data.url)
+    const module = matrix.length > QR_MAX_FIVE_DOT ? 4 : 5, quiet = 4 * module
     const title = keepHyphens(data.name)
     return (
       <div ref={root} style={{ fontSize: 16, lineHeight: '22px', fontWeight: 500, overflowWrap: 'anywhere' }}>
@@ -175,12 +176,15 @@ export default defineTemplate({
           )
         })}
         <T.Rule weight="bar" style={{ margin: '24px 0 0' }} />
-        <div style={{ marginTop: 24 }}>
-          <T.QRSlot matrix={matrix} module={matrix.length > QR_MAX_FIVE_DOT ? 4 : 5} quiet={0} lines={[
-            <span key="l" className="kr-qr-label" style={label}>RECEITA ONLINE</span>,
-            <div key="t" style={{ marginTop: 6, lineHeight: '22px', textWrap: 'pretty' }}>Aponte a câmera para abrir a página da receita.</div>,
-            <div key="u" className="kr-url" style={{ ...small, marginTop: 6, fontWeight: 700, overflowWrap: 'anywhere' }}>{data.url.replace(/^https?:\/\//, '')}</div>,
-          ]} />
+        {/* The QR spec's quiet zone, 4 modules of white on every side: the padding, the gaps, the 24px
+            under the rule and the footer's 20px. The text drops under a QR too wide to leave its label one line. */}
+        <div className="kr-qr" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: quiet, marginTop: 24, paddingLeft: quiet }}>
+          <T.QRSlot matrix={matrix} module={module} quiet={0} />
+          <div style={{ flex: '1 1 0', minWidth: 'min-content', display: 'flex', flexDirection: 'column', gap: 6, lineHeight: '24px' }}>
+            <span className="kr-qr-label" style={{ ...label, whiteSpace: 'nowrap' }}>RECEITA ONLINE</span>
+            <div style={{ lineHeight: '22px', textWrap: 'pretty' }}>Aponte a câmera para abrir a página da receita.</div>
+            <div className="kr-url" style={{ ...small, fontWeight: 700, overflowWrap: 'anywhere' }}>{data.url.replace(/^https?:\/\//, '')}</div>
+          </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: 700, marginTop: 20, paddingTop: 10, borderTop: dashed }}>
           <span>BOM APETITE</span><span className="kr-foot-portions" style={{ whiteSpace: 'nowrap' }}>{portions(data.portions).toUpperCase()}</span>
