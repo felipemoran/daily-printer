@@ -1,7 +1,7 @@
 ---
 id: 2026-10-25-1z19qx-template-shopping-list-from-mise-en-place
 title: 'Template: shopping list from mise-en-place'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-25
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: feature
 parent: null
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -30,6 +30,7 @@ Operator request 2026-10-25: print the mise-en-place shopping list (~/projects/m
 - 2026-10-26T02:49:54+00:00: Counterpart in mise-en-place: task tbdq8p (Print button: shopping list).
 - 2026-10-26T03:20:11+00:00: Built in changes ywwpzu + wozwly (review fixes). Gatekeeper: round 1 PASS with two should-fix items (list cap 90 below 106 shoppable ingredients; step timer off whole pixels), round 2 ACCEPT. Gates: web lint, web build, full serial suite 670 tests OK (round 1); narrow template tests 62 OK (round 2).
 - 2026-10-26T03:25:30+00:00: Sample render (2026-10-26) shows two defects to fix: an amount splits across lines when a row wraps ('creme de leite fresco · 200' / 'ml'); an aisle heading has no gap above it, so the SEMANA list runs into 'AÇOUGUE' and each aisle label touches the rule above.
+- 2026-10-27T01:00:00+00:00: Local end-to-end run 2026-10-26: real mise-en-place site and catalogue, this server with the redesigned templates, a stand-in for Access, real Chromium CORS, fake printer. Week list: GET /api/me 200, OPTIONS 204, POST 201, printed 24.8 cm. Panqueca (book recipe, 4 components, 14 steps): 201, 46.7 cm. Madalena at 40 portions: 201, 47.1 cm. Stored payloads byte-identical to the page's. QR decodes to the deep link after the quiet-zone fix (omooyt). Not exercised end to end: the accept-long confirm (no real print passes 50 cm); covered by test_cross_origin_browser and the site tests. mise-en-place side merged as PR 17 (4048b3ba).
 
 ## Decisions
 

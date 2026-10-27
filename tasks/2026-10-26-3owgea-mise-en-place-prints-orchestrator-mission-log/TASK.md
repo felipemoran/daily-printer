@@ -1,7 +1,7 @@
 ---
 id: 2026-10-26-3owgea-mise-en-place-prints-orchestrator-mission-log
 title: 'mise-en-place prints: orchestrator mission log'
-status: pending
+status: done
 priority: 1
 created_date: 2026-10-26
 dependencies: []
@@ -38,6 +38,7 @@ Order (one test-running agent at a time):
 - 2026-10-26T03:06:17+00:00: Templates built: change ywwpzu (recipe, shopping-list). Real catalogue measured: 60 recipes, 2 over 50 cm (madalena 4182 dots, panqueca 4172), none over 1 m; a full 7-recipe week list is 4006 dots. Linearized bookkeeping oxwsrq onto ywwpzu. Gatekeeper dispatched.
 - 2026-10-26T03:20:18+00:00: Templates accepted (ywwpzu + wozwly). Server builder dispatched in dp-templates on wozwly: three commits for h58jsj (accept_long flag, structured too_long 422), bjycpj (online/last_seen on /api/me), g3t12q (allowed_origins, CORS incl. errors, OPTIONS preflight, check_same_site exception).
 - 2026-10-26T03:30:47+00:00: PR 3 squash-merged into main at 2026-10-26 03:30 UTC (merge commit b2fb893a89b3, verified with gh). Rebase plan, after the server builder returns: jj git fetch, then jj rebase -s 'roots(felipe/docker-compose..@)' -d main@origin. Then the daily-printer PR can open against main.
+- 2026-10-27T01:00:02+00:00: Done: templates (redesigned to the operator's design), long-print acceptance, printer status, CORS, browser CORS test; mise-en-place PR 17 merged. Open: CI PR 4 (Linux render parity, midnight seeding, swipe tests) must merge before this PR's CI is meaningful; operator task g05zw1 (Cloudflare bypass OPTIONS) and j2rw5f (deploy). Follow-up drafts: 909kln (shared test helpers), mise-en-place v1nuge, fjoiqr.
 
 ## Decisions
 

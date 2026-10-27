@@ -1,7 +1,7 @@
 ---
 id: 2026-10-12-vsz7c3-template-recipe-from-design-system-recipetemplate
 title: 'Template: recipe with amounts from mise-en-place'
-status: in-progress
+status: done
 priority: 2
 created_date: 2026-10-12
 dependencies:
@@ -10,7 +10,7 @@ labels: []
 type: null
 parent: 2026-10-12-937kap-ticket-templates-on-the-thermal-design-system-orch
 scope: null
-phase: implementing
+phase: null
 ---
 
 ## Description
@@ -32,6 +32,7 @@ Operator request 2026-10-25: print a mise-en-place recipe with its ingredient am
 - 2026-10-26T03:20:11+00:00: Built in changes ywwpzu + wozwly (review fixes). Gatekeeper: round 1 PASS with two should-fix items (list cap 90 below 106 shoppable ingredients; step timer off whole pixels), round 2 ACCEPT. Gates: web lint, web build, full serial suite 670 tests OK (round 1); narrow template tests 62 OK (round 2).
 - 2026-10-26T03:25:31+00:00: Sample render (2026-10-26): an amount splits across lines when a row wraps ('creme de leite fresco · 200' / 'ml'). Fix with the shopping-list one.
 - 2026-10-27T00:14:58+00:00: Redesign built in rxzzxt, qxzptv (headline fit), ntputo (long fixture, hyphens). Gatekeeper round 2 ACCEPT: web lint, web build, full serial suite 724 tests OK on macOS.
+- 2026-10-27T01:00:00+00:00: Local end-to-end run 2026-10-26: real mise-en-place site and catalogue, this server with the redesigned templates, a stand-in for Access, real Chromium CORS, fake printer. Week list: GET /api/me 200, OPTIONS 204, POST 201, printed 24.8 cm. Panqueca (book recipe, 4 components, 14 steps): 201, 46.7 cm. Madalena at 40 portions: 201, 47.1 cm. Stored payloads byte-identical to the page's. QR decodes to the deep link after the quiet-zone fix (omooyt). Not exercised end to end: the accept-long confirm (no real print passes 50 cm); covered by test_cross_origin_browser and the site tests. mise-en-place side merged as PR 17 (4048b3ba).
 
 ## Decisions
 
