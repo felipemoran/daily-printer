@@ -24,7 +24,9 @@ from playwright.sync_api import Error as PlaywrightError, sync_playwright  # noq
 
 from printer import open_printer  # noqa: E402
 from web_build import build_web  # noqa: E402
-from ticket_templates import TEXT_FEED, TemplateError, open_render_page, render_template, render_text  # noqa: E402
+from ticket_templates import (  # noqa: E402
+    TEXT_FEED, TemplateError, launch_browser, open_render_page, render_template, render_text,
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -45,7 +47,7 @@ def render_and_print(payload: dict, artifact_dir: Path, no_print: bool, text: bo
     """
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = launch_browser(playwright)
             try:
                 page = open_render_page(browser)
                 output = render_text(page, payload) if text else render_template(page, payload)

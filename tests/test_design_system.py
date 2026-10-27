@@ -73,11 +73,11 @@ class ThermalPagesTest(unittest.TestCase):
 
     def test_ticket_template_renders_with_self_hosted_fonts_and_its_own_weights(self):
         from playwright.sync_api import sync_playwright
-        from ticket_templates import ORIGIN, open_render_page
+        from ticket_templates import ORIGIN, launch_browser, open_render_page
         payload = json.loads((ROOT / "samples" / "templates" / "ticket.json").read_text(encoding="utf-8"))
         requests = []
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = launch_browser(p)
             page = open_render_page(browser)
             page.on("request", lambda request: requests.append(request.url))
             page.reload(wait_until="load")

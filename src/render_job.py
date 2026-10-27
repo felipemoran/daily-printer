@@ -21,7 +21,8 @@ from print_profile import DEFAULT_PROFILE, capture_options, join_js, load_gray, 
 from printer import DOTS_PER_MM, PRINT_WIDTH_DOTS
 from raster_capture import capture_receipt, snapshot_mhtml
 from ticket_templates import (
-    TEXT_FEED, TemplateError, bitmap_from_capture, capture_template, check_envelope, open_render_page, render_text,
+    TEXT_FEED, TemplateError, bitmap_from_capture, capture_template, check_envelope, launch_browser, open_render_page,
+    render_text,
 )
 
 KINDS = ("receipt", "image", "template", "text")
@@ -140,7 +141,7 @@ def _template_render(payload: dict | None, *, text: bool) -> _Output:
     try:
         check_envelope(payload)
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = launch_browser(playwright)
             try:
                 page = open_render_page(browser)
                 body = render_text(page, payload) if text else None

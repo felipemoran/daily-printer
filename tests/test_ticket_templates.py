@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ticket_templates import (  # noqa: E402
-    MAX_DEPTH, TemplateError, check_envelope, open_render_page, render_template, render_text, template_names,
+    MAX_DEPTH, TemplateError, check_envelope, launch_browser, open_render_page, render_template, render_text,
+    template_names,
 )
 
 SAMPLES = sorted((ROOT / "samples" / "templates").glob("*.json"))
@@ -113,7 +114,7 @@ class RenderTest(unittest.TestCase):
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
 
     @classmethod

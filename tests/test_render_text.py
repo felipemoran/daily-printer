@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from test_template_build import DOM_LINES, SAMPLE, WORST, build  # noqa: E402
-from ticket_templates import TemplateError, open_render_page, render_template, render_text  # noqa: E402
+from ticket_templates import TemplateError, launch_browser, open_render_page, render_template, render_text  # noqa: E402
 
 START = b"\x1c." + b"\x1b3\x18" + b"\x1bt\x00"
 END = b"\x1b2"
@@ -44,7 +44,7 @@ class RenderTextTest(unittest.TestCase):
         from playwright.sync_api import sync_playwright
 
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        cls.browser = launch_browser(cls.playwright)
         cls.page = open_render_page(cls.browser)
 
     @classmethod

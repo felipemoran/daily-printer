@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import socket
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -87,6 +88,17 @@ _SNAP_JS = """
 # threshold neither fattens nor thins strokes.
 ALIASED_TEXT_CSS = "* { -webkit-font-smoothing: none !important; }"
 
+# Chromium on Linux ignores -webkit-font-smoothing, and its font hinting widens text past the macOS layout.
+# There, antialiasing is per browser, so aliased text needs this fontconfig at launch.
+_ALIASED_FONTCONFIG = Path(__file__).with_name("aliased-text.fonts.conf")
+
+
+def launch_chromium(playwright, *, aliased_text: bool = False):
+    """Headless Chromium that lays out and renders text on Linux as it does on macOS."""
+    env = {**os.environ, "FONTCONFIG_FILE": str(_ALIASED_FONTCONFIG)} if aliased_text else None
+    return playwright.chromium.launch(headless=True, args=["--font-render-hinting=none"], env=env)
+
+
 # Chromium's MHTML writer keeps images and style sheets but drops web fonts (seen on Chromium 145).
 # A copy of each fetched @font-face rule with its file as a data: URL puts the font into a style sheet part.
 _INLINE_FONTS_JS = """
@@ -158,7 +170,7 @@ def capture_receipt(
         url = f"http://{host}:{port}{index_path}"
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+                browser = launch_chromium(p, aliased_text=aliased_text)
                 try:
                     page = browser.new_page(
                         device_scale_factor=device_scale_factor,

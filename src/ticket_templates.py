@@ -14,7 +14,7 @@ from PIL import Image
 
 from print_profile import DEFAULT_PROFILE, capture_options, to_bitmap, to_gray
 from printer import PRINT_WIDTH_DOTS
-from raster_capture import ALIASED_TEXT_CSS
+from raster_capture import ALIASED_TEXT_CSS, launch_chromium
 
 DIST = (Path(__file__).resolve().parents[1] / "web" / "dist").resolve()
 ORIGIN = "http://render.invalid"
@@ -136,6 +136,11 @@ def _serve(route) -> None:
         route.fulfill(path=file)
     else:
         route.fulfill(status=404)
+
+
+def launch_browser(playwright):
+    """Chromium for ``open_render_page``."""
+    return launch_chromium(playwright, aliased_text=_CAPTURE["aliased_text"])
 
 
 def open_render_page(browser):
