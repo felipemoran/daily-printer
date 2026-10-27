@@ -1,7 +1,7 @@
 ---
 id: 2026-10-27-94pkx2-render-the-same-on-linux-as-on-macos
 title: Render the same on Linux as on macOS
-status: pending
+status: done
 priority: 1
 created_date: 2026-10-27
 dependencies: []
@@ -25,6 +25,8 @@ First CI run on ubuntu-latest (PR 4) shows the Linux Chromium in the Docker imag
 ## Planning
 
 ## Execution log
+
+- 2026-10-27T01:07:44+00:00: Fixed in skrwlr (launch_chromium: --font-render-hinting=none, fontconfig antialias off for aliased text), tknvnk (briefing time column round(5ch, 1px)), vyssrq (swipe tests send real touch events; synthesized touch scroll does nothing in Linux headless Chromium), tluqoz (docs, layout tests use launch_chromium). Linux Docker: all pass except tests needing make/shellcheck absent from that image. Review ACCEPT; macOS full suite 648 OK; macOS renders byte-identical with the flag.
 
 ## Decisions
 
