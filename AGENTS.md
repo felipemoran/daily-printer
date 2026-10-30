@@ -8,6 +8,19 @@ Follow all conventions below without being asked.
 
 ---
 
+## Pending work lives in bacon
+
+The operator works on this project in small increments and picks it up later from tasks, not from old chat. A pending item that exists only in a reply is lost.
+
+- Capture every pending item as a bacon task in `tasks/`, in the same turn that surfaces it. This covers a deferred fix, a follow-up, an open question or decision, an action only the operator can take, a step you skipped or did not verify, and work you offered but did not start.
+- Use the status that says who moves next: `operator` when it waits on the operator (write the question or the action in the task), `draft` for a follow-up nobody committed to, `pending` for work ready to pick up.
+- When a pending item changes, update its task in the same turn: `done` when it is finished, `skipped` with a recorded decision (`bacon decide`) when it is dropped.
+- In a reply, put the task id next to each pending item.
+- Task changes reach `main` on a branch and through a PR, like any change. Ask the operator before you open a PR that holds only tasks.
+- After a PR merges, never add a commit to it. Put a late task update in the first commit of the next branch.
+
+---
+
 ## Version Control: Jujutsu (jj)
 
 This repo is managed with **jujutsu (`jj`)**, not plain git.
