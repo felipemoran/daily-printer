@@ -26,4 +26,6 @@ Operator action, deferred 2026-10-26. The mise-en-place Print button calls https
 
 ## Execution log
 
+- 2026-10-28T00:15:24+00:00: 2026-10-27: folded into the Cloudflare wizard's stage 5 (see j2rw5f). Close when the wizard has run and a live print works.
+
 ## Decisions
